@@ -5,13 +5,7 @@ let currentRoom = null;
 let username = 'Anonymous';
 let isMaster = false;
 
-// Initialize Player
-const player = new window.RxPlayer({
-    videoElement: document.getElementById('video-player')
-});
-
-// WebSocket Connection
-const ws = new WebSocket(WS_URL);
+let ws = null; 
 
 // UI Elements
 const chatMessages = document.getElementById('chat-messages');
@@ -20,82 +14,60 @@ const sendButton = document.getElementById('send-button');
 const roomIdInput = document.getElementById('room-id-input');
 const usernameInput = document.getElementById('username-input');
 const joinButton = document.getElementById('join-button');
-
-// WebSocket Handlers
-ws.onopen = () => {
-    console.log('Connected to server');
-    updateConnectionStatus('connected');
-};
-
-ws.onclose = () => {
-    updateConnectionStatus('disconnected');
-};
-
-ws.onmessage = (event) => {
-    const message = JSON.parse(event.data);
-    handleServerMessage(message);
-};
-
-// Player Event Listeners
-player.addEventListener('playerStateChange', (state) => {
-    if (isMaster) {
-        sendPlaybackState(state);
-    }
-});
-
-// UI Event Listeners
-joinButton.addEventListener('click', joinRoom);
-sendButton.addEventListener('click', sendChatMessage);
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendChatMessage();
-});
+const disconnectButton = document.getElementById('disconnect-button');
 
 // Core Functions
 function joinRoom() {
-    console.log('Join button clicked'); // Add this
     currentRoom = roomIdInput.value || DEFAULT_ROOM_ID;
     username = usernameInput.value || 'Anonymous';
 
-    console.log('Attempting to join room:', currentRoom); // Add this
+    if (ws) {
+        ws.close();
+    }
 
-    ws.send(JSON.stringify({
-        type: 'join',
-        roomId: currentRoom,
-        username: username
-    }));
+    // Create WebSocket connection to a general URL (no room in the URL)
+    ws = new WebSocket("ws://localhost:8080/ws");
 
-    loadSampleVideo();
+    ws.onopen = () => {
+        console.log('Connected to server');
+        updateConnectionStatus('connected');
+
+        // Send the "join" message with the room ID and username
+        ws.send(JSON.stringify({
+            type: 'join',
+            username: username,
+            roomId: currentRoom // Send the room ID here
+        }));
+    };
+
+    ws.onclose = () => {
+        updateConnectionStatus('disconnected');
+    };
+
+    ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        updateConnectionStatus('error');
+    };
+
+    ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleServerMessage(message);
+    };
 }
 
-ws.onerror = (error) => {
-    console.error('WebSocket Error:', error);
-    updateConnectionStatus('error');
-};
 
-function loadSampleVideo() {
-    player.loadVideo({
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        transport: 'directfile' // Simple MP4 file playback
-    });
+function disconnectFromRoom() {
+    if (ws) {
+        ws.close(); 
+        ws = null;
+    }
+    chatMessages.innerHTML = ''; 
+    updateConnectionStatus('disconnected');
 }
 
-function sendPlaybackState(state) {
-    ws.send(JSON.stringify({
-        type: 'playback',
-        roomId: currentRoom,
-        data: {
-            position: state.position,
-            paused: state.paused,
-            timestamp: Date.now()
-        }
-    }));
-}
 
 function handleServerMessage(message) {
     switch (message.type) {
-        case 'playback':
-            syncPlayback(message.data);
-            break;
         case 'chat':
             displayChatMessage(message);
             break;
@@ -105,21 +77,11 @@ function handleServerMessage(message) {
         case 'user-left':
             displaySystemMessage(`${message.username} left`);
             break;
+        default:
+            console.log('Unknown message type:', message);
     }
 }
 
-function syncPlayback(data) {
-    const latency = Date.now() - data.timestamp;
-    const targetTime = data.position + (latency / 1000);
-
-    if (Math.abs(player.getPosition() - targetTime) > 1) {
-        player.seekTo(targetTime);
-    }
-
-    if (data.paused !== player.isPaused()) {
-        data.paused ? player.pause() : player.play();
-    }
-}
 
 function sendChatMessage() {
     const message = chatInput.value.trim();
@@ -140,12 +102,12 @@ function displayChatMessage(msg) {
     const messageElement = document.createElement('div');
     messageElement.className = 'chat-message';
     messageElement.innerHTML = `
-    <strong>${msg.username}</strong>
-    <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>
-    <div class="message-text">${msg.message}</div>
-  `;
+        <strong>${msg.username}</strong>
+        <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>
+        <div class="message-text">${msg.message}</div>
+    `;
     chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to the bottom
 }
 
 function displaySystemMessage(text) {
@@ -164,7 +126,13 @@ function updateConnectionStatus(status) {
 
 // Initialize UI
 document.addEventListener('DOMContentLoaded', () => {
-    // Set default values
+    joinButton.addEventListener('click', joinRoom);
+    sendButton.addEventListener('click', sendChatMessage);
+    disconnectButton.addEventListener('click', disconnectFromRoom);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+    });
+
     roomIdInput.value = DEFAULT_ROOM_ID;
     usernameInput.value = `User${Math.floor(Math.random() * 1000)}`;
 });

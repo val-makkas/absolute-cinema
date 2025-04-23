@@ -4,7 +4,6 @@
   "type": "module",
   "scripts": {
     "start": "electronmon main/main.js",
-    "start:server": "node server/server.js",
     "build": "node scripts/build.js",
     "test": "jest",
     "package": "electron-builder"
