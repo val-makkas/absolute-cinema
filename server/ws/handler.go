@@ -60,9 +60,16 @@ func HandleConnection(w http.ResponseWriter, r *http.Request) {
 				Message:  fmt.Sprintf("%s joined the room", username),
 			})
 
+			oldMessages, err := GetMessages(currentRoom)
+			if err == nil {
+				for _, msg := range oldMessages {
+					conn.WriteJSON(msg)
+				}
+			}
 		} else if message.Type == "chat" {
 			message.Timestamp = time.Now().Unix()
 			message.RoomID = currentRoom
+			SaveMessage(currentRoom, message)
 			broadcastMessage(currentRoom, message)
 		}
 	}

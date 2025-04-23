@@ -16,6 +16,7 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '../renderer/index.html'));
+  
 
   // Open dev tools in development
   if (ELECTRON_CONFIG.ENV === 'development') {

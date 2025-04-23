@@ -1,11 +1,11 @@
 // Configuration
-const WS_URL = 'ws://localhost:8080';
+const WS_URL = 'ws://localhost:8080/ws';
 const DEFAULT_ROOM_ID = 'default-room';
 let currentRoom = null;
 let username = 'Anonymous';
 let isMaster = false;
 
-let ws = null; 
+let ws = null;
 
 // UI Elements
 const chatMessages = document.getElementById('chat-messages');
@@ -21,47 +21,41 @@ function joinRoom() {
     currentRoom = roomIdInput.value || DEFAULT_ROOM_ID;
     username = usernameInput.value || 'Anonymous';
 
-    if (ws) {
-        ws.close();
-    }
+    if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+
+    // Καθαρίζουμε το history
+    chatMessages.innerHTML = '';
 
     // Create WebSocket connection to a general URL (no room in the URL)
-    ws = new WebSocket("ws://localhost:8080/ws");
+    ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
-        console.log('Connected to server');
-        updateConnectionStatus('connected');
-
-        // Send the "join" message with the room ID and username
-        ws.send(JSON.stringify({
-            type: 'join',
-            username: username,
-            roomId: currentRoom // Send the room ID here
-        }));
+        currentRoom = roomIdInput.value || 'default-room';
+        username = usernameInput.value || 'Anonymous';
+        ws.send(JSON.stringify({ type: 'join', roomId: currentRoom, username }));
     };
 
-    ws.onclose = () => {
-        updateConnectionStatus('disconnected');
+    ws.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'chat') {
+            displayChatMessage(msg);
+        } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
+            displaySystemMessage(`${msg.username} ${msg.type === 'user-joined' ? 'joined' : 'left'}`);
+        }
     };
 
-    ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        updateConnectionStatus('error');
-    };
-
-    ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        handleServerMessage(message);
-    };
+    ws.onerror = () => displaySystemMessage('WebSocket error');
+    
+    ws.onclose = () => displaySystemMessage('Disconnected');
 }
 
 
 function disconnectFromRoom() {
     if (ws) {
-        ws.close(); 
+        ws.close();
         ws = null;
     }
-    chatMessages.innerHTML = ''; 
+    chatMessages.innerHTML = '';
     updateConnectionStatus('disconnected');
 }
 
@@ -102,13 +96,14 @@ function displayChatMessage(msg) {
     const messageElement = document.createElement('div');
     messageElement.className = 'chat-message';
     messageElement.innerHTML = `
-        <strong>${msg.username}</strong>
-        <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>
-        <div class="message-text">${msg.message}</div>
+      <strong>${msg.username}</strong>
+      <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>
+      <div class="message-text">${msg.message}</div>
     `;
     chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to the bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
 
 function displaySystemMessage(text) {
     const systemElement = document.createElement('div');

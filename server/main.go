@@ -10,10 +10,9 @@ import (
 // Message structure for chat and user-related messages.
 
 func main() {
-	// Handle WebSocket connections
-	http.HandleFunc("/ws", ws.HandleConnection)
+	ws.InitRedis("redis:6379")
 
-	// Start the WebSocket server
+	http.HandleFunc("/ws", ws.HandleConnection)
 	fmt.Println("Server started on :8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
