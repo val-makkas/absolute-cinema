@@ -45,7 +45,7 @@ function joinRoom() {
     };
 
     ws.onerror = () => displaySystemMessage('WebSocket error');
-    
+
     ws.onclose = () => displaySystemMessage('Disconnected');
 }
 
@@ -121,6 +121,10 @@ function updateConnectionStatus(status) {
 
 // Initialize UI
 document.addEventListener('DOMContentLoaded', () => {
+    initMovieList(imdbId => {
+        showDetails(imdbId);
+    });
+
     joinButton.addEventListener('click', joinRoom);
     sendButton.addEventListener('click', sendChatMessage);
     disconnectButton.addEventListener('click', disconnectFromRoom);
