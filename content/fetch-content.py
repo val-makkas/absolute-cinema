@@ -25,5 +25,3 @@ async def movie_details(imdb_id: str):
             "genres": movie.get("genres"),
             "poster": movie.get("cover url"),
         }
-    except Exception:
-        raise HTTPException(status_code=404, detail="Movie not found")
