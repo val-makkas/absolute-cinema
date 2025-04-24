@@ -1,16 +1,53 @@
-import { fetchDetails } from './movieService.js';
+import { fetchDetails } from './contentService.js';
 
-const detailsEl = document.getElementById('movie-details');
+export async function showDetails(imdbId, tmdbId) {
+  const d = await fetchDetails(imdbId, tmdbId);
+  // Get modal elements
+  const detailsModal = document.getElementById('details-modal');
+  const detailsModalContent = document.getElementById('details-modal-content');
+  const closeDetailsModal = document.getElementById('close-details-modal');
 
-export async function showDetails(imdbId) {
-  const d = await fetchDetails(imdbId);
-  detailsEl.innerHTML = `
-    <button id="close-btn">×</button>
-    <h2>${d.title} (${d.year})</h2>
-    <img src="${d.poster}" alt="${d.title}" style="width:100%;border-radius:8px;">
-    <p>${d.plot}</p>
-    <p><strong>Genres:</strong> ${d.genres.join(', ')}</p>
-  `;
-  detailsEl.classList.remove('hidden');
-  document.getElementById('close-btn').onclick = () => detailsEl.classList.add('hidden');
+  detailsModalContent.innerHTML = `
+  <div class="details-bg" style="background-image:url('${d.poster}')"></div>
+  <div class="details-foreground">
+    <div class="details-header">
+      ${d.avatar ? `<img class="details-avatar" src="${d.avatar}" alt="${d.title}" />` : ""}
+      <div class="details-meta">
+        <span>${d.runtime ? d.runtime + ' min' : ''}</span>
+        <span>${d.release_date || ''}</span>
+        <span>
+          ${d.rating ? d.rating : 'N/A'}
+          <span class="imdb-badge">IMDb</span>
+        </span>
+      </div>
+    </div>
+    <p class="details-plot">${d.overview || ''}</p>
+    <div class="details-section">
+      <div class="details-label">ΕΙΔΗ</div>
+      <div class="details-genres">
+        ${(d.genres || []).map(g => `<span class="details-chip">${g}</span>`).join('')}
+      </div>
+    </div>
+    <div class="details-section">
+      <div class="details-label">ΣΚΗΝΟΘΕΤΕΣ</div>
+      <div class="details-directors">
+        ${(d.directors || []).map(name => `<span class="details-chip">${name}</span>`).join('')}
+      </div>
+    </div>
+  </div>
+`;
+  detailsModal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+
+  closeDetailsModal.onclick = () => {
+    detailsModal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+  };
+  // Click-outside-to-close (optional, but recommended)
+  detailsModal.onclick = (e) => {
+    if (e.target === detailsModal) {
+      detailsModal.classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    }
+  };
 }

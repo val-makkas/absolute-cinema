@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "bootstrap": "^5.3.5",
     "electron-squirrel-startup": "^1.0.1",
     "rx-player": "^4.3.0",
     "ws": "^8.18.1"

@@ -2,8 +2,8 @@
 export const ELECTRON_CONFIG = {
     ENV: process.env.NODE_ENV || 'development',
     WINDOW_OPTIONS: {
-        width: 1200,
-        height: 800,
+        width: 1440,
+        height: 900,
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,

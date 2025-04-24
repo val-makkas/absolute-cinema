@@ -1,3 +1,6 @@
+import { initMovieList } from '../content/contentList.js';
+import { showDetails } from '../content/contentDetails.js';
+
 // Configuration
 const WS_URL = 'ws://localhost:8080/ws';
 const DEFAULT_ROOM_ID = 'default-room';
@@ -23,8 +26,8 @@ function joinRoom() {
 
     if (ws && ws.readyState === WebSocket.OPEN) ws.close();
 
-    // Καθαρίζουμε το history
-    chatMessages.innerHTML = '';
+    // Only clear chat if chatMessages exists
+    if (chatMessages) chatMessages.innerHTML = '';
 
     // Create WebSocket connection to a general URL (no room in the URL)
     ws = new WebSocket(WS_URL);
@@ -32,6 +35,7 @@ function joinRoom() {
     ws.onopen = () => {
         currentRoom = roomIdInput.value || 'default-room';
         username = usernameInput.value || 'Anonymous';
+        updateConnectionStatus('connected');
         ws.send(JSON.stringify({ type: 'join', roomId: currentRoom, username }));
     };
 
@@ -44,9 +48,15 @@ function joinRoom() {
         }
     };
 
-    ws.onerror = () => displaySystemMessage('WebSocket error');
+    ws.onerror = () => {
+        displaySystemMessage('WebSocket error');
+        updateConnectionStatus('disconnected');
+    }
 
-    ws.onclose = () => displaySystemMessage('Disconnected');
+    ws.onclose = () => {
+        updateConnectionStatus('disconnected');
+        displaySystemMessage('Disconnected');
+    };
 }
 
 
@@ -55,7 +65,7 @@ function disconnectFromRoom() {
         ws.close();
         ws = null;
     }
-    chatMessages.innerHTML = '';
+    if (chatMessages) chatMessages.innerHTML = '';
     updateConnectionStatus('disconnected');
 }
 
@@ -100,8 +110,8 @@ function displayChatMessage(msg) {
       <span class="timestamp">${new Date(msg.timestamp).toLocaleTimeString()}</span>
       <div class="message-text">${msg.message}</div>
     `;
-    chatMessages.appendChild(messageElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (chatMessages) chatMessages.appendChild(messageElement);
+    if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 
@@ -109,14 +119,30 @@ function displaySystemMessage(text) {
     const systemElement = document.createElement('div');
     systemElement.className = 'system-message';
     systemElement.textContent = text;
-    chatMessages.appendChild(systemElement);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (chatMessages) chatMessages.appendChild(systemElement);
+    if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function updateConnectionStatus(status) {
     const statusElement = document.getElementById('connection-status');
-    statusElement.textContent = `Status: ${status}`;
-    statusElement.className = `status-${status}`;
+    if (!statusElement) return;
+    let text = '';
+    let color = '';
+    switch (status) {
+        case 'connected':
+            text = 'Connected';
+            color = '#00e676';
+            break;
+        case 'connecting':
+            text = 'Connecting...';
+            color = '#ffd600';
+            break;
+        default:
+            text = 'Disconnected';
+            color = '#ff5555';
+    }
+    statusElement.textContent = text;
+    statusElement.style.color = color;
 }
 
 // Initialize UI
@@ -125,13 +151,25 @@ document.addEventListener('DOMContentLoaded', () => {
         showDetails(imdbId);
     });
 
-    joinButton.addEventListener('click', joinRoom);
-    sendButton.addEventListener('click', sendChatMessage);
-    disconnectButton.addEventListener('click', disconnectFromRoom);
-    chatInput.addEventListener('keypress', (e) => {
+    if (joinButton) joinButton.addEventListener('click', joinRoom);
+    if (sendButton) sendButton.addEventListener('click', sendChatMessage);
+    if (disconnectButton) disconnectButton.addEventListener('click', disconnectFromRoom);
+    if (chatInput) chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendChatMessage();
     });
+    const chatContainer = document.getElementById('chat-container');
+    const toggleChatBtn = document.getElementById('toggle-chat-btn');
 
-    roomIdInput.value = DEFAULT_ROOM_ID;
-    usernameInput.value = `User${Math.floor(Math.random() * 1000)}`;
+    toggleChatBtn.addEventListener('click', () => {
+        if (chatContainer.style.display === 'none' || chatContainer.classList.contains('hidden')) {
+            chatContainer.style.display = '';
+            chatContainer.classList.remove('hidden');
+        } else {
+            chatContainer.style.display = 'none';
+            chatContainer.classList.add('hidden');
+        }
+    });
+
+    if (roomIdInput) roomIdInput.value = DEFAULT_ROOM_ID;
+    if (usernameInput) usernameInput.value = `User${Math.floor(Math.random() * 1000)}`;
 });

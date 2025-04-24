@@ -10,7 +10,7 @@ export async function searchMovies(q) {
   return res.ok ? res.json() : [];
 }
 
-export async function fetchDetails(imdbId) {
-  const res = await fetch(`${PROXY}/movie/${imdbId}`);
+export async function fetchDetails(imdbId, tmdbId) {
+  const res = await fetch(`${PROXY}/details/${imdbId}/${tmdbId}`);
   return res.ok ? res.json() : {};
 }
