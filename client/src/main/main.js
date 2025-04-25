@@ -11,23 +11,17 @@ function createWindow() {
     ...ELECTRON_CONFIG.WINDOW_OPTIONS,
     webPreferences: {
       ...ELECTRON_CONFIG.WINDOW_OPTIONS.webPreferences,
-      preload: path.join(__dirname, '../renderer/preload.js')
+      preload: path.join(__dirname, '../preload.js')
     }
   });
 
-  win.loadFile(path.join(__dirname, '../renderer/index.html'));
-  
+  // Load the Vite-bundled React app from dist
+  win.loadFile(path.join(__dirname, '../../dist/index.html'));
 
   // Open dev tools in development
   if (ELECTRON_CONFIG.ENV === 'development') {
     win.webContents.openDevTools();
   }
-
-  win.webContents.openDevTools({
-    mode: 'detach',
-    activate: true,
-    title: 'Custom DevTools'
-  });
 }
 
 app.whenReady().then(createWindow);
