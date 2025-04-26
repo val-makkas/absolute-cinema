@@ -61,6 +61,10 @@
 @layer base {
   * {
     @apply border-border;
+    font-family: inherit;
+  }
+  body, html, #root {
+    font-family: 'Futura', 'Montserrat', Arial, sans-serif;
   }
   body {
     @apply bg-background text-foreground;
