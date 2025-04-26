@@ -9,10 +9,16 @@ export function useMovieDetails() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const isCached = useCallback((imdbId, tmdbId) => {
+    const cacheKey = imdbId + ':' + tmdbId;
+    return Boolean(detailsCache[cacheKey]);
+  }, []);
+
   const fetchDetails = useCallback(async (imdbId, tmdbId) => {
     const cacheKey = imdbId + ':' + tmdbId;
     if (detailsCache[cacheKey]) {
       setDetails(detailsCache[cacheKey]);
+      setLoading(false); // Ensure loading is false if cached
       return;
     }
     setDetails(null);
@@ -33,5 +39,5 @@ export function useMovieDetails() {
     }
   }, []);
 
-  return { details, loading, error, fetchDetails };
+  return { details, loading, error, fetchDetails, isCached };
 }

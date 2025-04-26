@@ -11,7 +11,7 @@ services:
     build: ./content
     image: imdb-metadata
     environment:
-      - TMDB_API_KEY= #YOUR API KEY
+      - TMDB_API_KEY=7c34cffcb5db700d0577403906af2f7c
     ports:
       - "8000:8000"
 
