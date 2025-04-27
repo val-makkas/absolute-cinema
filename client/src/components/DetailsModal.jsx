@@ -2,6 +2,35 @@ import React from 'react';
 
 const DetailsModal = ({ open, details, detailsLoading, onClose, CARD_BG, OVERLAY_BG, BORDER_GREY, WHITE, LIGHT_GREY, FONT_HEADER }) => {
   if (!open) return null;
+  // Show loading spinner if loading and no details yet
+  if (detailsLoading && !details) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1000,
+          width: '100vw',
+          height: '100vh',
+          overflow: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.80)',
+          backdropFilter: 'blur(12px)',
+          transition: 'opacity 0.25s cubic-bezier(.4,0,.2,1)',
+        }}
+        onClick={onClose}
+      >
+        <div style={{ background: 'rgba(24,24,27,0.93)', padding: 40, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="56" height="56" viewBox="0 0 50 50">
+            <circle cx="25" cy="25" r="20" fill="none" stroke="#ffe082" strokeWidth="5" strokeDasharray="31.4 31.4" strokeLinecap="round" style={{ transformOrigin: 'center', animation: 'spin 1s linear infinite' }} />
+            <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+          </svg>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       style={{

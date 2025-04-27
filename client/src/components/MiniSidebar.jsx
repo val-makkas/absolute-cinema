@@ -3,6 +3,7 @@ import logo from "../../public/logo.png";
 import { ExtensionIcon } from "@/components/icons/ExtensionIcon";
 import { SearchIcon } from "@/components/icons/SearchIcon";
 import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
+import { LogoutIcon } from "@/components/icons/LogoutIcon";
 
 const ICON_SIZE = 28;
 const sidebarIcons = [
@@ -42,55 +43,56 @@ export default function MiniSidebar({ onSelect, loadingDetails, onLogout }) {
       <img
         src={logo}
         alt="Absolute Cinema Logo"
-        style={{ width: 44, height: 44, objectFit: 'contain', marginBottom: 20, borderRadius: 12 }}
+        style={{ width: 44, height: 44, objectFit: 'contain', marginBottom: 18 }}
       />
       {/* Logout Button */}
-      <button
-        onClick={onLogout}
-        style={{
-          background: 'linear-gradient(90deg, #ffe082 60%, #ffd54f 100%)',
-          color: '#18181b',
-          border: 'none',
-          borderRadius: 8,
-          fontWeight: 700,
-          fontSize: 13,
-          padding: '7px 0',
-          width: 44,
-          marginBottom: 12,
-          boxShadow: '0 2px 8px #0003',
-          cursor: 'pointer',
-          transition: 'background 0.15s',
-          letterSpacing: 0.2,
-        }}
-        title="Logout"
-      >
-        Logout
-      </button>
+      {/* Sidebar navigation icons */}
       {sidebarIcons.map(opt => (
         <button
           key={opt.key}
-          aria-label={opt.label}
-          onClick={() => onSelect && onSelect(opt.key)}
+          title={opt.label}
           style={{
             background: 'none',
             border: 'none',
-            margin: '1.2rem 0',
-            cursor: 'pointer',
-            padding: 0,
-            borderRadius: 8,
-            transition: 'background 0.15s',
+            borderRadius: 14,
+            marginBottom: 6,
             width: 44,
             height: 44,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'background 0.2s',
           }}
           onMouseOver={e => e.currentTarget.style.background = '#23272f'}
           onMouseOut={e => e.currentTarget.style.background = 'none'}
+          onClick={() => onSelect && onSelect(opt.key)}
         >
           {opt.icon}
         </button>
       ))}
+      {/* Logout icon button above the loading spinner */}
+      <button
+        title="Logout"
+        style={{
+          background: 'none',
+          border: 'none',
+          borderRadius: 14,
+          marginBottom: 14,
+          width: 44,
+          height: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          transition: 'background 0.2s',
+        }}
+        onMouseOver={e => e.currentTarget.style.background = '#23272f'}
+        onMouseOut={e => e.currentTarget.style.background = 'none'}
+        onClick={onLogout}
+      >
+        <LogoutIcon size={28} color="#ff7e5f" />
+      </button>
       <div style={{ flex: 1 }} />
       {loadingDetails && (
         <div style={{ marginBottom: 18, alignSelf: 'flex-start', marginLeft: 15 }}>

@@ -59,7 +59,7 @@ export default function ExtensionsModal({
                   flexDirection: 'row',
                   alignItems: 'flex-start',
                   marginBottom: 18,
-                  background: manifest && manifest.background ? `linear-gradient(90deg, #18181b 70%, rgba(32,32,40,0.92)), url(${manifest.background}) center/cover no-repeat` : 'linear-gradient(90deg, #18181b 60%, #222 100%)',
+                  background: manifest && manifest.background ? `url(${manifest.background}) center/cover no-repeat` : 'none',
                   borderRadius: 14,
                   padding: '16px 20px',
                   boxShadow: '0 4px 18px #18181b44',

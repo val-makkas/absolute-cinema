@@ -73,9 +73,8 @@ export default function App() {
     else setExtensionManifests({});
   }, [extensions]);
 
-  // All hooks must be called unconditionally!
   const { movies, loading: moviesLoading, error: moviesError } = useMovies(search);
-  const { details, loading: detailsLoading, error: detailsError, fetchDetails, isCached } = useMovieDetails();
+  const { details, loading: detailsLoading, error: detailsError, fetchDetails, isCached, setDetailsFromCache } = useMovieDetails();
   const { messages, status, send, joinRoom, disconnect } = useChat({ roomId, username });
 
   useEffect(() => {
@@ -90,10 +89,14 @@ export default function App() {
   }
 
   const handleMovieClick = m => {
+    console.log('[handleMovieClick] Movie clicked:', m);
     setSelectedMovie(m);
     if (isCached(m.imdb_id, m.tmdb_id)) {
+      console.log('[handleMovieClick] Details found in cache for', m.imdb_id, m.tmdb_id);
+      setDetailsFromCache(m.imdb_id, m.tmdb_id);
       setShowDetailsModal(true);
     } else {
+      console.log('[handleMovieClick] Details NOT in cache, fetching for', m.imdb_id, m.tmdb_id);
       setShowDetailsModal(false); // wait for loading
       fetchDetails(m.imdb_id, m.tmdb_id);
     }
