@@ -6,4 +6,4 @@
 *.log
 *.key
 *.cert
-*.yml
+docker-compose.yml

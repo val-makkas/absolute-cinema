@@ -3,6 +3,7 @@ package users
 import (
 	"absolute-cinema/db"
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -27,10 +29,25 @@ func Register(c *gin.Context) {
 		return
 	}
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	user := User{Username: req.Username, Email: req.Email, Password: string(hashed), Extensions: []string{}}
-	_, err := db.GetUsers().InsertOne(context.TODO(), user)
+	user := User{
+		ID:         primitive.NewObjectID(),
+		Username:   req.Username,
+		Email:      req.Email,
+		Password:   string(hashed),
+		Extensions: []string{},
+	}
+	// Check for existing user with same username or email
+	existsFilter := bson.M{"$or": []bson.M{{"username": req.Username}, {"email": req.Email}}}
+	var existing User
+	err := db.GetUsers().FindOne(context.TODO(), existsFilter).Decode(&existing)
+	if err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists."})
+		return
+	}
+	_, err = db.GetUsers().InsertOne(context.TODO(), user)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists."})
+		fmt.Println("MongoDB Insert Error:", err)
+		c.JSON(http.StatusConflict, gin.H{"error": "User already exists or DB error."})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
@@ -45,7 +62,10 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 	}
 	var user User
-	err := db.GetUsers().FindOne(context.TODO(), bson.M{"username": req.Username}).Decode(&user)
+	err := db.GetUsers().FindOne(
+		context.TODO(),
+		bson.M{"$or": []bson.M{{"username": req.Username}, {"email": req.Username}}},
+	).Decode(&user)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Username not found"})
 		return

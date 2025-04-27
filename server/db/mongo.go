@@ -19,7 +19,7 @@ func GetMongoClient() *mongo.Client {
 	clientInitOnce.Do(func() {
 		uri := os.Getenv("MONGODB_URI")
 		if uri == "" {
-			uri = "mongodb://localhost:27017"
+			uri = "mongodb://mongo:27017"
 		}
 		client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
 		if err != nil {

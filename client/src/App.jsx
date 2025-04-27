@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useMovies } from "./hooks/useMovies";
 import { useMovieDetails } from "./hooks/useMovieDetails";
 import { useChat } from "./hooks/useChat";
+import { useUser } from './hooks/useUsers';
 import MovieList from './components/MovieList';
 import DetailsModal from './components/DetailsModal';
 import ChatPanel from './components/ChatPanel';
@@ -23,7 +24,6 @@ const FONT_HEADER = "'Inter', 'Montserrat', 'Poppins', Arial, sans-serif";
 export default function App() {
   const [search, setSearch] = useState("");
   const [roomId, setRoomId] = useState("default-room");
-  const [username, setUsername] = useState("User" + Math.floor(Math.random() * 1000));
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -33,79 +33,62 @@ export default function App() {
   const [extensionsOpen, setExtensionsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newManifestUrl, setNewManifestUrl] = useState("");
-  const [extensionManifests, setExtensionManifests] = useState({}); // { url: manifestObj }
   const [showExtensionDetails, setShowExtensionDetails] = useState(null); // url or null
-  const [user, setUser] = useState(() => {
-    // Defensive initialization: always ensure extensions is an array
-    const stored = localStorage.getItem('currentUser');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return { ...parsed, extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [] };
+
+  // Extension manifests state
+  const [extensionManifests, setExtensionManifests] = useState({});
+
+  // Use the custom user hook
+  const {
+    token,
+    username,
+    extensions,
+    loading: userLoading,
+    error: userError,
+    register,
+    login,
+    logout,
+    updateExtensions,
+  } = useUser();
+
+  // Fetch manifests when extensions change
+  useEffect(() => {
+    async function fetchManifests() {
+      const manifests = {};
+      await Promise.all(
+        extensions.map(async (url) => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Failed to fetch manifest');
+            const manifest = await res.json();
+            manifests[url] = manifest;
+          } catch (e) {
+            manifests[url] = undefined;
+          }
+        })
+      );
+      setExtensionManifests(manifests);
     }
-    return null;
-  });
+    if (extensions && extensions.length > 0) fetchManifests();
+    else setExtensionManifests({});
+  }, [extensions]);
+
   // All hooks must be called unconditionally!
   const { movies, loading: moviesLoading, error: moviesError } = useMovies(search);
   const { details, loading: detailsLoading, error: detailsError, fetchDetails, isCached } = useMovieDetails();
   const { messages, status, send, joinRoom, disconnect } = useChat({ roomId, username });
+
   useEffect(() => {
     if (selectedMovie && !detailsLoading && details && !showDetailsModal) {
       setShowDetailsModal(true);
     }
   }, [detailsLoading, details, selectedMovie, showDetailsModal]);
 
-  useEffect(() => {
-    if (user && user.extensions === undefined) {
-      const updatedUser = { ...user, extensions: [] };
-      setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      console.log('[DEBUG] Added extensions array to user:', updatedUser);
-    }
-    // Always fetch manifests for user's extensions after login
-    if (user?.extensions?.length) {
-      console.log('[DEBUG] User extensions on login:', user.extensions);
-      user.extensions.forEach(async url => {
-        if (!extensionManifests[url]) {
-          try {
-            const res = await fetch(url);
-            if (res.ok) {
-              const manifest = await res.json();
-              setExtensionManifests(prev => ({ ...prev, [url]: manifest }));
-              console.log('[DEBUG] Fetched manifest for', url, manifest);
-            } else {
-              console.warn('[DEBUG] Failed to fetch manifest for', url);
-            }
-          } catch (err) {
-            console.warn('[DEBUG] Error fetching manifest for', url, err);
-          }
-        }
-      });
-    } else {
-      console.log('[DEBUG] No extensions to fetch manifests for on login.');
-    }
-    // Also log localStorage for debugging
-    console.log('[DEBUG] localStorage currentUser:', localStorage.getItem('currentUser'));
-  }, [user]);
+  // Render AuthScreen if not logged in
+  if (!token) {
+    return <AuthScreen onLogin={login} onRegister={register} error={userError} loading={userLoading} />;
+  }
 
-  // All hooks are above this line!
-  const handleLogin = (userObj) => {
-    // If localStorage has extensions for this user, merge them in
-    const stored = localStorage.getItem('currentUser');
-    let extensions = [];
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed && parsed.username === userObj.username && Array.isArray(parsed.extensions)) {
-        extensions = parsed.extensions;
-      }
-    }
-    const mergedUser = { ...userObj, extensions };
-    setUser(mergedUser);
-    localStorage.setItem('currentUser', JSON.stringify(mergedUser));
-  };
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('currentUser');
-  };
   const handleMovieClick = m => {
     setSelectedMovie(m);
     if (isCached(m.imdb_id, m.tmdb_id)) {
@@ -130,47 +113,9 @@ export default function App() {
     if (key === 'extensions') setExtensionsOpen(true);
   };
 
-  const handleAddExtension = async () => {
-    const url = newManifestUrl.trim();
-    if (!url) return;
-    if (user?.extensions?.includes(url)) return;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Could not fetch manifest');
-      const manifest = await res.json();
-      // Update user.extensions
-      const updatedUser = {
-        ...user,
-        extensions: [...(user.extensions || []), url],
-      };
-      setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      setExtensionManifests(prev => ({ ...prev, [url]: manifest }));
-      setNewManifestUrl("");
-    } catch (err) {
-      alert('Failed to fetch manifest.json: ' + err.message);
-    }
-  };
-  const handleRemoveExtension = (url) => {
-    if (!user?.extensions?.includes(url)) return;
-    const updatedUser = {
-      ...user,
-      extensions: user.extensions.filter(ext => ext !== url),
-    };
-    setUser(updatedUser);
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-  };
-
-  if (!user) {
-    console.log('Rendering AuthScreen!');
-    return <AuthScreen onLogin={handleLogin} />;
-  }
-
-  console.log("Current user state on load:", user);
-
   return (
     <div style={{ minHeight: '100vh', background: BG_GRADIENT, fontFamily: FONT_HEADER, position: 'relative' }}>
-      <MiniSidebar onSelect={handleMiniSidebar} loadingDetails={detailsLoading} onLogout={handleLogout} />
+      <MiniSidebar onSelect={handleMiniSidebar} loadingDetails={detailsLoading} onLogout={logout} />
       <div style={{ marginLeft: 64, width: 'calc(100% - 64px)' }}>
         <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
           <div
@@ -220,16 +165,22 @@ export default function App() {
           </div>
         </div>
       </div>
-      {console.log('[DEBUG] Passing to ExtensionsModal:', user?.extensions, extensionManifests)}
       <ExtensionsModal
         open={extensionsOpen}
         onOpenChange={setExtensionsOpen}
-        extensions={user?.extensions || []}
+        extensions={extensions}
         extensionManifests={extensionManifests}
         newManifestUrl={newManifestUrl}
         setNewManifestUrl={setNewManifestUrl}
-        onAdd={handleAddExtension}
-        onRemove={handleRemoveExtension}
+        onAdd={async () => {
+          if (newManifestUrl && !extensions.includes(newManifestUrl)) {
+            await updateExtensions([...extensions, newManifestUrl]);
+            setNewManifestUrl("");
+          }
+        }}
+        onRemove={async (url) => {
+          await updateExtensions(extensions.filter(ext => ext !== url));
+        }}
         showExtensionDetails={showExtensionDetails}
         setShowExtensionDetails={setShowExtensionDetails}
       />

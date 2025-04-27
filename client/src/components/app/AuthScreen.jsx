@@ -1,43 +1,40 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import loginBg from "../../../public/login.png";
 import logo from "../../../public/logo.png";
 
-export default function AuthScreen({ onLogin }) {
+export default function AuthScreen({ onLogin, onRegister, error: externalError, loading: externalLoading }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  // Sync error/loading from props if provided by parent
+  useEffect(() => {
+    if (externalError) setError(externalError);
+    setLoading(!!externalLoading);
+  }, [externalError, externalLoading]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      if (!email || !password) {
-        setError("Please fill in all fields.");
-        setLoading(false);
-        return;
-      }
-      if (mode === "register") {
-        if (localStorage.getItem(`user:${email}`)) {
-          setError("User already exists.");
-          setLoading(false);
-          return;
-        }
-        localStorage.setItem(`user:${email}` , password);
-        onLogin({ email });
-      } else {
-        const saved = localStorage.getItem(`user:${email}`);
-        if (!saved || saved !== password) {
-          setError("Invalid email or password.");
-          setLoading(false);
-          return;
-        }
-        onLogin({ email });
-      }
+    if (!email || !password || (mode === "register" && !username)) {
+      setError("Please fill in all fields.");
       setLoading(false);
-    }, 500);
+      return;
+    }
+    if (mode === "register") {
+      // Call parent register (should accept username, email, password)
+      const ok = await onRegister(username, email, password);
+      if (!ok) setError("Registration failed. Please try again.");
+    } else {
+      // Call parent login (should accept username or email, and password)
+      const ok = await onLogin(username || email, password);
+      if (!ok) setError("Login failed. Please check your credentials.");
+    }
+    setLoading(false);
   };
 
   return (
@@ -166,6 +163,15 @@ export default function AuthScreen({ onLogin }) {
           </button>
         </div>
         <form onSubmit={handleSubmit} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {mode === "register" && (
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              style={{ width: '100%', fontSize: 16, marginBottom: 12, borderRadius: 12, border: '1.5px solid #353535', background: '#18181b', color: '#e5e5e5', padding: '13px 16px', outline: error ? '1.5px solid #ffb300' : 'none', boxShadow: '0 1px 8px #23272f22' }}
+            />
+          )}
           <input
             type="email"
             placeholder="Email"

@@ -130,7 +130,6 @@ export default function ExtensionsModal({
               border: 'none',
               lineHeight: 1.6,
             }}>
-              <span style={{fontSize: 16, marginRight: 5}}>⚠️</span>
               <span>
                 This app does not host or distribute any media content.<br/>
                 Users are responsible for any third-party add-ons they choose to use.<br/>

@@ -29,6 +29,10 @@ func main() {
 	))
 
 	http.HandleFunc("/ws", ws.HandleConnection)
+
+	// Mount Gin as the default handler for everything else
+	http.Handle("/", r)
+
 	fmt.Println("Server started on :8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
