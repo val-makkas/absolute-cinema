@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { useMovies } from "./hooks/useMovies";
 import { useMovieDetails } from "./hooks/useMovieDetails";
 import { useChat } from "./hooks/useChat";
@@ -10,6 +11,7 @@ import MiniSidebar from './components/MiniSidebar';
 import ExtensionsModal from './components/app/ExtensionsModal';
 import SearchModal from './components/app/SearchModal';
 import AuthScreen from './components/app/AuthScreen';
+import SoloSources from './components/sources/SoloSources';
 
 // BLACK & WHITE MODERN THEME
 const BG_GRADIENT = "linear-gradient(135deg, #181818 0%, #000 100%)";
@@ -85,7 +87,14 @@ export default function App() {
 
   // Render AuthScreen if not logged in
   if (!token) {
-    return <AuthScreen onLogin={login} onRegister={register} error={userError} loading={userLoading} />;
+    return (
+      <HashRouter>
+        <Routes>
+          <Route path="/auth" element={<AuthScreen onLogin={login} onRegister={register} error={userError} loading={userLoading} />} />
+          <Route path="*" element={<AuthScreen onLogin={login} onRegister={register} error={userError} loading={userLoading} />} />
+        </Routes>
+      </HashRouter>
+    );
   }
 
   const handleMovieClick = m => {
@@ -117,84 +126,91 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: BG_GRADIENT, fontFamily: FONT_HEADER, position: 'relative' }}>
-      <MiniSidebar onSelect={handleMiniSidebar} loadingDetails={detailsLoading} onLogout={logout} />
-      <div style={{ marginLeft: 64, width: 'calc(100% - 64px)' }}>
-        <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-          <div
-            style={{
-              width: '100%',
-              maxWidth: 1440,
-              margin: '0 auto',
-              boxSizing: 'border-box',
-              zIndex: 1,
-              position: 'relative',
-              padding: '2.5rem clamp(1.5rem, 5vw, 3.5rem)',
-            }}
-          >
-            <MovieList
-              movies={movies}
-              moviesLoading={moviesLoading}
-              moviesError={moviesError}
-              onMovieClick={handleMovieClick}
-              CARD_BG={CARD_BG}
-              BORDER_GREY={BORDER_GREY}
-              OVERLAY_BG={OVERLAY_BG}
-              WHITE={WHITE}
-              FONT_HEADER={FONT_HEADER}
+    <HashRouter>
+      <Routes>
+        <Route path="/watch-alone/:imdbID" element={<SoloSources extensionManifests={extensionManifests} />} />
+        <Route path="/" element={
+          <div style={{ minHeight: '100vh', background: BG_GRADIENT, fontFamily: FONT_HEADER, position: 'relative' }}>
+            <MiniSidebar onSelect={handleMiniSidebar} loadingDetails={detailsLoading} onLogout={logout} />
+            <div style={{ marginLeft: 64, width: 'calc(100% - 64px)' }}>
+              <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: 1440,
+                    margin: '0 auto',
+                    boxSizing: 'border-box',
+                    zIndex: 1,
+                    position: 'relative',
+                    padding: '2.5rem clamp(1.5rem, 5vw, 3.5rem)',
+                  }}
+                >
+                  <MovieList
+                    movies={movies}
+                    moviesLoading={moviesLoading}
+                    moviesError={moviesError}
+                    onMovieClick={handleMovieClick}
+                    CARD_BG={CARD_BG}
+                    BORDER_GREY={BORDER_GREY}
+                    OVERLAY_BG={OVERLAY_BG}
+                    WHITE={WHITE}
+                    FONT_HEADER={FONT_HEADER}
+                  />
+                  <DetailsModal
+                    open={showDetailsModal}
+                    details={details}
+                    detailsLoading={detailsLoading}
+                    onClose={handleCloseDetails}
+                    CARD_BG={CARD_BG}
+                    OVERLAY_BG={OVERLAY_BG}
+                    BORDER_GREY={BORDER_GREY}
+                    WHITE={WHITE}
+                    LIGHT_GREY={LIGHT_GREY}
+                    FONT_HEADER={FONT_HEADER}
+                  />
+                  {/* <ChatPanel
+                    chatOpen={chatOpen}
+                    messages={messages}
+                    chatInput={chatInput}
+                    setChatInput={setChatInput}
+                    handleSendChat={handleSendChat}
+                    status={status}
+                    username={username}
+                    onDisconnect={disconnect}
+                  /> */}
+                </div>
+              </div>
+            </div>
+            <ExtensionsModal
+              open={extensionsOpen}
+              onOpenChange={setExtensionsOpen}
+              extensions={extensions}
+              extensionManifests={extensionManifests}
+              newManifestUrl={newManifestUrl}
+              setNewManifestUrl={setNewManifestUrl}
+              onAdd={async () => {
+                if (newManifestUrl && !extensions.includes(newManifestUrl)) {
+                  await updateExtensions([...extensions, newManifestUrl]);
+                  setNewManifestUrl("");
+                }
+              }}
+              onRemove={async (url) => {
+                await updateExtensions(extensions.filter(ext => ext !== url));
+              }}
+              showExtensionDetails={showExtensionDetails}
+              setShowExtensionDetails={setShowExtensionDetails}
             />
-            <DetailsModal
-              open={showDetailsModal}
-              details={details}
-              detailsLoading={detailsLoading}
-              onClose={handleCloseDetails}
-              CARD_BG={CARD_BG}
-              OVERLAY_BG={OVERLAY_BG}
-              BORDER_GREY={BORDER_GREY}
-              WHITE={WHITE}
-              LIGHT_GREY={LIGHT_GREY}
-              FONT_HEADER={FONT_HEADER}
+            <SearchModal
+              open={searchOpen}
+              onOpenChange={setSearchOpen}
+              search={search}
+              setSearch={setSearch}
             />
-            {/* <ChatPanel
-              chatOpen={chatOpen}
-              messages={messages}
-              chatInput={chatInput}
-              setChatInput={setChatInput}
-              handleSendChat={handleSendChat}
-              status={status}
-              username={username}
-              onDisconnect={disconnect}
-            /> */}
+            {/* Google Fonts for modern look */}
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
           </div>
-        </div>
-      </div>
-      <ExtensionsModal
-        open={extensionsOpen}
-        onOpenChange={setExtensionsOpen}
-        extensions={extensions}
-        extensionManifests={extensionManifests}
-        newManifestUrl={newManifestUrl}
-        setNewManifestUrl={setNewManifestUrl}
-        onAdd={async () => {
-          if (newManifestUrl && !extensions.includes(newManifestUrl)) {
-            await updateExtensions([...extensions, newManifestUrl]);
-            setNewManifestUrl("");
-          }
-        }}
-        onRemove={async (url) => {
-          await updateExtensions(extensions.filter(ext => ext !== url));
-        }}
-        showExtensionDetails={showExtensionDetails}
-        setShowExtensionDetails={setShowExtensionDetails}
-      />
-      <SearchModal
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        search={search}
-        setSearch={setSearch}
-      />
-      {/* Google Fonts for modern look */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
-    </div>
+        } />
+      </Routes>
+    </HashRouter>
   );
 }
