@@ -1,8 +1,32 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import SoloSources from './sources/SoloSources';
 
-const DetailsModal = ({ open, details, detailsLoading, onClose, CARD_BG, OVERLAY_BG, BORDER_GREY, WHITE, LIGHT_GREY, FONT_HEADER }) => {
+const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClose, CARD_BG, OVERLAY_BG, BORDER_GREY, WHITE, LIGHT_GREY, FONT_HEADER }) => {
+  const navigate = useNavigate();
+  const [modalMode, setModalMode] = useState('details');
+
+  useEffect(() => {
+    if (open) setModalMode('details');
+  }, [open]);
+
+  const handleWatchAlone = () => {
+    if (details?.id) {
+      navigate(`/watch-alone/${details.id}`, { state: { details } });
+    } else {
+      alert('No IMDb ID found for this title.');
+    }
+  };
+
+  const handleCreateParty = () => {
+    if (details?.id) {
+      navigate(`/watch-party/${details.id}`, { state: { details } });
+    } else {
+      alert('No IMDb ID found for this title.');
+    }
+  };
+
   if (!open) return null;
-  // Show loading spinner if loading and no details yet
   if (detailsLoading && !details) {
     return (
       <div
@@ -44,7 +68,7 @@ const DetailsModal = ({ open, details, detailsLoading, onClose, CARD_BG, OVERLAY
         alignItems: 'center',
         justifyContent: 'center',
         background: 'rgba(0, 0, 0, 0.80)',
-        backdropFilter: 'blur(12px)', // Blurs what's behind the modal
+        backdropFilter: 'blur(12px)',
         transition: 'opacity 0.25s cubic-bezier(.4,0,.2,1)',
       }}
       onClick={onClose}
@@ -55,21 +79,24 @@ const DetailsModal = ({ open, details, detailsLoading, onClose, CARD_BG, OVERLAY
           borderRadius: 24,
           boxShadow: '0 8px 32px #000c, 0 0 16px #0006',
           padding: '3.5rem 3rem',
-          maxWidth: 550,
-          width: '100%',
+          minWidth: 1080, 
+          maxWidth: 1080,
+          width: 1080,
+          minHeight: 600,
           color: WHITE,
           border: `2px solid ${BORDER_GREY}`,
           zIndex: 1002,
-          transform: 'scale(1)',
-          opacity: 1,
-          overflow: 'visible',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'stretch',
+          gap: 0,
+          background: 'transparent',
           fontFamily: FONT_HEADER,
           boxSizing: 'border-box',
-          background: details?.poster ? 'transparent' : 'rgba(0, 0, 0, 0.70)',
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Blurred poster as card background */}
+        {/* Blurred poster as modal inner background */}
         {details?.poster && (
           <div
             style={{
@@ -77,115 +104,124 @@ const DetailsModal = ({ open, details, detailsLoading, onClose, CARD_BG, OVERLAY
               inset: 0,
               zIndex: 0,
               background: `url(${details.poster}) center/cover no-repeat`,
-              filter: 'blur(18px)',
+              filter: 'blur(26px) brightness(1.08) saturate(1.25)',
               borderRadius: 24,
-              opacity: 1,
+              opacity: 0.68,
+              pointerEvents: 'none',
+              transition: 'opacity 200ms',
             }}
           />
         )}
-        {/* Dark overlay for readability */}
-        {details?.poster && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 1,
-              background: 'rgba(20,20,30,0.50)',
-              borderRadius: 24,
-            }}
-          />
-        )}
-        <div style={{ position: 'relative', zIndex: 2 }}>
-          <button
-            style={{
-              position: 'absolute',
-              top: '1.2rem',
-              right: '1.5rem',
-              background: 'none',
-              border: 'none',
-              color: WHITE,
-              fontSize: '2rem',
-              cursor: 'pointer',
-              zIndex: 3,
-              textShadow: '0 2px 8px #000a',
-            }}
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          {/* Avatar from API at the top of the card, 2.5x bigger */}
-          {details?.avatar && (
-            <img src={details.avatar} alt={details.title} style={{ width: 240, height: 240, objectFit: 'contain', display: 'block', margin: '0 auto 1.2rem auto' }} />
+        {/* Overlay for readability */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+            borderRadius: 24,
+            background: 'linear-gradient(180deg, rgba(24,24,27,0.55) 60%, rgba(24,24,27,0.75) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Main content and sidebar */}
+        <div style={{ flex: '0 0 740px', maxWidth: 740, minWidth: 740, position: 'relative', zIndex: 2, overflow: 'visible' }}>
+          {modalMode === 'details' && (
+            <>
+              {details?.avatar && (
+                <img src={details.avatar} alt={details.title} style={{ width: 240, height: 240, objectFit: 'contain', display: 'block', margin: '0 auto 1.2rem auto', borderRadius: 18 }} />
+              )}
+              {/* Poster image removed to avoid double display; only background is blurred poster */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 17, marginBottom: 12, color: LIGHT_GREY, fontWeight: 700, opacity: 0.88 }}>
+                  {details?.release_date}
+                  {details?.rating && <> &bull; ⭐ {details.rating}</>}
+                </div>
+                <div style={{ marginBottom: 18, fontSize: 18, color: LIGHT_GREY, opacity: 0.97, fontWeight: 400, textShadow: '0 2px 8px #0007', maxWidth: '100%', wordWrap: 'break-word', lineHeight: 1.45 }}>
+                  {details?.overview}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+                  {details?.actors && <span style={{ fontSize: 14, padding: '5px 14px', borderRadius: 14, fontWeight: 700, background: CARD_BG, color: WHITE, boxShadow: '0 1px 6px #0003' }}>{`Actors: ${details.actors}`}</span>}
+                  {details?.director && <span style={{ fontSize: 14, padding: '5px 14px', borderRadius: 14, fontWeight: 700, background: CARD_BG, color: WHITE, boxShadow: '0 1px 6px #0003' }}>{`Director: ${details.director}`}</span>}
+                  {details?.runtime && <span style={{ fontSize: 14, padding: '5px 14px', borderRadius: 14, fontWeight: 700, background: CARD_BG, color: WHITE, boxShadow: '0 1px 6px #0003' }}>{`Runtime: ${details.runtime}`}</span>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 30, marginBottom: 8 }}>
+                <button
+                  style={{
+                    width: '100%',
+                    background: 'linear-gradient(90deg, #ff7e5f 0%, #feb47b 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 14,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    padding: '13px 0',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 12px #ff7e5f44',
+                    transition: 'transform 0.1s',
+                    fontFamily: FONT_HEADER,
+                    letterSpacing: 0.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    zIndex: 2,
+                  }}
+                  onClick={handleWatchAlone}
+                >
+                  <span role="img" aria-label="Play">▶️</span> Watch Alone
+                </button>
+                <button
+                  style={{
+                    width: '100%',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 14,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    padding: '13px 0',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 12px #185a9d44',
+                    transition: 'transform 0.1s',
+                    fontFamily: FONT_HEADER,
+                    letterSpacing: 0.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    zIndex: 2,
+                  }}
+                  onClick={handleCreateParty}
+                >
+                  <span role="img" aria-label="Party">🎉</span> Create Party
+                </button>
+              </div>
+            </>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 17, marginBottom: 12, color: LIGHT_GREY, fontWeight: 700, opacity: 0.88 }}>
-              {details?.release_date}
-              {details?.rating && <> &bull; ⭐ {details.rating}</>}
-            </div>
-            <div style={{ marginBottom: 18, fontSize: 18, color: LIGHT_GREY, opacity: 0.97, fontWeight: 400, textShadow: '0 2px 8px #0007' }}>
-              {details?.overview}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
-              {details?.actors && <span style={{ fontSize: 14, padding: '5px 14px', borderRadius: 14, fontWeight: 700, background: CARD_BG, color: WHITE, boxShadow: '0 1px 6px #0003' }}>{`Actors: ${details.actors}`}</span>}
-              {details?.director && <span style={{ fontSize: 14, padding: '5px 14px', borderRadius: 14, fontWeight: 700, background: CARD_BG, color: WHITE, boxShadow: '0 1px 6px #0003' }}>{`Director: ${details.director}`}</span>}
-              {details?.runtime && <span style={{ fontSize: 14, padding: '5px 14px', borderRadius: 14, fontWeight: 700, background: CARD_BG, color: WHITE, boxShadow: '0 1px 6px #0003' }}>{`Runtime: ${details.runtime}`}</span>}
-            </div>
-          </div>
-          {/* Beautiful buttons */}
-          <div style={{ display: 'flex', gap: 18, marginTop: 36, marginBottom: 8, justifyContent: 'center' }}>
-            <button
-              style={{
-                flex: 1,
-                background: 'linear-gradient(90deg, #ff7e5f 0%, #feb47b 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 14,
-                fontWeight: 900,
-                fontSize: 18,
-                padding: '13px 0',
-                cursor: 'pointer',
-                boxShadow: '0 2px 12px #ff7e5f44',
-                transition: 'transform 0.1s',
-                fontFamily: FONT_HEADER,
-                letterSpacing: 0.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                zIndex: 2,
-              }}
-              onClick={() => alert('Watch Alone clicked!')}
-            >
-              <span role="img" aria-label="Play">▶️</span> Watch Alone
-            </button>
-            <button
-              style={{
-                flex: 1,
-                background: 'linear-gradient(90deg, #43cea2 0%, #185a9d 100%)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 14,
-                fontWeight: 900,
-                fontSize: 18,
-                padding: '13px 0',
-                cursor: 'pointer',
-                boxShadow: '0 2px 12px #43cea244',
-                transition: 'transform 0.1s',
-                fontFamily: FONT_HEADER,
-                letterSpacing: 0.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                zIndex: 2,
-              }}
-              onClick={() => alert('Create Party clicked!')}
-            >
-              <span role="img" aria-label="Party">🎉</span> Create Party
-            </button>
-          </div>
         </div>
+        {/* Sidebar for SoloSources */}
+        <div style={{
+          flex: '0 0 340px',
+          maxWidth: 340,
+          minWidth: 340,
+          height: '100%',
+          position: 'relative',
+          zIndex: 2,
+          background: 'rgba(255,255,255,0.13)', 
+          borderRadius: '0 22px 22px 0',
+          boxShadow: 'none',
+          overflowY: 'auto',
+          padding: '2.2rem 1.1rem 2.2rem 1.1rem',
+          borderLeft: '2px solid #23272f',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '600px',
+          backdropFilter: 'blur(8px)',
+          marginRight: 0,
+        }}>
+          <SoloSources extensionManifests={extensionManifests} details={details} sidebarMode={true} />
+        </div>
+        {/* End sidebar */}
       </div>
     </div>
   );
