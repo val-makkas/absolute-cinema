@@ -159,6 +159,7 @@ export default function App() {
                   <DetailsModal
                     open={showDetailsModal}
                     details={details}
+                    extensionManifests={extensionManifests}
                     detailsLoading={detailsLoading}
                     onClose={handleCloseDetails}
                     CARD_BG={CARD_BG}

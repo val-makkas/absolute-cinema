@@ -1,31 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
 
-function SoloSources({ extensionManifests = {} }) {
-  const { imdbID } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const cardRef = useRef(null);
-
-  const movieDetails = location.state?.details || null;
-
+function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
+  const imdbID = details?.imdb_id || details?.id;
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [show, setShow] = useState(false);
 
-  // Animate in on mount
-  useEffect(() => {
-    setTimeout(() => setShow(true), 10);
-  }, []);
-
-  // Animate out and go back
-  const handleBackgroundClick = (e) => {
-    if (cardRef.current && !cardRef.current.contains(e.target)) {
-      setShow(false);
-      setTimeout(() => navigate(-1), 420);
-    }
-  };
+  // Use stringified keys as dependency to avoid infinite loop
+  const extensionManifestKeys = Object.keys(extensionManifests).sort().join(",");
 
   useEffect(() => {
     const fetchStreamingSources = async () => {
@@ -45,10 +27,10 @@ function SoloSources({ extensionManifests = {} }) {
             if (!response.ok) throw new Error('No streams');
             const data = await response.json();
             let streams = [];
-            if (Array.isArray(data)) {
-              streams = data;
-            } else if (Array.isArray(data.streams)) {
+            if (Array.isArray(data.streams)) {
               streams = data.streams;
+            } else if (Array.isArray(data)) {
+              streams = data;
             } else if (data.results && Array.isArray(data.results)) {
               streams = data.results;
             }
@@ -59,159 +41,122 @@ function SoloSources({ extensionManifests = {} }) {
               }))
             );
           } catch (err) {
-            // No streams for this extension, skip
+            // Ignore individual extension errors
           }
         }
         setSources(allSources);
       } catch (err) {
         setError("Failed to load streaming sources");
-        console.error(err);
       } finally {
         setLoading(false);
       }
     };
     fetchStreamingSources();
-  }, [imdbID, extensionManifests]);
+  }, [imdbID, extensionManifestKeys]);
 
-  const poster = movieDetails?.poster || movieDetails?.poster_path
-    ? (movieDetails?.poster || `https://image.tmdb.org/t/p/w500${movieDetails.poster_path}`)
-    : null;
+  if (!sidebarMode) return null;
 
-  // Card-style modal (not full poster background)
+  // --- BEAUTIFUL UI STARTS HERE ---
   return (
-    <div
-      onMouseDown={handleBackgroundClick}
-      style={{
-        minHeight: '100vh',
-        width: '100vw',
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        overflow: 'hidden',
-        fontFamily: "'Inter', 'Montserrat', 'Poppins', Arial, sans-serif",
-        background: 'rgba(0,0,0,0.92)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'background 0.5s cubic-bezier(.4,0,.2,1)',
-        backdropFilter: show ? 'blur(16px)' : 'blur(0px)',
-      }}
-    >
-      <div
-        ref={cardRef}
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          maxWidth: 540,
-          width: '100%',
-          margin: '0 auto',
-          background: 'rgba(24,24,27,0.97)',
-          borderRadius: 22,
-          boxShadow: '0 8px 40px 0 rgba(31, 38, 40, 0.45)',
-          border: '1.5px solid #23272f',
-          padding: '2.8rem 2.3rem 2.2rem 2.3rem',
-          color: '#e5e5e5',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '2.2rem',
-          transform: show ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(60px)',
-          opacity: show ? 1 : 0,
-          transition: 'transform 0.42s cubic-bezier(.4,0,.2,1), opacity 0.42s cubic-bezier(.4,0,.2,1)',
-          backdropFilter: 'blur(8px)',
-          boxSizing: 'border-box',
-        }}
-        onMouseDown={e => e.stopPropagation()}
-      >
-        {movieDetails && (
-          <div style={{ textAlign: 'center' }}>
-            <img
-              src={poster}
-              alt={movieDetails.title}
+    <div style={{ width: '100%', padding: 0 }}>
+      <h2 style={{
+        fontWeight: 900,
+        fontSize: 23,
+        color: '#ffe082',
+        marginBottom: 22,
+        textAlign: 'center',
+        letterSpacing: 1.1,
+        textShadow: '0 2px 8px #000a',
+        fontFamily: 'inherit',
+        borderBottom: '2px solid #23272f',
+        paddingBottom: 12,
+        marginTop: 0,
+      }}>
+        <span role="img" aria-label="Play">🎬</span> Streaming Sources
+      </h2>
+      {loading ? (
+        <div style={{ color: '#ffe082', fontSize: 18, textAlign: 'center', fontWeight: 600, marginTop: 40 }}>
+          <span className="loader" style={{ marginRight: 10 }}>⏳</span> Loading streaming sources...
+        </div>
+      ) : error ? (
+        <div style={{ color: '#ffb300', fontSize: 18, textAlign: 'center', fontWeight: 600, marginTop: 40 }}>{error}</div>
+      ) : sources.length === 0 ? (
+        <div style={{ color: '#bcbcbc', fontSize: 17, textAlign: 'center', marginTop: 40 }}>No streaming sources available</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', marginTop: 8 }}>
+          {sources.map((source, index) => (
+            <div
+              key={index}
               style={{
-                width: 120,
-                height: 180,
-                objectFit: 'cover',
-                borderRadius: 14,
-                marginBottom: 18,
-                boxShadow: '0 2px 12px #23272f77',
+                background: 'linear-gradient(90deg, #23272f 0%, #18181b 100%)',
+                borderRadius: 16,
+                boxShadow: '0 2px 16px #000a',
+                padding: '20px 18px 18px 18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                border: '1.5px solid #31343b',
+                transition: 'box-shadow 0.2s',
+                position: 'relative',
+                minHeight: 72,
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+                animation: 'fadeIn 0.5s',
               }}
-            />
-            <h1 style={{ fontWeight: 900, fontSize: 28, color: '#ffe082', marginBottom: 8 }}>
-              {movieDetails.title}
-            </h1>
-            <div style={{ color: '#bcbcbc', fontSize: 16, marginBottom: 8 }}>
-              {movieDetails.release_date}
-            </div>
-            <div style={{ color: '#e5e5e5', fontSize: 15, fontStyle: 'italic', marginBottom: 8 }}>
-              {movieDetails.overview}
-            </div>
-          </div>
-        )}
-        <h2 style={{ fontWeight: 700, fontSize: 22, color: '#ffe082', marginBottom: 18 }}>
-          Streaming Sources
-        </h2>
-        {loading ? (
-          <div style={{ color: '#ffe082', fontSize: 18 }}>Loading streaming sources...</div>
-        ) : error ? (
-          <div style={{ color: '#ffb300', fontSize: 18 }}>{error}</div>
-        ) : sources.length === 0 ? (
-          <div style={{ color: '#bcbcbc', fontSize: 17 }}>No streaming sources available</div>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 18,
-            width: '100%',
-          }}>
-            {sources.map((source, index) => (
-              <a
-                key={index}
-                href={source.url || source.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                  background: 'rgba(32,32,40,0.85)',
-                  borderRadius: 12,
-                  padding: '1.1rem 1.5rem',
-                  color: '#ffe082',
-                  fontWeight: 700,
-                  fontSize: 18,
-                  textDecoration: 'none',
-                  boxShadow: '0 1px 6px #0005',
-                  border: '1.5px solid #23272f',
-                  transition: 'background 0.18s, color 0.18s',
-                }}
-                onMouseOver={e => e.currentTarget.style.background = '#23272f'}
-                onMouseOut={e => e.currentTarget.style.background = 'rgba(32,32,40,0.85)'}
-              >
-                <span style={{ flex: 1 }}>
-                  {source.title || source.name || source.provider_name || 'Stream'}
-                  {source.extensionName && (
-                    <span style={{ fontWeight: 400, fontSize: 14, color: '#bcbcbc', marginLeft: 12 }}>
-                      via {source.extensionName}
-                    </span>
-                  )}
+              tabIndex={0}
+              onClick={() => window.open(source.url || source.externalUrl, '_blank')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontWeight: 800, fontSize: 17, color: '#ffe082', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {source.title || source.name || 'Untitled Source'}
                 </span>
-                <span style={{
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: '#fff',
-                  background: '#ff7e5f',
-                  borderRadius: 8,
-                  padding: '4px 12px',
-                  marginLeft: 8,
-                }}>
+                <span style={{ fontSize: 13, color: '#6ee7b7', fontWeight: 700, background: '#23272f', borderRadius: 8, padding: '3px 10px', marginRight: 4 }}>
+                  {source.extensionName}
+                </span>
+                <button
+                  style={{
+                    background: 'linear-gradient(90deg, #ff7e5f 0%, #feb47b 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 12,
+                    fontWeight: 900,
+                    fontSize: 15,
+                    padding: '8px 18px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px #ff7e5f44',
+                    transition: 'transform 0.1s',
+                    fontFamily: 'inherit',
+                    marginLeft: 8,
+                  }}
+                  onClick={e => {
+                    e.stopPropagation();
+                    window.open(source.url || source.externalUrl, '_blank');
+                  }}
+                >
                   Watch
-                </span>
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
+                </button>
+              </div>
+              {source.description && (
+                <div style={{ color: '#bcbcbc', fontSize: 14, marginTop: 2, fontWeight: 400, opacity: 0.9, textShadow: '0 2px 8px #0007' }}>
+                  {source.description}
+                </div>
+              )}
+              {source.quality && (
+                <div style={{ color: '#ffe082', fontSize: 13, fontWeight: 700, marginTop: 2, letterSpacing: 0.5 }}>
+                  Quality: {source.quality}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: none; }
+        }
+      `}</style>
     </div>
   );
 }
