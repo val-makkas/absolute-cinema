@@ -36,10 +36,18 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
               streams = data.results;
             }
             allSources.push(
-              ...streams.map((source) => ({
-                ...source,
-                extensionName: manifest.name || baseUrl,
-              }))
+              ...streams.map((source) => {
+                const [displayName, ...rest] = source.name.split('\n');
+                const [displayTitle, ...restTitle] = source.title.split('\n');
+                return {
+                  ...source,
+                  extensionName: manifest.name || baseUrl,
+                  displayName,
+                  displayTitle,
+                  restTitle: restTitle.join('\n'),
+                  subName: rest.join('\n'),
+                };
+              })
             );
           } catch (err) {
             // Ignore individual extension errors
@@ -152,39 +160,25 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
               }}
               tabIndex={0}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 2 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {source.title || source.name || 'Untitled Source'}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {source.displayTitle || 'Untitled Source'}
                 </span>
+                {source.subName && (
+                  <span style={{ fontSize: 12, color: '#bcbcbc', whiteSpace: 'normal', overflowWrap: 'break-word' }}>
+                    {source.subName}
+                  </span>
+                )}
                 {source.extensionName && (
-                  <span style={{ fontWeight: 400, fontSize: 12, color: '#ffe082', opacity: 0.9, marginTop: 2, letterSpacing: 0.2 }}>{source.extensionName}</span>
+                  <span style={{ fontWeight: 400, fontSize: 12, color: '#ffe082', opacity: 0.9, marginTop: 2, letterSpacing: 0.2 }}>
+                    {source.extensionName}
+                  </span>
                 )}
               </div>
-              {/* Metadata row like in screenshot */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2, marginBottom: 2 }}>
-                {source.size && (
+                {source.restTitle && (
                   <span style={{ fontSize: 11, color: '#fff', background: '#23272f', borderRadius: 7, padding: '2px 8px', fontWeight: 600 }}>
-                    {source.size}
-                  </span>
-                )}
-                {source.quality && (
-                  <span style={{ fontSize: 11, color: '#ffe082', fontWeight: 700, background: '#23272f', borderRadius: 7, padding: '2px 8px' }}>
-                    {source.quality}
-                  </span>
-                )}
-                {source.language && (
-                  <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, background: '#23272f', borderRadius: 7, padding: '2px 8px' }}>
-                    {source.language}
-                  </span>
-                )}
-                {source.seeders && (
-                  <span style={{ fontSize: 11, color: '#7ee787', fontWeight: 700, background: '#23272f', borderRadius: 7, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <span role="img" aria-label="Seeders">🧑‍🌾</span> {source.seeders}
-                  </span>
-                )}
-                {source.tracker && (
-                  <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, background: '#23272f', borderRadius: 7, padding: '2px 8px' }}>
-                    {source.tracker}
+                    {source.restTitle}
                   </span>
                 )}
                 {/* Add more metadata as needed */}
@@ -200,7 +194,7 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
       )}
       <style>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(24px); }
+          from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: none; }
         }
       `}</style>
