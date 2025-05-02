@@ -5,6 +5,7 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('All');
 
   // Use stringified keys as dependency to avoid infinite loop
   const extensionManifestKeys = Object.keys(extensionManifests).sort().join(",");
@@ -56,9 +57,50 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
 
   if (!sidebarMode) return null;
 
-  // --- BEAUTIFUL UI STARTS HERE ---
+  // Get unique source types for filter dropdown
+  const sourceTypes = Array.from(new Set(sources.map(s => s.extensionName)));
+  const filteredSources = filter === 'All' ? sources : sources.filter(s => s.extensionName === filter);
+
   return (
-    <div style={{ width: '100%', padding: 0 }}>
+    <aside style={{
+      width: '100%',
+      padding: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 0,
+      fontFamily: 'inherit',
+      color: '#fff',
+    }}>
+      {/* Dropdown filter */}
+      <div style={{ width: '100%', marginBottom: 10 }}>
+        <select
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '8px 14px',
+            borderRadius: 12,
+            background: '#18181b',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 16,
+            border: '1.5px solid #31343b',
+            outline: 'none',
+            marginBottom: 8,
+            boxShadow: '0 2px 8px #0003',
+            appearance: 'none',
+            cursor: 'pointer',
+            letterSpacing: 0.5,
+          }}
+        >
+          <option value="All">All</option>
+          {sourceTypes.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
+      </div>
+      {/* Title */}
       <h2 style={{
         fontWeight: 900,
         fontSize: 23,
@@ -71,80 +113,85 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
         borderBottom: '2px solid #23272f',
         paddingBottom: 12,
         marginTop: 0,
+        width: '100%',
       }}>
         <span role="img" aria-label="Play">🎬</span> Streaming Sources
       </h2>
+      {/* Source List */}
       {loading ? (
         <div style={{ color: '#ffe082', fontSize: 18, textAlign: 'center', fontWeight: 600, marginTop: 40 }}>
           <span className="loader" style={{ marginRight: 10 }}>⏳</span> Loading streaming sources...
         </div>
       ) : error ? (
         <div style={{ color: '#ffb300', fontSize: 18, textAlign: 'center', fontWeight: 600, marginTop: 40 }}>{error}</div>
-      ) : sources.length === 0 ? (
+      ) : filteredSources.length === 0 ? (
         <div style={{ color: '#bcbcbc', fontSize: 17, textAlign: 'center', marginTop: 40 }}>No streaming sources available</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', marginTop: 8 }}>
-          {sources.map((source, index) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginTop: 8 }}>
+          {filteredSources.map((source, index) => (
             <div
               key={index}
               style={{
-                background: 'linear-gradient(90deg, #23272f 0%, #18181b 100%)',
-                borderRadius: 16,
+                background: 'linear-gradient(90deg, #222428 0%, #19191c 100%)',
+                borderRadius: 18, // all corners rounded
                 boxShadow: '0 2px 16px #000a',
-                padding: '20px 18px 18px 18px',
+                padding: '12px 14px 12px 14px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 8,
-                border: '1.5px solid #31343b',
+                gap: 6,
+                border: '1.5px solid #23272f',
                 transition: 'box-shadow 0.2s',
                 position: 'relative',
-                minHeight: 72,
+                minHeight: 38,
                 cursor: 'pointer',
                 outline: 'none',
                 fontFamily: 'inherit',
                 animation: 'fadeIn 0.5s',
+                marginBottom: 2,
+                color: '#fff',
               }}
               tabIndex={0}
-              onClick={() => window.open(source.url || source.externalUrl, '_blank')}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontWeight: 800, fontSize: 17, color: '#ffe082', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 2 }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {source.title || source.name || 'Untitled Source'}
                 </span>
-                <span style={{ fontSize: 13, color: '#6ee7b7', fontWeight: 700, background: '#23272f', borderRadius: 8, padding: '3px 10px', marginRight: 4 }}>
-                  {source.extensionName}
-                </span>
-                <button
-                  style={{
-                    background: 'linear-gradient(90deg, #ff7e5f 0%, #feb47b 100%)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 12,
-                    fontWeight: 900,
-                    fontSize: 15,
-                    padding: '8px 18px',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px #ff7e5f44',
-                    transition: 'transform 0.1s',
-                    fontFamily: 'inherit',
-                    marginLeft: 8,
-                  }}
-                  onClick={e => {
-                    e.stopPropagation();
-                    window.open(source.url || source.externalUrl, '_blank');
-                  }}
-                >
-                  Watch
-                </button>
+                {source.extensionName && (
+                  <span style={{ fontWeight: 400, fontSize: 12, color: '#ffe082', opacity: 0.9, marginTop: 2, letterSpacing: 0.2 }}>{source.extensionName}</span>
+                )}
+              </div>
+              {/* Metadata row like in screenshot */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2, marginBottom: 2 }}>
+                {source.size && (
+                  <span style={{ fontSize: 11, color: '#fff', background: '#23272f', borderRadius: 7, padding: '2px 8px', fontWeight: 600 }}>
+                    {source.size}
+                  </span>
+                )}
+                {source.quality && (
+                  <span style={{ fontSize: 11, color: '#ffe082', fontWeight: 700, background: '#23272f', borderRadius: 7, padding: '2px 8px' }}>
+                    {source.quality}
+                  </span>
+                )}
+                {source.language && (
+                  <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, background: '#23272f', borderRadius: 7, padding: '2px 8px' }}>
+                    {source.language}
+                  </span>
+                )}
+                {source.seeders && (
+                  <span style={{ fontSize: 11, color: '#7ee787', fontWeight: 700, background: '#23272f', borderRadius: 7, padding: '2px 8px', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <span role="img" aria-label="Seeders">🧑‍🌾</span> {source.seeders}
+                  </span>
+                )}
+                {source.tracker && (
+                  <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, background: '#23272f', borderRadius: 7, padding: '2px 8px' }}>
+                    {source.tracker}
+                  </span>
+                )}
+                {/* Add more metadata as needed */}
               </div>
               {source.description && (
-                <div style={{ color: '#bcbcbc', fontSize: 14, marginTop: 2, fontWeight: 400, opacity: 0.9, textShadow: '0 2px 8px #0007' }}>
+                <div style={{ color: '#bcbcbc', fontSize: 12, marginTop: 2, fontWeight: 400, opacity: 0.9, textShadow: '0 2px 8px #0007' }}>
                   {source.description}
-                </div>
-              )}
-              {source.quality && (
-                <div style={{ color: '#ffe082', fontSize: 13, fontWeight: 700, marginTop: 2, letterSpacing: 0.5 }}>
-                  Quality: {source.quality}
                 </div>
               )}
             </div>
@@ -157,7 +204,7 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
           to { opacity: 1; transform: none; }
         }
       `}</style>
-    </div>
+    </aside>
   );
 }
 

@@ -79,9 +79,9 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
           borderRadius: 24,
           boxShadow: '0 8px 32px #000c, 0 0 16px #0006',
           padding: '3.5rem 3rem',
-          minWidth: 1080, 
-          maxWidth: 1080,
-          width: 1080,
+          minWidth: 1180, // <-- INCREASED from 1080 to 1120
+          maxWidth: 1180,
+          width: 1120,
           minHeight: 600,
           color: WHITE,
           border: `2px solid ${BORDER_GREY}`,
@@ -124,7 +124,15 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
           }}
         />
         {/* Main content and sidebar */}
-        <div style={{ flex: '0 0 740px', maxWidth: 740, minWidth: 740, position: 'relative', zIndex: 2, overflow: 'visible' }}>
+        <div style={{
+          flex: '0 0 740px',
+          maxWidth: 740,
+          minWidth: 740,
+          position: 'relative',
+          zIndex: 2,
+          overflow: 'visible',
+          marginRight: 32
+        }}>
           {modalMode === 'details' && (
             <>
               {details?.avatar && (
@@ -148,7 +156,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 30, marginBottom: 8 }}>
                 <button
                   style={{
-                    width: '100%',
+                    width: '70%',
                     background: 'linear-gradient(90deg, #ff7e5f 0%, #feb47b 100%)',
                     color: '#fff',
                     border: 'none',
@@ -166,6 +174,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
                     justifyContent: 'center',
                     gap: 8,
                     zIndex: 2,
+                    margin: '0 auto'
                   }}
                   onClick={handleWatchAlone}
                 >
@@ -173,7 +182,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
                 </button>
                 <button
                   style={{
-                    width: '100%',
+                    width: '70%',
                     color: '#fff',
                     border: 'none',
                     borderRadius: 14,
@@ -190,6 +199,8 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
                     justifyContent: 'center',
                     gap: 8,
                     zIndex: 2,
+                    margin: '0 auto',
+                    background: 'linear-gradient(90deg, #a4508b 0%, #5f0a87 100%)'
                   }}
                   onClick={handleCreateParty}
                 >
@@ -207,7 +218,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
           height: '100%',
           position: 'relative',
           zIndex: 2,
-          background: 'rgba(255,255,255,0.13)', 
+          background: 'rgba(255,255,255,0.13)',
           borderRadius: '0 22px 22px 0',
           boxShadow: 'none',
           overflowY: 'auto',
