@@ -3,8 +3,8 @@ import { ELECTRON_CONFIG } from '../config/electron-config.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
-// ES Module compatible __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -15,13 +15,17 @@ function createWindow() {
     }
   });
 
-  // Load the Vite-bundled React app from dist
   win.loadFile(path.join(__dirname, '../../dist/index.html'));
 
-  // Open dev tools in development
   if (ELECTRON_CONFIG.ENV === 'development') {
     win.webContents.openDevTools();
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+});

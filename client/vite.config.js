@@ -9,6 +9,13 @@ export default defineConfig({
     outDir: '../dist',
     emptyOutDir: true,
     rollupOptions: {
+      external: [
+        'bittorrent-dht',
+        'torrent-discovery',
+        'bittorrent-tracker',
+        'parse-torrent',
+        'run-parallel',
+      ],
       input: {
         main: resolve(__dirname, 'src/index.html')
       }
@@ -18,7 +25,21 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      events: 'events',
+      path: 'path-browserify',
+      crypto: 'crypto-browserify',
+      stream: 'stream-browserify',
+      buffer: 'buffer',
     },
+  },
+  optimizeDeps: {
+    include: [
+      'events',
+      'path-browserify',
+      'crypto-browserify',
+      'stream-browserify',
+      'buffer',
+    ],
   },
   server: {
     port: 5173,

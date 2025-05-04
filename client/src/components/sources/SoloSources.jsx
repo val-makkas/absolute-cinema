@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
+function SoloSources({ extensionManifests = {}, details, sidebarMode, onSourceSelect, selectedSource }) {
   const imdbID = details?.imdb_id || details?.id;
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,60 +136,66 @@ function SoloSources({ extensionManifests = {}, details, sidebarMode }) {
         <div style={{ color: '#bcbcbc', fontSize: 17, textAlign: 'center', marginTop: 40 }}>No streaming sources available</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginTop: 8 }}>
-          {filteredSources.map((source, index) => (
-            <div
-              key={index}
-              style={{
-                background: 'linear-gradient(90deg, #222428 0%, #19191c 100%)',
-                borderRadius: 18, // all corners rounded
-                boxShadow: '0 2px 16px #000a',
-                padding: '12px 14px 12px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                border: '1.5px solid #23272f',
-                transition: 'box-shadow 0.2s',
-                position: 'relative',
-                minHeight: 38,
-                cursor: 'pointer',
-                outline: 'none',
-                fontFamily: 'inherit',
-                animation: 'fadeIn 0.5s',
-                marginBottom: 2,
-                color: '#fff',
-              }}
-              tabIndex={0}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 4 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {source.displayTitle || 'Untitled Source'}
-                </span>
-                {source.subName && (
-                  <span style={{ fontSize: 12, color: '#bcbcbc', whiteSpace: 'normal', overflowWrap: 'break-word' }}>
-                    {source.subName}
+          {filteredSources.map((source, index) => {
+            // Use a unique key for each source for selection
+            const sourceKey = source.id || source.url || `${source.extensionName || ''}-${source.displayTitle || ''}-${index}`;
+            const selectedKey = selectedSource && (selectedSource.id || selectedSource.url || `${selectedSource.extensionName || ''}-${selectedSource.displayTitle || ''}-${filteredSources.indexOf(selectedSource)}`);
+            return (
+              <div
+                key={sourceKey}
+                style={{
+                  background: 'linear-gradient(90deg, #222428 0%, #19191c 100%)',
+                  borderRadius: 18,
+                  boxShadow: selectedKey === sourceKey ? '0 2px 24px #ffe08288' : '0 2px 16px #000a',
+                  padding: '12px 14px 12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  border: selectedKey === sourceKey ? '2.5px solid #ffe082' : '1.5px solid #23272f',
+                  transition: 'box-shadow 0.2s',
+                  position: 'relative',
+                  minHeight: 38,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  animation: 'fadeIn 0.5s',
+                  marginBottom: 2,
+                  color: '#fff',
+                }}
+                tabIndex={0}
+                onClick={() => onSourceSelect && onSourceSelect(source)}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {source.displayTitle || 'Untitled Source'}
                   </span>
-                )}
-                {source.extensionName && (
-                  <span style={{ fontWeight: 400, fontSize: 12, color: '#ffe082', opacity: 0.9, marginTop: 2, letterSpacing: 0.2 }}>
-                    {source.extensionName}
-                  </span>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2, marginBottom: 2 }}>
-                {source.restTitle && (
-                  <span style={{ fontSize: 11, color: '#fff', background: '#23272f', borderRadius: 7, padding: '2px 8px', fontWeight: 600 }}>
-                    {source.restTitle}
-                  </span>
-                )}
-                {/* Add more metadata as needed */}
-              </div>
-              {source.description && (
-                <div style={{ color: '#bcbcbc', fontSize: 12, marginTop: 2, fontWeight: 400, opacity: 0.9, textShadow: '0 2px 8px #0007' }}>
-                  {source.description}
+                  {source.subName && (
+                    <span style={{ fontSize: 12, color: '#bcbcbc', whiteSpace: 'normal', overflowWrap: 'break-word' }}>
+                      {source.subName}
+                    </span>
+                  )}
+                  {source.extensionName && (
+                    <span style={{ fontWeight: 400, fontSize: 12, color: '#ffe082', opacity: 0.9, marginTop: 2, letterSpacing: 0.2 }}>
+                      {source.extensionName}
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 2, marginBottom: 2 }}>
+                  {source.restTitle && (
+                    <span style={{ fontSize: 11, color: '#fff', background: '#23272f', borderRadius: 7, padding: '2px 8px', fontWeight: 600 }}>
+                      {source.restTitle}
+                    </span>
+                  )}
+                  {/* Add more metadata as needed */}
+                </div>
+                {source.description && (
+                  <div style={{ color: '#bcbcbc', fontSize: 12, marginTop: 2, fontWeight: 400, opacity: 0.9, textShadow: '0 2px 8px #0007' }}>
+                    {source.description}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       <style>{`
