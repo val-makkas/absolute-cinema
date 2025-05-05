@@ -1,80 +1,110 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import WebTorrent from 'webtorrent';
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router";
+import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
 
 export default function VideoPlayer() {
-  const location = useLocation();
-  const navigate = useNavigate();
   const videoRef = useRef(null);
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [title, setTitle] = useState('');
+  const [ready, setReady] = useState(false);
+  const [canStream, setCanStream] = useState(false);
 
-  // Source must include infoHash and fileIdx
+
   const source = location.state?.source;
-  if (!source) {
-    useEffect(() => { navigate('/'); }, [navigate]);
-    return null;
-  }
+  const infohash = source?.infoHash;
+  const fileidx = source?.fileIdx ?? 0;
 
   useEffect(() => {
-    const { infoHash, fileIdx } = source;
-    if (!infoHash) {
-      setError('No infoHash provided');
-      setLoading(false);
-      return;
+    if (infohash) {
+      fetch('http://localhost:5050/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ infoHash: infohash })
+      })
     }
-    if (fileIdx == null) {
-      setError('No file index provided');
-      setLoading(false);
-      return;
-    }
+  }, [infohash])
 
-    const client = new WebTorrent();
-    const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
+  useEffect(() => {
+    if (!infohash) return;
+    let interval;
+    let stopped = false;
 
-    client.add(magnetURI, (torrent) => {
-      // Sequential download for streaming
-      torrent.files.forEach((f) => f.select());
-
-      // Strictly use source.fileIdx
-      const idx = parseInt(fileIdx, 10);
-      if (idx < 0 || idx >= torrent.files.length) {
-        setError('File index out of range');
-        setLoading(false);
-        return;
+    async function pollStatus() {
+      try {
+        const res = await fetch(`http://localhost:5050/status/${infohash}`);
+        if (res.ok) {
+          const status = await res.json();
+          // If there are files, allow streaming
+          if (status && status.PiecesComplete > 0) {
+            setCanStream(true);
+            return;
+          }
+        }
+      } catch (e) {
+        // ignore
       }
-      const file = torrent.files[idx];
-
-      setTitle(file.name);
-
-      // Render into the video element
-      file.renderTo(
-        videoRef.current,
-        { autoplay: true, controls: true },
-        () => setLoading(false)
-      );
-
-      torrent.on('error', (err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-    });
-
+      if (!stopped) {
+        interval = setTimeout(pollStatus, 1000);
+      }
+    }
+    pollStatus();
     return () => {
-      client.destroy();
+      stopped = true;
+      if (interval) clearTimeout(interval);
     };
-  }, [source, navigate]);
+  }, [infohash]);
 
-  if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
-  if (loading) return <div className="p-4">Loading {title || 'video'}...</div>;
+
+  // Build the stream URL
+  const streamUrl = `http://localhost:5050/stream/${infohash}/${fileidx}`;
+
+  const handleCanPlay = () => setLoading(false);
+  const handleWaiting = () => setLoading(true);
+
+  if (!infohash) return <div>No source selected.</div>;
 
   return (
-    <div className="flex flex-col items-center justify-center p-4">
-      <h2 className="mb-4 text-lg font-semibold">Now Playing: {title}</h2>
+    <div style={{
+      position: "relative",
+      width: "100%",
+      maxWidth: 900,
+      margin: "0 auto",
+      background: "#18181b",
+      borderRadius: 18,
+      boxShadow: "0 8px 32px #000c, 0 0 16px #0006",
+      overflow: "hidden",
+    }}>
+      {loading && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(24,24,27,0.85)",
+        }}>
+          <LoadingSpinner size={48} color="#ffe082" />
+        </div>
+      )}
       <video
         ref={videoRef}
-        className="w-full max-w-3xl rounded-lg shadow-lg"
+        src={streamUrl}
+        controls
+        autoPlay
+        style={{
+          width: "100%",
+          height: "auto",
+          background: "#000",
+          borderRadius: 18,
+          zIndex: 1,
+        }}
+        onCanPlay={handleCanPlay}
+        onWaiting={handleWaiting}
+        poster={source?.poster}
+        title={source.title || "Video Player"}
       />
     </div>
   );

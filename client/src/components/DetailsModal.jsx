@@ -11,11 +11,11 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
     if (open) setModalMode('details');
   }, [open]);
 
-  const handleWatchAlone = () => {
+  const handleWatchAlone = async () => {
     if (!selectedSource) {
       return alert('Please select a streaming source.');
     }
-    const infohash = selectedSource?.infohash;
+    const infohash = selectedSource?.infoHash;
     if (!infohash) {
       return alert('No valid identifier for streaming.');
     }

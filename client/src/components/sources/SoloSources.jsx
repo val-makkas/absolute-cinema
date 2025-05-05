@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function SoloSources({ extensionManifests = {}, details, sidebarMode, onSourceSelect, selectedSource }) {
   const imdbID = details?.imdb_id || details?.id;

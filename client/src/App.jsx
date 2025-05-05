@@ -13,7 +13,6 @@ import SearchModal from './components/app/SearchModal';
 import AuthScreen from './components/app/AuthScreen';
 import VideoPlayer from './components/VideoPlayer';
 
-// BLACK & WHITE MODERN THEME
 const BG_GRADIENT = "linear-gradient(135deg, #181818 0%, #000 100%)";
 const CARD_BG = "rgba(32,32,32,0.95)";
 const OVERLAY_BG = "rgba(18,18,18,0.98)";
