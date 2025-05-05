@@ -1,80 +1,134 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import WebTorrent from 'webtorrent';
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
 
 export default function VideoPlayer() {
-  const location = useLocation();
-  const navigate = useNavigate();
   const videoRef = useRef(null);
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [title, setTitle] = useState('');
+  const [canStream, setCanStream] = useState(false);
+  const [progress, setProgress] = useState(null);
 
-  // Source must include infoHash and fileIdx
   const source = location.state?.source;
-  if (!source) {
-    useEffect(() => { navigate('/'); }, [navigate]);
-    return null;
+  //  const infoHash = source?.infoHash;
+  // const fileIdx = source?.fileIdx ?? 0;
+
+  const infoHash = '08ada5a7a6183aae1e09d831df6748d566095a10';
+  const fileIdx = 0;
+
+  // Add the torrent on mount
+  useEffect(() => {
+    if (infoHash) {
+      fetch('http://localhost:5050/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ infoHash })
+      });
+    }
+  }, [infoHash]);
+
+  // Poll for file availability and progress
+  useEffect(() => {
+    if (!infoHash) return;
+    let stopped = false;
+    let interval;
+    async function poll() {
+      try {
+        const res = await fetch(`http://localhost:5050/progress/${infoHash}/${fileIdx}`);
+        if (res.ok) {
+          const prog = await res.json();
+          setProgress(prog);
+          // Wait for at least 2MB buffered or 1% downloaded
+          if (prog.completed > 30 * 1024 * 1024 || prog.percent > 3) {
+            setCanStream(true);
+            return;
+          }
+        }
+      } catch (e) { }
+      if (!stopped) {
+        interval = setTimeout(poll, 1000);
+      }
+    }
+    poll();
+    return () => {
+      stopped = true;
+      if (interval) clearTimeout(interval);
+    };
+  }, [infoHash, fileIdx]);
+
+  const streamUrl = canStream ? `http://localhost:5050/stream/${infoHash}/${fileIdx}` : null;
+
+  const handleCanPlay = () => setLoading(false);
+  const handleWaiting = () => setLoading(true);
+
+  if (!infoHash) return <div>No source selected.</div>;
+  if (!canStream) {
+    return (
+      <div style={{
+        width: "100%",
+        maxWidth: 900,
+        margin: "0 auto",
+        background: "#18181b",
+        borderRadius: 18,
+        boxShadow: "0 8px 32px #000c, 0 0 16px #0006",
+        padding: 48,
+        color: "#ffe082",
+        textAlign: "center"
+      }}>
+        <LoadingSpinner size={48} color="#ffe082" />
+        <div style={{ marginTop: 24 }}>
+          Preparing stream, please wait...<br />
+          {progress && (
+            <span>
+              Downloaded: {((progress.completed / 1024 / 1024) || 0).toFixed(2)} MB / {((progress.length / 1024 / 1024) || 0).toFixed(2)} MB
+              ({(progress.percent || 0).toFixed(2)}%)
+            </span>
+          )}
+        </div>
+      </div>
+    );
   }
 
-  useEffect(() => {
-    const { infoHash, fileIdx } = source;
-    if (!infoHash) {
-      setError('No infoHash provided');
-      setLoading(false);
-      return;
-    }
-    if (fileIdx == null) {
-      setError('No file index provided');
-      setLoading(false);
-      return;
-    }
-
-    const client = new WebTorrent();
-    const magnetURI = `magnet:?xt=urn:btih:${infoHash}`;
-
-    client.add(magnetURI, (torrent) => {
-      // Sequential download for streaming
-      torrent.files.forEach((f) => f.select());
-
-      // Strictly use source.fileIdx
-      const idx = parseInt(fileIdx, 10);
-      if (idx < 0 || idx >= torrent.files.length) {
-        setError('File index out of range');
-        setLoading(false);
-        return;
-      }
-      const file = torrent.files[idx];
-
-      setTitle(file.name);
-
-      // Render into the video element
-      file.renderTo(
-        videoRef.current,
-        { autoplay: true, controls: true },
-        () => setLoading(false)
-      );
-
-      torrent.on('error', (err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-    });
-
-    return () => {
-      client.destroy();
-    };
-  }, [source, navigate]);
-
-  if (error) return <div className="text-red-500 p-4">Error: {error}</div>;
-  if (loading) return <div className="p-4">Loading {title || 'video'}...</div>;
-
   return (
-    <div className="flex flex-col items-center justify-center p-4">
-      <h2 className="mb-4 text-lg font-semibold">Now Playing: {title}</h2>
+    <div style={{
+      position: "relative",
+      width: "100%",
+      maxWidth: 900,
+      margin: "0 auto",
+      background: "#18181b",
+      borderRadius: 18,
+      boxShadow: "0 8px 32px #000c, 0 0 16px #0006",
+      overflow: "hidden",
+    }}>
+      {loading && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(24,24,27,0.85)",
+        }}>
+          <LoadingSpinner size={48} color="#ffe082" />
+        </div>
+      )}
       <video
         ref={videoRef}
-        className="w-full max-w-3xl rounded-lg shadow-lg"
+        src={streamUrl}
+        controls
+        autoPlay
+        style={{
+          width: "100%",
+          height: "auto",
+          background: "#000",
+          borderRadius: 18,
+          zIndex: 1,
+        }}
+        onCanPlay={handleCanPlay}
+        onWaiting={handleWaiting}
+        poster={source?.poster}
+        title={source?.title || "Streaming Video"}
       />
     </div>
   );

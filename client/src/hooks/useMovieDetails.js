@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 const API_BASE = 'http://localhost:8080/api/metadata';
 

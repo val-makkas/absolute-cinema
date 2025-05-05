@@ -11,12 +11,12 @@ export function useUser() {
 
     useEffect(() => {
         if (token) {
-            fetch (`${API_BASE}/extensions`, {
+            fetch(`${API_BASE}/extensions`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
-            .then(res => res.json())
-            .then(data => setExtensions(data.extensions || []))
-            .catch(() => setExtensions([]));
+                .then(res => res.json())
+                .then(data => setExtensions(data.extensions || []))
+                .catch(() => setExtensions([]));
         } else {
             setExtensions([]);
         }
@@ -67,7 +67,7 @@ export function useUser() {
         setExtensions([]);
         localStorage.removeItem('jwt');
         localStorage.removeItem('username');
-      }, []);
+    }, []);
 
     const updateExtensions = useCallback(async (newExtensions) => {
         if (!token) return false;
