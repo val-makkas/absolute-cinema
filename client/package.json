@@ -1,7 +1,8 @@
 {
-  "name": "stremio-watchparty",
+  "name": "absolute-cinema",
   "version": "1.0.0",
-  "description": "A Stremio-style watch party app",
+  "type": "module",
+  "description": "Absolute Cinema - Watch movies and TV shows with friends",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron-forge start",
@@ -25,6 +26,8 @@
     "rx-player": "^4.3.0",
     "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
+    "video.js": "^8.22.0",
+    "webtorrent": "^2.6.3",
     "ws": "^8.18.1"
   },
   "devDependencies": {
@@ -38,15 +41,20 @@
     "@electron/fuses": "^1.8.0",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.21",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
     "electron": "^35.2.0",
+    "events": "^3.3.0",
     "jest": "^29.3.1",
+    "path-browserify": "^1.0.1",
     "postcss": "^8.5.3",
+    "stream-browserify": "^3.0.0",
     "tailwindcss": "^3.4.3",
     "vite": "^6.3.3"
   },
   "build": {
-    "appId": "com.stremio.watchparty",
-    "productName": "Stremio Watchparty",
+    "appId": "com.absolute.cinema",
+    "productName": "Absolute Cinema",
     "files": [
       "src/**/*",
       "node_modules/**/*",

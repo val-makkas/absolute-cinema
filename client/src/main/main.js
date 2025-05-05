@@ -1,10 +1,17 @@
 import { app, BrowserWindow } from 'electron';
 import { ELECTRON_CONFIG } from '../config/electron-config.js';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 import path from 'path';
 
-// ES Module compatible __dirname
+let pyProc = null;
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function startFetchTorrents() {
+  const fetchTorrents = path.join(__dirname, '../../service/fetch_torrents.py')
+  pyProc = spawn('python', [fetchTorrents], { stdio: 'inherit' })
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -15,13 +22,20 @@ function createWindow() {
     }
   });
 
-  // Load the Vite-bundled React app from dist
   win.loadFile(path.join(__dirname, '../../dist/index.html'));
 
-  // Open dev tools in development
   if (ELECTRON_CONFIG.ENV === 'development') {
     win.webContents.openDevTools();
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  startFetchTorrents();
+
+  createWindow();
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+    if (pyProc) pyProc.kill();
+  });
+});

@@ -2,20 +2,28 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SoloSources from './sources/SoloSources';
 
-const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClose, CARD_BG, OVERLAY_BG, BORDER_GREY, WHITE, LIGHT_GREY, FONT_HEADER }) => {
+const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClose, CARD_BG, OVERLAY_BG, BORDER_GREY, WHITE, LIGHT_GREY, FONT_HEADER, onWatchAlone }) => {
   const navigate = useNavigate();
   const [modalMode, setModalMode] = useState('details');
+  const [selectedSource, setSelectedSource] = useState(null);
 
   useEffect(() => {
     if (open) setModalMode('details');
   }, [open]);
 
   const handleWatchAlone = () => {
-    if (details?.id) {
-      navigate(`/watch-alone/${details.id}`, { state: { details } });
-    } else {
-      alert('No IMDb ID found for this title.');
+    if (!selectedSource) {
+      return alert('Please select a streaming source.');
     }
+    const infohash = selectedSource?.infohash;
+    if (!infohash) {
+      return alert('No valid identifier for streaming.');
+    }
+    navigate(`/stream`, {
+      state: {
+        source: selectedSource,
+      },
+    });
   };
 
   const handleCreateParty = () => {
@@ -79,7 +87,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
           borderRadius: 24,
           boxShadow: '0 8px 32px #000c, 0 0 16px #0006',
           padding: '3.5rem 3rem',
-          minWidth: 1180, // <-- INCREASED from 1080 to 1120
+          minWidth: 1180,
           maxWidth: 1180,
           width: 1120,
           minHeight: 600,
@@ -177,6 +185,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
                     margin: '0 auto'
                   }}
                   onClick={handleWatchAlone}
+                  disabled={!selectedSource}
                 >
                   <span role="img" aria-label="Play">▶️</span> Watch Alone
                 </button>
@@ -203,6 +212,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
                     background: 'linear-gradient(90deg, #a4508b 0%, #5f0a87 100%)'
                   }}
                   onClick={handleCreateParty}
+                  disabled={!selectedSource}
                 >
                   <span role="img" aria-label="Party">🎉</span> Create Party
                 </button>
@@ -230,7 +240,13 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
           backdropFilter: 'blur(8px)',
           marginRight: 0,
         }}>
-          <SoloSources extensionManifests={extensionManifests} details={details} sidebarMode={true} />
+          <SoloSources
+            extensionManifests={extensionManifests}
+            details={details}
+            selectedSource={selectedSource}
+            onSourceSelect={setSelectedSource}
+            sidebarMode={true}
+          />
         </div>
         {/* End sidebar */}
       </div>
