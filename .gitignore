@@ -7,3 +7,4 @@
 *.key
 *.cert
 docker-compose.yml
+/client/service/downloads

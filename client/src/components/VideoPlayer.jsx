@@ -1,69 +1,93 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation } from "react-router-dom";
 import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
 
 export default function VideoPlayer() {
   const videoRef = useRef(null);
   const location = useLocation();
   const [loading, setLoading] = useState(true);
-  const [ready, setReady] = useState(false);
   const [canStream, setCanStream] = useState(false);
-
+  const [progress, setProgress] = useState(null);
 
   const source = location.state?.source;
-  const infohash = source?.infoHash;
-  const fileidx = source?.fileIdx ?? 0;
+  //  const infoHash = source?.infoHash;
+  // const fileIdx = source?.fileIdx ?? 0;
 
+  const infoHash = '08ada5a7a6183aae1e09d831df6748d566095a10';
+  const fileIdx = 0;
+
+  // Add the torrent on mount
   useEffect(() => {
-    if (infohash) {
+    if (infoHash) {
       fetch('http://localhost:5050/add', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ infoHash: infohash })
-      })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ infoHash })
+      });
     }
-  }, [infohash])
+  }, [infoHash]);
 
+  // Poll for file availability and progress
   useEffect(() => {
-    if (!infohash) return;
-    let interval;
+    if (!infoHash) return;
     let stopped = false;
-
-    async function pollStatus() {
+    let interval;
+    async function poll() {
       try {
-        const res = await fetch(`http://localhost:5050/status/${infohash}`);
+        const res = await fetch(`http://localhost:5050/progress/${infoHash}/${fileIdx}`);
         if (res.ok) {
-          const status = await res.json();
-          // If there are files, allow streaming
-          if (status && status.PiecesComplete > 0) {
+          const prog = await res.json();
+          setProgress(prog);
+          // Wait for at least 2MB buffered or 1% downloaded
+          if (prog.completed > 30 * 1024 * 1024 || prog.percent > 3) {
             setCanStream(true);
             return;
           }
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) { }
       if (!stopped) {
-        interval = setTimeout(pollStatus, 1000);
+        interval = setTimeout(poll, 1000);
       }
     }
-    pollStatus();
+    poll();
     return () => {
       stopped = true;
       if (interval) clearTimeout(interval);
     };
-  }, [infohash]);
+  }, [infoHash, fileIdx]);
 
-
-  // Build the stream URL
-  const streamUrl = `http://localhost:5050/stream/${infohash}/${fileidx}`;
+  const streamUrl = canStream ? `http://localhost:5050/stream/${infoHash}/${fileIdx}` : null;
 
   const handleCanPlay = () => setLoading(false);
   const handleWaiting = () => setLoading(true);
 
-  if (!infohash) return <div>No source selected.</div>;
+  if (!infoHash) return <div>No source selected.</div>;
+  if (!canStream) {
+    return (
+      <div style={{
+        width: "100%",
+        maxWidth: 900,
+        margin: "0 auto",
+        background: "#18181b",
+        borderRadius: 18,
+        boxShadow: "0 8px 32px #000c, 0 0 16px #0006",
+        padding: 48,
+        color: "#ffe082",
+        textAlign: "center"
+      }}>
+        <LoadingSpinner size={48} color="#ffe082" />
+        <div style={{ marginTop: 24 }}>
+          Preparing stream, please wait...<br />
+          {progress && (
+            <span>
+              Downloaded: {((progress.completed / 1024 / 1024) || 0).toFixed(2)} MB / {((progress.length / 1024 / 1024) || 0).toFixed(2)} MB
+              ({(progress.percent || 0).toFixed(2)}%)
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -104,7 +128,7 @@ export default function VideoPlayer() {
         onCanPlay={handleCanPlay}
         onWaiting={handleWaiting}
         poster={source?.poster}
-        title={source.title || "Video Player"}
+        title={source?.title || "Streaming Video"}
       />
     </div>
   );
