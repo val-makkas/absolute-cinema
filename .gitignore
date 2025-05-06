@@ -8,3 +8,4 @@
 *.cert
 docker-compose.yml
 /client/service/downloads
+/client/service/absolute-cinema-torrentstream

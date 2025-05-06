@@ -23,7 +23,7 @@ function createWindow() {
     win.webContents.openDevTools();
   }
 
-  const servicePath = path.join(__dirname, "../../service/fetch_torrents");
+  const servicePath = path.join(__dirname, "../../service/torrentstream");
   torrentService = spawn(servicePath, [], {
     cwd: path.dirname(servicePath),
     stdio: 'inherit',
