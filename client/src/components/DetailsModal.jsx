@@ -22,6 +22,7 @@ const DetailsModal = ({ open, details, extensionManifests, detailsLoading, onClo
     navigate(`/stream`, {
       state: {
         source: selectedSource,
+        details: details,
       },
     });
   };

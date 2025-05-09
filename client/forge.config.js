@@ -10,10 +10,10 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        name: 'stremio-watchparty',
+        name: 'absolute-cinema',
         authors: 'val-makkas',
-        description: 'Watch party app for Stremio',
-        setupExe: 'StremioWatchPartySetup.exe',
+        description: 'Absolute Cinema',
+        setupExe: 'absolute-cinema.exe',
       },
     },
     {
