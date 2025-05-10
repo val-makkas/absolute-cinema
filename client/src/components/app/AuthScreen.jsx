@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useState, useEffect } from "react";
 import loginBg from "../../../public/login.png";
 import logo from "../../../public/logo.png";
 
@@ -201,6 +202,48 @@ export default function AuthScreen({ onLogin, onRegister, error: externalError, 
             <span style={{ color: '#bcbcbc', fontSize: 14, cursor: 'pointer', textDecoration: 'underline', marginLeft: 8 }} onClick={() => alert('Password reset is not implemented yet.')}>Forgot password?</span>
           </div>
         </form>
+        {/* Google OAuth Button */}
+        <button
+          type="button"
+          onClick={() => {
+            const url = "http://localhost:8080/api/users/google/login";
+            if (window.electronAPI && window.electronAPI.openUrlInChrome) {
+              window.electronAPI.openUrlInChrome(url);
+            } else {
+              window.open(url, "_blank", "noopener");
+            }
+          }}
+          style={{
+            width: '100%',
+            background: '#fff',
+            color: '#18181b',
+            border: 'none',
+            borderRadius: 10,
+            fontWeight: 700,
+            fontSize: 16,
+            padding: '12px 0',
+            boxShadow: '0 2px 12px #23272f22',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            cursor: 'pointer',
+            marginTop: 10,
+            marginBottom: 8,
+            transition: 'background 0.2s',
+            textDecoration: 'none',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 48 48" style={{ marginRight: 8 }}>
+            <g>
+              <path fill="#4285F4" d="M44.5 20H24v8.5h11.7C34.7 33.1 29.8 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c2.7 0 5.2.9 7.2 2.4l6.4-6.4C33.5 5.1 28.1 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.5 20-21 0-1.3-.1-2.7-.5-4z" />
+              <path fill="#34A853" d="M6.3 14.7l7 5.1C15.1 17.1 19.2 14 24 14c2.7 0 5.2.9 7.2 2.4l6.4-6.4C33.5 5.1 28.1 3 24 3c-7.2 0-13.4 3.1-17.7 8.1z" />
+              <path fill="#FBBC05" d="M24 44c5.7 0 10.6-1.9 14.5-5.1l-6.7-5.5C29.8 36 24 36 24 36c-5.8 0-10.7-2.9-13.7-7.2l-7 5.4C7.1 41.1 14.9 44 24 44z" />
+              <path fill="#EA4335" d="M44.5 20H24v8.5h11.7c-2 4.1-6.2 7.5-11.7 7.5-6.6 0-12-5.4-12-12s5.4-12 12-12c2.7 0 5.2.9 7.2 2.4l6.4-6.4C33.5 5.1 28.1 3 24 3c-7.2 0-13.4 3.1-17.7 8.1z" />
+            </g>
+          </svg>
+          Continue with Google
+        </button>
       </div>
     </div>
   );

@@ -18,6 +18,17 @@ import (
 
 var jwtKey = []byte(os.Getenv("JWT_SECRET"))
 
+func GenerateJWT(user User) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id":  user.ID.Hex(),
+		"username": user.Username,
+		"email":    user.Email,
+		"exp":      time.Now().Add(24 * time.Hour).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtKey)
+}
+
 func Register(c *gin.Context) {
 	var req struct {
 		Username string `json:"username"`
@@ -74,11 +85,7 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
 		return
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": user.Username,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
-	})
-	tokenString, _ := token.SignedString(jwtKey)
+	tokenString, _ := GenerateJWT(user)
 	c.JSON(http.StatusOK, gin.H{"token": tokenString, "username": user.Username, "extensions": user.Extensions})
 }
 

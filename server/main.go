@@ -24,6 +24,8 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	r.GET("/api/users/google/login", users.GoogleLogin)
+	r.GET("/api/users/google/callback", users.GoogleCallback)
 	r.POST("/api/users/register", users.Register)
 	r.POST("/api/users/login", users.Login)
 

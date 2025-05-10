@@ -105,17 +105,21 @@ export default function VideoPlayer() {
 
   const handleCanPlay = () => {
     setShowBuffering(false);
-
     if (bufferingTimeoutRef.current) {
       clearTimeout(bufferingTimeoutRef.current);
       bufferingTimeoutRef.current = null;
     }
-
+    // Autoplay if paused after canplay
     if (videoRef.current && videoRef.current.paused) {
       videoRef.current.play().catch(e => {
-        console.log("Autoplay blocked:", e);
+        console.log("Autoplay attempt after canPlay was blocked or failed:", e);
       });
     }
+  };
+
+  const handlePlaying = () => {
+    setIsLoading(false); // Hide full screen loader
+    setShowBuffering(false); // Hide buffering spinner
   };
 
   const handleWaiting = () => {
@@ -124,8 +128,8 @@ export default function VideoPlayer() {
     }
 
     bufferingTimeoutRef.current = setTimeout(() => {
-      setIsLoading(true);
-      setShowBuffering(true);
+      // setIsLoading(true); // This line is removed to prevent full loader on subsequent buffers
+      // setShowBuffering(true);
     }, 500);
   };
 
@@ -188,7 +192,11 @@ export default function VideoPlayer() {
   
   // NEW Modern Loading Screen JSX
   const modernLoadingScreenJsx = (
-    <div style={{...styles.modernLoadingScreen, ...(moviePoster ? {} : styles.modernLoadingScreenFallbackBackground)}}>
+    <div style={{...styles.modernLoadingScreen, ...(moviePoster ? {} : styles.modernLoadingScreenFallbackBackground)}}
+      role="dialog"
+      aria-modal="true"
+      aria-describedby="video-player-desc"
+    >
       {moviePoster && (
         <div style={styles.modernPosterBackground}>
           <img src={moviePoster} alt="Movie Poster Background" style={styles.modernPosterImage} />
@@ -202,7 +210,6 @@ export default function VideoPlayer() {
             50% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 15px rgba(255, 224, 130, 0); }
             100% { transform: scale(0.90); opacity: 0.7; box-shadow: 0 0 0 0 rgba(255, 224, 130, 0); }
           }
-          /* Removed subtleGradient as background is now poster or solid */
         `}
       </style>
       <div style={styles.modernLoadingContent}> {/* Added a content wrapper for z-indexing */} 
@@ -216,10 +223,7 @@ export default function VideoPlayer() {
             <h2 style={styles.modernMovieTitleFallback}>{movieTitle || "Loading Video..."}</h2>
           </>
         )}
-        
-        {/* Year displayed below avatar or text title */} 
         {movieYear && <p style={styles.modernYearDisplay}>({movieYear})</p>}
-
         <div style={styles.modernProgressDetails}>
           <p style={styles.modernLoadingText}>
             {progressInfo?.status && !(progressInfo?.ready || percent > 0) 
@@ -232,10 +236,12 @@ export default function VideoPlayer() {
             </p>
           )}
         </div>
-
         <div style={styles.modernProgressBarOuter}>
           <div style={{ ...styles.modernProgressBarInner, width: `${percent}%` }}></div>
         </div>
+        <p id="video-player-desc" style={{ display: 'none' }}>
+          Video player dialog for streaming movies. Shows loading progress and video controls.
+        </p>
       </div>
     </div>
   );
@@ -258,10 +264,7 @@ export default function VideoPlayer() {
         }}
         src={streamUrl}
         onCanPlay={handleCanPlay}
-        onPlaying={() => {
-          setIsLoading(false);
-          setShowBuffering(false);
-        }}
+        onPlaying={handlePlaying} // Changed to handlePlaying
         onWaiting={handleWaiting}
         onError={handleError}
         onSeeking={handleSeek}
@@ -270,6 +273,14 @@ export default function VideoPlayer() {
         Your browser does not support the video tag.
       </video>
 
+      {/* Buffering spinner for when video is playing but temporarily waiting */}
+      {!isLoading && showBuffering && (
+        <div style={styles.bufferingOverlay}>
+          <LoadingSpinner size={60} color="#FFFFFF" />
+        </div>
+      )}
+
+      {/* Initial full-screen loading experience */}
       {isLoading && modernLoadingScreenJsx}
     </div>
   );
@@ -427,7 +438,19 @@ const styles = {
     maxWidth: "100%",
     maxHeight: "100%",
     outline: "none",
-    boxShadow: "0 0 20px rgba(0,0,0,0.5)", // Added a subtle shadow to the video player
+    boxShadow: "0 0 20px rgba(0,0,0,0.5)",
+  },
+  bufferingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)', // Slight dark overlay
+    zIndex: 2003, // Ensure it's above the video
   },
   // Removed old styles: fullscreenLoading, posterBackground, posterImage, posterOverlay, 
   // loadingContent, avatarContainer, avatarWrapper, /* avatarImage (removed) */, progressCircle, 
