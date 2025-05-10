@@ -1,4 +1,19 @@
-# Ignore everything in service except ffmpeg_bin/ and torrentstream.exe
-/service/*
-!/service/ffmpeg_bin/
-!/service/torrentstream.exe
+# Ignore everything in service/
+service/*
+
+# Do not ignore the absolute-cinema-torrentstream source code
+!service/absolute-cinema-torrentstream/
+!service/absolute-cinema-torrentstream/**
+
+# Do not ignore the Windows binary for torrentstream
+!service/torrentstream.exe
+
+# Ignore all files in ffmpeg_bin/
+service/ffmpeg_bin/*
+
+# But do not ignore the folder itself (so it exists in the repo)
+!service/ffmpeg_bin/
+
+# (Optional) Ignore all .exe files except torrentstream.exe
+service/*.exe
+!service/torrentstream.exe
