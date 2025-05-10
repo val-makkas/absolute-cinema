@@ -1,19 +1,21 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
+import Hls from "hls.js";
 
 const API_BASE_URL = "http://localhost:5050";
 
 export default function VideoPlayer() {
-  const videoRef = useRef(null);
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [progressInfo, setProgressInfo] = useState(null);
   const [error, setError] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [showBuffering, setShowBuffering] = useState(false);
+  const [useHls, setUseHls] = useState(false);
+  const videoRef = useRef(null);
   const bufferingTimeoutRef = useRef(null);
-  const [currentSeekTime, setCurrentSeekTime] = useState(0);
+  const streamUrlSetRef = useRef(false); // Prevents multiple streamUrl sets
 
   const source = location.state?.source;
   const infoHash = source?.infoHash;
@@ -32,6 +34,9 @@ export default function VideoPlayer() {
     }
 
     let isMounted = true;
+    streamUrlSetRef.current = false; // Reset when infoHash/fileIdx changes
+    setStreamUrl(null); // Reset streamUrl on new video
+    setUseHls(false);
 
     const addTorrent = async () => {
       try {
@@ -46,6 +51,23 @@ export default function VideoPlayer() {
           throw new Error(errData.error || `Failed to add torrent: ${response.statusText}`);
         }
 
+        // Wait for metadata (duration) before polling progress
+        let duration = null;
+        for (let i = 0; i < 45; i++) { // up to 30s
+          const metaRes = await fetch(`${API_BASE_URL}/progress/${infoHash}/${fileIdx}`);
+          if (metaRes.ok) {
+            const metaData = await metaRes.json();
+            if (metaData.duration && metaData.duration > 0) {
+              duration = metaData.duration;
+              break;
+            }
+          }
+          await new Promise(r => setTimeout(r, 1000));
+        }
+        if (!duration) {
+          setError('Failed to get video duration metadata.');
+          return;
+        }
         if (isMounted) {
           pollProgress();
         }
@@ -67,12 +89,15 @@ export default function VideoPlayer() {
           const data = await response.json();
           setProgressInfo(data);
 
-          if (data.ready || data.percent_by_bytes_estimated > 0) {
-            const percent = data.percent_by_bytes_estimated || 0;
-
-            if (!streamUrl) {
-              setStreamUrl(`${API_BASE_URL}/stream/${infoHash}/${fileIdx}`);
-            }
+          // Only start HLS when at least 2%
+          if (data.percent_by_bytes_estimated >= 3) {
+            const hlsUrl = `${API_BASE_URL}/hls/${infoHash}/${fileIdx}/playlist.m3u8`;
+            setTimeout(() => {
+              setStreamUrl(hlsUrl);
+              setUseHls(true);
+              streamUrlSetRef.current = true;
+            }, 4000); // Wait 4 seconds before setting streamUrl/useHls
+            return;
           }
         }
       } catch (e) {
@@ -95,7 +120,8 @@ export default function VideoPlayer() {
 
     return () => {
       isMounted = false;
-
+      streamUrlSetRef.current = false;
+      setStreamUrl(null);
       if (infoHash) {
         fetch(`${API_BASE_URL}/remove/${infoHash}`, { method: 'DELETE' })
           .catch(removeError => console.error("Error removing torrent on unmount:", removeError));
@@ -103,64 +129,71 @@ export default function VideoPlayer() {
     };
   }, [infoHash, fileIdx]);
 
-  const handleCanPlay = () => {
-    setShowBuffering(false);
-    if (bufferingTimeoutRef.current) {
-      clearTimeout(bufferingTimeoutRef.current);
-      bufferingTimeoutRef.current = null;
-    }
-    // Autoplay if paused after canplay
-    if (videoRef.current && videoRef.current.paused) {
-      videoRef.current.play().catch(e => {
-        console.log("Autoplay attempt after canPlay was blocked or failed:", e);
+  // Debug: Log Plyr mount/unmount
+  useEffect(() => {
+    if (!streamUrl) return;
+    console.log("[VideoPlayer] mounted with streamUrl:", streamUrl);
+    return () => {
+      console.log("[VideoPlayer] unmounted");
+    };
+  }, [streamUrl]);
+
+  // HLS.js setup
+  useEffect(() => {
+    if (!useHls || !streamUrl || !videoRef.current) return;
+    let hls;
+    let lastSeekTime = 0;
+    let seeking = false;
+
+    // Add cache-busting param to streamUrl
+    const hlsUrl = streamUrl.includes('?') ? `${streamUrl}&t=${Date.now()}` : `${streamUrl}?t=${Date.now()}`;
+
+    if (Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: false, // Electron/Windows: avoid worker bugs
+        debug: true, // Enable debug logs
+        lowLatencyMode: true,
+        backBufferLength: 60,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120,
       });
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(videoRef.current);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => setIsLoading(false));
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error('[HLS.js ERROR]', data);
+        if (data.details === 'levelEmptyError') {
+          // Gracefully handle empty playlist at end of stream
+          setIsLoading(false);
+          setShowBuffering(false);
+          // Optionally show a toast or message, but do not set fatal error
+          return;
+        }
+        if (data.fatal) setError("HLS playback error: " + data.type + (data.details ? ` (${data.details})` : ''));
+      });
+      // Custom seeking logic
+      videoRef.current.onseeking = async () => {
+        if (!progressInfo?.duration) return;
+        const seekTime = Math.floor(videoRef.current.currentTime);
+        if (seeking || Math.abs(seekTime - lastSeekTime) < 2) return;
+        seeking = true;
+        lastSeekTime = seekTime;
+        setIsLoading(true);
+        // Build seek HLS URL with cache-busting
+        const seekUrl = `${API_BASE_URL}/hls/${infoHash}/${fileIdx}/seek/${seekTime}/playlist.m3u8?t=${Date.now()}`;
+        hls.detachMedia();
+        hls.loadSource(seekUrl);
+        hls.attachMedia(videoRef.current);
+        setTimeout(() => { seeking = false; }, 1000);
+      };
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+      videoRef.current.src = hlsUrl;
     }
-  };
-
-  const handlePlaying = () => {
-    setIsLoading(false); // Hide full screen loader
-    setShowBuffering(false); // Hide buffering spinner
-  };
-
-  const handleWaiting = () => {
-    if (bufferingTimeoutRef.current) {
-      clearTimeout(bufferingTimeoutRef.current);
-    }
-
-    bufferingTimeoutRef.current = setTimeout(() => {
-      // setIsLoading(true); // This line is removed to prevent full loader on subsequent buffers
-      // setShowBuffering(true);
-    }, 500);
-  };
-
-  const handleError = (e) => {
-    console.error("Video playback error:", e);
-    setIsLoading(true);
-  };
-
-  const handleSeek = async () => {
-    if (!videoRef.current || !infoHash) return;
-
-    const seekTime = videoRef.current.currentTime;
-    if (Math.abs(seekTime - currentSeekTime) < 5) return;
-
-    setCurrentSeekTime(seekTime);
-
-    try {
-      const duration = videoRef.current.duration || 0;
-      if (duration > 0) {
-        const percentage = (seekTime / duration) * 100;
-
-        await fetch(`${API_BASE_URL}/prioritize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ infoHash, fileIdx, percentage }),
-        });
-      }
-    } catch (error) {
-      console.error("Failed to prioritize pieces:", error);
-    }
-  };
+    return () => {
+      if (hls) hls.destroy && hls.destroy();
+      if (videoRef.current) videoRef.current.onseeking = null;
+    };
+  }, [useHls, streamUrl, infoHash, fileIdx, progressInfo?.duration]);
 
   if (error) {
     return (
@@ -190,7 +223,6 @@ export default function VideoPlayer() {
     ? (progressInfo.length_bytes / 1024 / 1024).toFixed(1)
     : "?";
   
-  // NEW Modern Loading Screen JSX
   const modernLoadingScreenJsx = (
     <div style={{...styles.modernLoadingScreen, ...(moviePoster ? {} : styles.modernLoadingScreenFallbackBackground)}}
       role="dialog"
@@ -202,7 +234,7 @@ export default function VideoPlayer() {
           <img src={moviePoster} alt="Movie Poster Background" style={styles.modernPosterImage} />
         </div>
       )}
-      <div style={styles.modernPosterOverlay}></div> {/* Overlay to ensure content is readable */}
+      <div style={styles.modernPosterOverlay}></div>
       <style>
         {`
           @keyframes pulse {
@@ -212,12 +244,12 @@ export default function VideoPlayer() {
           }
         `}
       </style>
-      <div style={styles.modernLoadingContent}> {/* Added a content wrapper for z-indexing */} 
+      <div style={styles.modernLoadingContent}>
         {movieAvatar ? (
           <img src={movieAvatar} alt={movieTitle || "Video Title"} style={styles.modernAvatarAsTitle} />
         ) : (
           <>
-            <div style={styles.loadingAnimationContainer}> {/* Contains pulsing dot */}
+            <div style={styles.loadingAnimationContainer}>
               <div style={styles.pulsingDot}></div>
             </div>
             <h2 style={styles.modernMovieTitleFallback}>{movieTitle || "Loading Video..."}</h2>
@@ -253,33 +285,38 @@ export default function VideoPlayer() {
   return (
     <div style={styles.videoContainer}>
       <video
+        key={streamUrl}
         ref={videoRef}
+        poster={moviePoster}
         controls
-        autoPlay
-        playsInline
-        preload="auto"
+        autoPlay={false}
         style={{
+          width: '100%',
+          height: '100%',
+          background: '#000',
+          borderRadius: 16,
+          boxShadow: '0 0 32px #000a',
+          outline: 'none',
           ...styles.video,
-          visibility: isLoading ? 'hidden' : 'visible'
         }}
-        src={streamUrl}
-        onCanPlay={handleCanPlay}
-        onPlaying={handlePlaying} // Changed to handlePlaying
-        onWaiting={handleWaiting}
-        onError={handleError}
-        onSeeking={handleSeek}
-        onSeeked={handleSeek}
+        onCanPlay={() => {
+          setIsLoading(false);
+          if (streamUrlSetRef.current) {
+            videoRef.current.play();
+          }
+        }}
+        onWaiting={() => setShowBuffering(true)}
+        onPlaying={() => setShowBuffering(false)}
+        onPause={() => setShowBuffering(false)}
       >
-        Your browser does not support the video tag.
+        Sorry, your browser does not support embedded videos.
       </video>
-
       {/* Buffering spinner for when video is playing but temporarily waiting */}
       {!isLoading && showBuffering && (
         <div style={styles.bufferingOverlay}>
           <LoadingSpinner size={60} color="#FFFFFF" />
         </div>
       )}
-
       {/* Initial full-screen loading experience */}
       {isLoading && modernLoadingScreenJsx}
     </div>
@@ -423,7 +460,6 @@ const styles = {
     transition: 'width 0.4s ease-out', 
     boxShadow: '0 0 8px #ffe082, 0 0 4px #ffe082aa', 
   },
-  // End of new styles
 
   videoContainer: {
     width: "100vw",
@@ -452,8 +488,4 @@ const styles = {
     backgroundColor: 'rgba(0, 0, 0, 0.35)', // Slight dark overlay
     zIndex: 2003, // Ensure it's above the video
   },
-  // Removed old styles: fullscreenLoading, posterBackground, posterImage, posterOverlay, 
-  // loadingContent, avatarContainer, avatarWrapper, /* avatarImage (removed) */, progressCircle, 
-  // progressBg, /* avatarTitleContainer, avatarTitle (removed) , avatarYear (removed) */, loadingStatus, 
-  // progressDisplay, progressBar
 };
