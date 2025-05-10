@@ -149,7 +149,33 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/stream" element={<VideoPlayer />} />
+      <Route path="/stream" element={
+        <div style={{ minHeight: '100vh', background: BG_GRADIENT, fontFamily: FONT_HEADER, position: 'relative', display: 'flex' }}>
+          <div style={{ flexGrow: 1, marginLeft: 64, width: 'calc(100% - 64px)', display: 'flex', flexDirection: 'column' }}>
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                alignSelf: 'flex-start',
+                margin: '24px 0 0 24px',
+                padding: '8px 18px',
+                fontSize: '1rem',
+                borderRadius: 8,
+                border: 'none',
+                background: '#222',
+                color: '#ffe082',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px #0003',
+                transition: 'background 0.2s',
+              }}
+            >
+              ← Back
+            </button>
+            <div style={{ flexGrow: 1, display: 'flex' }}>
+              <VideoPlayer />
+            </div>
+          </div>
+        </div>
+      } />
       <Route path="/" element={
         <div style={{ minHeight: '100vh', background: BG_GRADIENT, fontFamily: FONT_HEADER, position: 'relative' }}>
           <MiniSidebar onSelect={handleMiniSidebar} loadingDetails={detailsLoading} onLogout={logout} />
