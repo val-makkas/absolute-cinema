@@ -1,0 +1,4 @@
+# Ignore everything in service except ffmpeg_bin/ and torrentstream.exe
+/service/*
+!/service/ffmpeg_bin/
+!/service/torrentstream.exe

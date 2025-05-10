@@ -101,6 +101,17 @@ export default function App() {
     }
   };
 
+  // Handle Google OAuth token in URL (for /login-success?token=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      localStorage.setItem("jwt", token);
+      window.history.replaceState({}, document.title, "/"); // Clean up URL
+      window.location.reload(); // Reload to trigger useUser() with new token
+    }
+  }, []);
+
   // Render AuthScreen if not logged in
   if (!token) {
     return (
