@@ -141,3 +141,18 @@ func SetExtensions(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Extensions updated"})
 }
+
+func GetMe(c *gin.Context) {
+	username := c.GetString("username")
+	var user User
+	err := db.GetUsers().FindOne(context.TODO(), bson.M{"username": username}).Decode(&user)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"username":   user.Username,
+		"email":      user.Email,
+		"extensions": user.Extensions,
+	})
+}

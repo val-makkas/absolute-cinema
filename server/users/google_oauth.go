@@ -71,7 +71,7 @@ func GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	redirectUrl := fmt.Sprintf("https://localhost:5173/login-success?token=%s", jwt)
+	redirectUrl := fmt.Sprintf("http://localhost:5173/login-success?token=%s", jwt)
 
 	c.Redirect(http.StatusTemporaryRedirect, redirectUrl)
 }
