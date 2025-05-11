@@ -101,21 +101,44 @@ export default function App() {
     }
   };
 
-  // Handle Google OAuth token in URL (for /login-success?token=...)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    if (token) {
-      localStorage.setItem("jwt", token);
-      window.history.replaceState({}, document.title, "/"); // Clean up URL
-      window.location.reload(); // Reload to trigger useUser() with new token
-    }
-  }, []);
+  function LoginSuccessHandler() {
+    const navigate = useNavigate();
+    const { login } = useUser(); // get login from hook
+    const [message, setMessage] = useState('Waiting for authentication...');
+
+    useEffect(() => {
+      let handled = false;
+      if (window.electronAPI && window.electronAPI.onOAuthToken) {
+        window.electronAPI.onOAuthToken(async (token) => {
+          if (handled) return;
+          handled = true;
+          try {
+            localStorage.setItem('jwt', token);
+            await login(token);
+            setMessage('Login successful! Redirecting...');
+            setTimeout(() => navigate('/'), 1000);
+          } catch (e) {
+            setMessage('Login failed. Please try again.');
+          }
+        });
+      } else {
+        setMessage('Please open the app to complete login.');
+      }
+    }, [login, navigate]);
+
+    return (
+      <div style={{ color: '#fff', textAlign: 'center', marginTop: '20vh' }}>
+        <h2>Google Login</h2>
+        <p>{message}</p>
+      </div>
+    );
+  }
 
   // Render AuthScreen if not logged in
   if (!token) {
     return (
       <Routes>
+        <Route path="/login-success" element={<LoginSuccessHandler />} />
         <Route path="/auth" element={<AuthScreen onLogin={login} onRegister={register} error={userError} loading={userLoading} />} />
         <Route path="*" element={<AuthScreen onLogin={login} onRegister={register} error={userError} loading={userLoading} />} />
       </Routes>

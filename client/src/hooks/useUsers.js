@@ -61,6 +61,37 @@ export function useUser() {
         return false;
     }, [])
 
+    // Login with JWT token (for OAuth)
+    const loginWithToken = useCallback(async (jwtToken) => {
+        setToken(jwtToken);
+        localStorage.setItem('jwt', jwtToken);
+        setLoading(true);
+        setError(null);
+        // Try to fetch user info (optional, but recommended)
+        try {
+            const res = await fetch(`${API_BASE}/me`, {
+                headers: { Authorization: `Bearer ${jwtToken}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setUsername(data.username || '');
+                setExtensions(data.extensions || []);
+                localStorage.setItem('username', data.username || '');
+                localStorage.setItem('extensions', JSON.stringify(data.extensions || []));
+                setLoading(false);
+                return true;
+            } else {
+                setLoading(false);
+                setError('Failed to fetch user info');
+                return false;
+            }
+        } catch (e) {
+            setLoading(false);
+            setError('Failed to fetch user info');
+            return false;
+        }
+    }, []);
+
     const logout = useCallback(() => {
         setToken('');
         setUsername('');
@@ -99,6 +130,7 @@ export function useUser() {
         error,
         register,
         login,
+        loginWithToken,
         logout,
         updateExtensions
     };

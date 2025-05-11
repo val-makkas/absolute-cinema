@@ -6,7 +6,9 @@
 *.log
 *.key
 *.cert
-docker-compose.yml
 /client/service/downloads
 /client/service/absolute-cinema-torrentstream
 /client/dist
+/torrent-stream-service
+/tools
+/mpv-git-2025-05-09-b3070d1-x86_64

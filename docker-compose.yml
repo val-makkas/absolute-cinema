@@ -1,0 +1,42 @@
+services:
+  server:
+    build: ./server
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - metadata-service
+
+  metadata-service:
+    build: ./content
+    image: imdb-metadata
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+    ports:
+      - "8000:8000"
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+  
+  mongo:
+    image: mongo:latest
+    container_name: absolute-cinema-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: absolute-cinema-db
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  redis_data:
+  mongo_data:
