@@ -79,26 +79,24 @@ export default function VideoPlayer() {
     };
   }, [magnetUri, fileIdx]);
 
-  // Automatically play in MPV when streamUrl is ready
-  // Use correct API for play-in-mpv
-  // Try both window.electronAPI and window.electron for compatibility
+  // Play in MPV button handler
+  const handlePlayInMPV = async () => {
+    if (!streamUrl) return;
+    try {
+      await window.electronAPI.playInMpv(streamUrl);
+    } catch (err) {
+      setError('Failed to launch MPV: ' + err.message);
+    }
+  };
+
+  // Automatically launch MPV when streamUrl becomes available
   useEffect(() => {
     if (streamUrl) {
-      const play = async () => {
-        try {
-          if (window.electronAPI?.playInMpv) {
-            await window.electronAPI.playInMpv(streamUrl);
-          } else if (window.electron?.invoke) {
-            await window.electron.invoke('play-in-mpv', streamUrl);
-          } else {
-            throw new Error('No valid Electron preload API for MPV playback');
-          }
-        } catch (err) {
-          setError('Failed to launch MPV: ' + err.message);
-        }
-      };
-      play();
+      window.electronAPI.playInMpv(streamUrl).catch(err => {
+        setError('Failed to launch MPV: ' + err.message);
+      });
     }
+    // No cleanup needed
   }, [streamUrl]);
 
   if (error) {
@@ -122,8 +120,9 @@ export default function VideoPlayer() {
     );
   }
 
-  // No button, just auto-play
-  return null;
+  return (
+    <div style={styles.videoContainer} />
+  );
 }
 
 const styles = {
@@ -188,20 +187,5 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-  },
-  playInMpvButton: {
-    fontSize: '1.5rem',
-    padding: '18px 48px',
-    background: 'linear-gradient(90deg, #ffe082 0%, #ffd54f 100%)',
-    color: '#18181b',
-    border: 'none',
-    borderRadius: 12,
-    fontWeight: 700,
-    cursor: 'pointer',
-    boxShadow: '0 2px 12px #0004',
-    transition: 'background 0.2s',
-    outline: 'none',
-    margin: '0 auto',
-    display: 'block',
   },
 };

@@ -28,7 +28,7 @@ function createWindow() {
 
 // --- Native MPV Launch & Window Reparenting (legacy approach) ---
 function reparentAndResizeMPV(mpvTitle, electronTitle) {
-  const parentHelperPath = path.resolve(__dirname, '../../../tools/ParentWindow.exe');
+  const parentHelperPath = path.resolve(__dirname, '../../../tools/window-merger/window-merger.exe');
   if (fs.existsSync(parentHelperPath)) {
     spawn(parentHelperPath, [mpvTitle, electronTitle], { detached: true, stdio: 'ignore' });
   }
@@ -37,12 +37,12 @@ function reparentAndResizeMPV(mpvTitle, electronTitle) {
 let lastMpvTitle = null;
 ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
   try {
-    const mpvPath = path.resolve(__dirname, '../../../mpv-git-2025-05-09-b3070d1-x86_64/mpv.exe');
-    const uoscScriptPath = path.resolve(__dirname, '../../../mpv-git-2025-05-09-b3070d1-x86_64/scripts/uosc.lua');
-    const parentHelperPath = path.resolve(__dirname, '../../../tools/ParentWindow.exe');
+    const mpvPath = path.resolve(__dirname, '../../../mpv/mpv.exe');
+    const uoscScriptPath = path.resolve(__dirname, '../../../mpv/scripts/uosc.lua');
+    const parentHelperPath = path.resolve(__dirname, '../../../tools/window-merger/window-merger.exe');
     if (!fs.existsSync(mpvPath)) throw new Error('mpv.exe not found at: ' + mpvPath);
     if (!fs.existsSync(uoscScriptPath)) throw new Error('uosc.lua not found: ' + uoscScriptPath);
-    if (!fs.existsSync(parentHelperPath)) throw new Error('ParentWindow.exe not found: ' + parentHelperPath);
+    if (!fs.existsSync(parentHelperPath)) throw new Error('window-merger.exe: ' + parentHelperPath);
     const mpvTitle = 'MPV-EMBED-' + Date.now();
     const electronTitle = mainWindow.getTitle();
     lastMpvTitle = mpvTitle;
@@ -71,6 +71,13 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
 
 app.whenReady().then(() => {
   createWindow();
+  if (mainWindow) {
+    mainWindow.on('resize', () => {
+      if (lastMpvTitle) {
+        reparentAndResizeMPV(lastMpvTitle, mainWindow.getTitle());
+      }
+    });
+  }
 });
 
 app.on('open-url', (event, url) => {
