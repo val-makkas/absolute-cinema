@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)]()
 
-Absolute Cinema is a powerful, open-source streaming platform that lets you watch movies and TV series alone or with friends. Host synchronized watch parties, chat in real time, and experience a fast interface backed by a scalable, multi-language backend.
+Absolute Cinema is an open-source streaming platform that lets you watch movies and TV series alone or with friends. Host synchronized watch parties, chat in real time, and experience a fast interface backed by a scalable, multi-language backend.
 
 <p align="center">
   <img src="client/public/logo_trans.png" alt="Absolute Cinema Logo" width="200"/>
@@ -89,7 +89,7 @@ See `docker-compose.yml` for full-stack deployment.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please open issues and pull requests. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please open issues and pull requests.
 
 ## 📄 License
 
