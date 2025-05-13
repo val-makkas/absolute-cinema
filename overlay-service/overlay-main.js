@@ -213,6 +213,15 @@ ipcMain.handle('toggle-main-fullscreen', async () => {
     }
 });
 
+ipcMain.handle('close-main-window', async () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'close-main' }));
+        console.log('[Overlay] Sent close-main to main process via WebSocket');
+    } else {
+        console.warn('[Overlay] WebSocket not connected, cannot relay close-main');
+    }
+});
+
 // Connect to MPV IPC on startup
 connectToMpvIpc();
 
