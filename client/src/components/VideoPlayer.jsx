@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useBeforeUnload } from "react-router-dom";
 import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
+import MpvOverlay from "../../../overlay-service/MpvOverlay";
 
 const API_BASE_URL = "http://localhost:8888";
 
@@ -9,12 +10,13 @@ export default function VideoPlayer() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
+  const [isMpvActive, setIsMpvActive] = useState(false);
+  const [isOverlayMode, setIsOverlayMode] = useState(true);
 
   const source = location.state?.source;
   const infoHash = source?.infoHash;
   const fileIdx = source?.fileIdx ?? 0;
 
-  // Prefer explicit magnetUri, otherwise construct from infoHash if available
   let magnetUri = source?.magnetUri;
   if (!magnetUri && infoHash) {
     magnetUri = `magnet:?xt=urn:btih:${infoHash}`;
@@ -79,25 +81,36 @@ export default function VideoPlayer() {
     };
   }, [magnetUri, fileIdx]);
 
-  // Play in MPV button handler
-  const handlePlayInMPV = async () => {
-    if (!streamUrl) return;
-    try {
-      await window.electronAPI.playInMpv(streamUrl);
-    } catch (err) {
-      setError('Failed to launch MPV: ' + err.message);
-    }
-  };
-
   // Automatically launch MPV when streamUrl becomes available
   useEffect(() => {
     if (streamUrl) {
-      window.electronAPI.playInMpv(streamUrl).catch(err => {
-        setError('Failed to launch MPV: ' + err.message);
-      });
+      window.electronAPI.playInMpv(streamUrl)
+        .then((result) => {
+          if (result && result.success) {
+            setIsMpvActive(true);
+          }
+          else {
+            setIsMpvActive(false);
+          }
+        })
+        .catch(err => {
+          setError('Failed to launch MPV: ' + err.message);
+          setIsMpvActive(false);
+        });
+    } else {
+      setIsMpvActive(false);
     }
-    // No cleanup needed
   }, [streamUrl]);
+
+  useBeforeUnload(
+    React.useCallback(() => {
+      if (streamUrl) {
+        window.electron.ipcRenderer.invoke('stop-mpv').then(() => setIsMpvActive(false)).catch(err => {
+          console.error('Failed to stop MPV:', err);
+        });
+      }
+    })
+  );
 
   if (error) {
     return (
@@ -121,7 +134,32 @@ export default function VideoPlayer() {
   }
 
   return (
-    <div style={styles.videoContainer} />
+    <div style={styles.videoContainer}>
+      {isMpvActive && isOverlayMode && (
+        <MpvOverlay 
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              volume={volume}
+              isFullscreen={isFullscreen}
+              currentSubtitle={currentSubtitle}
+              onMovieOnlyMode={() => {
+                setIsOverlayMode(false);
+                window.electron.ipcRenderer.invoke('open-transparent-overlay');
+              }}
+            />
+      )}
+      {isMpvActive && !isOverlayMode && (
+        <button 
+          style={{position:'absolute',top:20,left:20,zIndex:2000}} 
+          onClick={() => {
+            setIsOverlayMode(true);
+            window.electron.ipcRenderer.invoke('restore-overlay');
+          }}>
+          Back to Overlay
+        </button>
+      )}
+    </div>
   );
 }
 

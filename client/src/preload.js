@@ -1,10 +1,16 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+contextBridge.exposeInMainWorld('electron', {
+  invoke: (...args) => ipcRenderer.invoke(...args),
+  // Optionally, you can expose other safe methods here
+});
+
 // Expose protected methods to renderer
 contextBridge.exposeInMainWorld('electronAPI', {
   send: (channel, data) => {
+    
     // Whitelist channels
-    const validChannels = ['sync-event', 'chat-message', 'room-action'];
+    const validChannels = ['sync-event', 'chat-message', 'room-action', 'play-in-mpv', 'mpv-command', 'mpv-fetch', 'stop-mpv'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }
