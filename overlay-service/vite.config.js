@@ -8,7 +8,11 @@ export default defineConfig({
     outDir: __dirname,
     rollupOptions: {
       input: resolve(__dirname, 'overlay-ui.jsx'),
-      output: { entryFileNames: 'overlay-ui.js' }
+      output: {
+        entryFileNames: 'overlay-ui.js',
+        format: 'iife', // Output as IIFE for browser compatibility
+        name: 'OverlayUI',
+      }
     }
   },
   plugins: [react()],
