@@ -1,10 +1,11 @@
-import { app, protocol, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { ELECTRON_CONFIG } from '../config/electron-config.js';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { emitKeypressEvents } from 'readline';
+// --- WebSocket server for overlay communication ---
+import { WebSocketServer } from 'ws';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -30,6 +31,9 @@ let mpvProcess = null;
 let windowMergerProcess = null;
 //let mpvIpcSocket = null;
 let overlayProcess = null;
+let windowOverlayProcess = null;
+let overlayWss = null;
+let overlayWsClients = [];
 
 ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
   console.log('play-in-mpv handler called');
@@ -37,15 +41,17 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
     const mpvPath = path.resolve(__dirname, '../../../mpv/mpv.exe');
     const uoscScriptPath = path.resolve(__dirname, '../../../mpv/scripts/uosc.lua');
     const parentHelperPath = path.resolve(__dirname, '../../../tools/window-merger/window-merger.exe');
+    const overlayHelperPath = path.resolve(__dirname, '../../../tools/window-merger/overlay-follower.exe');
     console.log('Checking mpvPath:', mpvPath, fs.existsSync(mpvPath));
     console.log('Checking uoscScriptPath:', uoscScriptPath, fs.existsSync(uoscScriptPath));
     console.log('Checking parentHelperPath:', parentHelperPath, fs.existsSync(parentHelperPath));
+    console.log('Checking overlayHelperPath:', overlayHelperPath, fs.existsSync(overlayHelperPath));
     if (!fs.existsSync(mpvPath)) throw new Error('mpv.exe not found at: ' + mpvPath);
     if (!fs.existsSync(uoscScriptPath)) throw new Error('uosc.lua not found: ' + uoscScriptPath);
     if (!fs.existsSync(parentHelperPath)) throw new Error('window-merger.exe: ' + parentHelperPath);
+    if (!fs.existsSync(overlayHelperPath)) throw new Error('overlay-follower.exe ' + overlayHelperPath);
     const mpvTitle = 'MPV-EMBED-' + Date.now();
     const electronTitle = mainWindow.getTitle();
-    const overlayTitle = 'AbsoluteCinemaOverlay';
     const args = [
       streamUrl,
       `--script=${uoscScriptPath}`,
@@ -60,16 +66,23 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
     console.log('Spawning mpv with args:', args);
     mpvProcess = spawn(mpvPath, args, { detached: true/* , stdio: 'ignore' */ });
     mpvProcess.unref();
+    launchOverlayService();
+    setTimeout(() => {
+      // Use stdio: 'inherit' and remove detached:true to ensure overlay-follower.exe logs are visible in the Electron terminal
+      // IMPORTANT: Launch overlay-follower with HWND_TOPMOST and SWP_NOZORDER to force overlay above MPV
+      windowOverlayProcess = spawn(overlayHelperPath, ['Overlay', mpvTitle, 40], { stdio: 'inherit' });
+      windowOverlayProcess.unref();
+    }, 1200);
     // Overlay follow logic: send bounds to overlay after move/resize
-    let overlayBoundsThrottleTimer = null;
+    /* let overlayBoundsThrottleTimer = null;
     function sendOverlayBoundsThrottled() {
       if (overlayBoundsThrottleTimer) return;
       overlayBoundsThrottleTimer = setTimeout(() => {
         overlayBoundsThrottleTimer = null;
         sendOverlayBounds();
       }, 4);
-    }
-    function sendOverlayBounds() {
+    } */
+    /* function sendOverlayBounds() {
       if (!mainWindow) return;
       const bounds = mainWindow.getBounds();
       let overlayBounds = { ...bounds };
@@ -86,17 +99,13 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
     mainWindow.on('maximize', sendOverlayBounds);
     mainWindow.on('unmaximize', sendOverlayBounds);
     mainWindow.on('enter-full-screen', sendOverlayBounds);
-    mainWindow.on('leave-full-screen', sendOverlayBounds);
-    setTimeout(() => {
-      launchOverlayService();
-    }, 300);
+    mainWindow.on('leave-full-screen', sendOverlayBounds); */
     // Ensure overlay is positioned immediately after launch
     setTimeout(() => {
-      sendOverlayBounds(); // Initial sync
-      // MPV window merger
       windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], { detached: true, stdio: 'ignore' });
       windowMergerProcess.unref();
     }, 1200);
+     // Increased delay to ensure overlay window is created
     /* const pipeName = '\\\\.\\pipe\\mpvpipe';
     console.log('Pipe exists before wait:', fs.existsSync(pipeName));
     await waitForPipe(pipeName);
@@ -221,6 +230,16 @@ ipcMain.handle('stop-mpv', async () => {
   }
 });
 
+ipcMain.handle('toggle-main-fullscreen', async () => {
+  if (mainWindow) {
+    if (mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false);
+    } else {
+      mainWindow.setFullScreen(true);
+    }
+  }
+});
+
 function launchOverlayService() {
   if (overlayProcess) return;
   const overlayEntry = path.resolve(__dirname, '../../../overlay-service/overlay-main.js');
@@ -239,10 +258,28 @@ function stopOverlayService() {
   }
 }
 
-// Example usage: launchOverlayService() to start, stopOverlayService() to stop
+function startOverlayWebSocketServer() {
+  if (overlayWss) return;
+  overlayWss = new WebSocketServer({ port: 31337 });
+  overlayWss.on('connection', ws => {
+    overlayWsClients.push(ws);
+    ws.on('message', msg => {
+      try {
+        const data = JSON.parse(msg);
+        if (data.type === 'toggle-fullscreen' && mainWindow) {
+          mainWindow.setFullScreen(!mainWindow.isFullScreen());
+        }
+      } catch (e) {}
+    });
+    ws.on('close', () => {
+      overlayWsClients = overlayWsClients.filter(c => c !== ws);
+    });
+  });
+}
 
 app.whenReady().then(() => {
   createWindow();
+  startOverlayWebSocketServer();
 });
 
 app.on('open-url', (event, url) => {

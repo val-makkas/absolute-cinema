@@ -2,8 +2,8 @@
   "name": "overlay-service",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
   "main": "overlay-main.js",
+  "type": "module",
   "scripts": {
     "build": "vite build"
   },
@@ -11,8 +11,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "electron-overlay-window": "^3.3.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "ws": "^8.18.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.4.1",

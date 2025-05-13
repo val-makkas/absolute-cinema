@@ -18,4 +18,3 @@ tools/window-merger/*
 # But do not ignore the folder itself (so it exists in the repo)
 !tools/window-merger/
 /overlay-service/node_modules
-tools/window-merger
