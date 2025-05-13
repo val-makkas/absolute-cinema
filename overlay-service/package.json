@@ -1,0 +1,21 @@
+{
+  "name": "overlay-service",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "overlay-main.js",
+  "scripts": {
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.3.5"
+  }
+}

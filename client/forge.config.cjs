@@ -1,3 +1,4 @@
+// Renamed from forge.config.js to forge.config.cjs to ensure compatibility with Electron Forge in a project using "type": "module" in package.json.
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
