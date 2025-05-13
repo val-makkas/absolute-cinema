@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import net from 'net';
 // --- WebSocket server for overlay communication ---
 import { WebSocketServer } from 'ws';
 
@@ -35,9 +36,65 @@ let windowOverlayProcess = null;
 let overlayWss = null;
 let overlayWsClients = [];
 
+// Helper: Wait for a process to exit
+function waitForProcessExit(proc, timeout = 5000) {
+  return new Promise((resolve) => {
+    if (!proc || proc.killed) return resolve();
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) resolve();
+    }, timeout);
+    proc.once('exit', () => {
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  });
+}
+// Helper: Wait for a file/pipe to not exist
+function waitForPipeToBeDeleted(pipePath, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    (function check() {
+      fs.access(pipePath, fs.constants.F_OK, (err) => {
+        if (err) return resolve(); // Not found, good
+        if (Date.now() - start > timeout) return reject(new Error('Pipe still exists after timeout'));
+        setTimeout(check, 100);
+      });
+    })();
+  });
+}
+
 ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
   console.log('play-in-mpv handler called');
   try {
+    // Before spawning, ensure old mpv is dead and pipe is gone
+    if (mpvProcess && !mpvProcess.killed) {
+      try {
+        mpvProcess.kill('SIGTERM');
+        setTimeout(() => {
+          if (!mpvProcess.killed) {
+            try {
+              process.kill(-mpvProcess.pid);
+            } catch (e) {
+              try {
+                mpvProcess.kill('SIGKILL');
+              } catch (e2) {
+                console.error('Failed to kill mpvProcess directly:', e2);
+              }
+            }
+          }
+        }, 1000);
+      } catch (e) {
+        console.error('Failed to gracefully kill mpvProcess:', e);
+      }
+      await waitForProcessExit(mpvProcess, 5000);
+      mpvProcess = null;
+    }
+    const pipeName = '\\\\.\\pipe\\mpvpipe';
+    await waitForPipeToBeDeleted(pipeName, 5000);
     const mpvPath = path.resolve(__dirname, '../../../mpv/mpv.exe');
     const uoscScriptPath = path.resolve(__dirname, '../../../mpv/scripts/uosc.lua');
     const parentHelperPath = path.resolve(__dirname, '../../../tools/window-merger/window-merger.exe');
@@ -72,6 +129,11 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
       // IMPORTANT: Launch overlay-follower with HWND_TOPMOST and SWP_NOZORDER to force overlay above MPV
       windowOverlayProcess = spawn(overlayHelperPath, ['Overlay', mpvTitle, 40], { stdio: 'inherit' });
       windowOverlayProcess.unref();
+      // Only after overlay-follower is started, start window-merger
+      setTimeout(() => {
+        windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], { detached: true, stdio: 'ignore' });
+        windowMergerProcess.unref();
+      }, 1200);
     }, 1200);
     // Overlay follow logic: send bounds to overlay after move/resize
     /* let overlayBoundsThrottleTimer = null;
@@ -212,24 +274,6 @@ if (mpvIpcSocket) {
   });
 }) */
 
-ipcMain.handle('stop-mpv', async () => {
-  try {
-    if (mpvProcess && !mpvProcess.killed) {
-      process.kill(-mpvProcess.pid);
-      mpvProcess = null;
-    }
-    if (windowMergerProcess && !windowMergerProcess.killed) {
-      process.kill(-windowMergerProcess.pid);
-      windowMergerProcess = null;
-    }
-    stopOverlayService();
-    return { success: true };
-  } catch (err) {
-    console.error('Failed to stop MPV or window-merger:', err);
-    return { success: false, error: err.message };
-  }
-});
-
 ipcMain.handle('toggle-main-fullscreen', async () => {
   if (mainWindow) {
     if (mainWindow.isFullScreen()) {
@@ -237,6 +281,16 @@ ipcMain.handle('toggle-main-fullscreen', async () => {
     } else {
       mainWindow.setFullScreen(true);
     }
+  }
+});
+
+ipcMain.handle('close-overlay', async () => {
+  try {
+    stopOverlayService();
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to stop overlay process:', err);
+    return { success: false, error: err.message };
   }
 });
 
@@ -268,6 +322,57 @@ function startOverlayWebSocketServer() {
         const data = JSON.parse(msg);
         if (data.type === 'toggle-fullscreen' && mainWindow) {
           mainWindow.setFullScreen(!mainWindow.isFullScreen());
+        }
+        if (data.type === 'close-main' && mainWindow) {
+          // Gracefully kill mpv process first
+          if (mpvProcess && !mpvProcess.killed) {
+            try {
+              mpvProcess.kill('SIGTERM'); // Graceful
+              // Wait a moment for graceful shutdown
+              setTimeout(() => {
+                if (!mpvProcess.killed) {
+                  try {
+                    process.kill(-mpvProcess.pid); // Fallback to group kill
+                  } catch (e) {
+                    try {
+                      mpvProcess.kill('SIGKILL'); // Force kill
+                    } catch (e2) {
+                      console.error('Failed to kill mpvProcess directly:', e2);
+                    }
+                  }
+                }
+              }, 1000); // 1s grace period
+            } catch (e) {
+              console.error('Failed to gracefully kill mpvProcess:', e);
+            }
+            mpvProcess = null;
+          }
+          // Stop overlay, window merger, and overlay helper process
+          if (windowMergerProcess && !windowMergerProcess.killed) {
+            try {
+              process.kill(-windowMergerProcess.pid);
+            } catch (e) {
+              try {
+                windowMergerProcess.kill('SIGKILL');
+              } catch (e2) {
+                console.error('Failed to kill windowMergerProcess directly:', e2);
+              }
+            }
+            windowMergerProcess = null;
+          }
+          if (windowOverlayProcess && !windowOverlayProcess.killed) {
+            try {
+              process.kill(-windowOverlayProcess.pid);
+            } catch (e) {
+              try {
+                windowOverlayProcess.kill('SIGKILL');
+              } catch (e2) {
+                console.error('Failed to kill windowOverlayProcess directly:', e2);
+              }
+            }
+            windowOverlayProcess = null;
+          }
+          stopOverlayService();
         }
       } catch (e) {}
     });
