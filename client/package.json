@@ -9,7 +9,8 @@
     "make": "electron-forge make",
     "make-linux": "electron-forge make --platform=linux",
     "package": "electron-forge package",
-    "test": "jest"
+    "test": "jest",
+    "build": "vite build"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.11",

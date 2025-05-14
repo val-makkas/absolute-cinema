@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useBeforeUnload } from "react-router-dom";
 import { LoadingSpinner } from "@/components/icons/LoadingSpinner";
-import MpvOverlay from "../../../overlay-service/MpvOverlay";
 
 const API_BASE_URL = "http://localhost:8888";
 
@@ -11,7 +10,7 @@ export default function VideoPlayer() {
   const [error, setError] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [isMpvActive, setIsMpvActive] = useState(false);
-  const [isOverlayMode, setIsOverlayMode] = useState(true);
+  const [isOverlayMode, setIsOverlayMode] = useState(false); // Added missing state variable
 
   const source = location.state?.source;
   const infoHash = source?.infoHash;
@@ -135,26 +134,25 @@ export default function VideoPlayer() {
 
   return (
     <div style={styles.videoContainer}>
-      {isMpvActive && isOverlayMode && (
-        <MpvOverlay 
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              volume={volume}
-              isFullscreen={isFullscreen}
-              currentSubtitle={currentSubtitle}
-              onMovieOnlyMode={() => {
-                setIsOverlayMode(false);
-                window.electron.ipcRenderer.invoke('open-transparent-overlay');
-              }}
-            />
-      )}
       {isMpvActive && !isOverlayMode && (
         <button 
           style={{position:'absolute',top:20,left:20,zIndex:2000}} 
           onClick={() => {
-            setIsOverlayMode(true);
-            window.electron.ipcRenderer.invoke('restore-overlay');
+            // First hide MPV
+            window.electron.ipcRenderer.invoke('hide-mpv')
+              .then((result) => {
+                console.log("Hide MPV result:", result);
+                // Then switch to overlay mode
+                setIsOverlayMode(true);
+                // Stop streaming by removing the stream URL
+                setStreamUrl(null);
+                setIsMpvActive(false);
+              })
+              .catch(err => {
+                console.error("Failed to hide MPV:", err);
+                // Still switch to overlay mode even if hiding fails
+                setIsOverlayMode(true);
+              });
           }}>
           Back to Overlay
         </button>

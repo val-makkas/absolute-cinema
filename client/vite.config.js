@@ -17,7 +17,17 @@ export default defineConfig({
         'run-parallel',
       ],
       input: {
-        main: resolve(__dirname, 'src/index.html')
+        main: resolve(__dirname, 'src/index.html'),
+        mpvOverlay: resolve(__dirname, 'src/overlay/mpv-overlay.html'),
+      },
+      // Ensure Vite uses the correct entry for the overlay
+      output: {
+        entryFileNames: (chunkInfo) => {
+          if (chunkInfo.name === 'mpvOverlay') {
+            return 'overlay/mpv-overlay.js';
+          }
+          return 'assets/[name]-[hash].js';
+        }
       }
     }
   },
