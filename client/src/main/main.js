@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { ELECTRON_CONFIG } from '../config/electron-config.js';
 import { fileURLToPath } from 'url';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import net from 'net';
@@ -9,6 +9,10 @@ import net from 'net';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow = null;
+let mpvProcess = null;
+let mpvIpcSocket = null;
+let windowMergerProcess = null;
+let overlayWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -54,6 +58,7 @@ function createWindow() {
       overlayWindow.close();
       overlayWindow = null;
     }
+    closeAll();
   });
   mainWindow.on('blur', () => {
     if (overlayWindow) {
@@ -82,11 +87,6 @@ function waitForPipeToBeDeleted(pipePath, timeout = 5000) {
   });
 }
 
-// In your main.js, add a function to start MPV in idle mode
-let mpvProcess = null;
-let mpvIpcSocket = null;
-let windowMergerProcess = null;
-let mpvOverlay = null;
 const pipeName = '\\\\.\\pipe\\mpvpipe';
 
 const parentHelperPath = path.resolve(__dirname, '../../../tools/absolute-cinema-window-merger/window-merger.exe');
@@ -106,8 +106,6 @@ function waitForPipe(pipePath, timeout = 5000) {
     })();
   });
 }
-
-let overlayWindow = null;
 
 function createMpvOverlayWindow() {
   console.log('[Overlay] Creating overlay window...');
@@ -139,8 +137,34 @@ function createMpvOverlayWindow() {
   overlayWindow.setIgnoreMouseEvents(false);
   overlayWindow.loadFile(path.join(__dirname, '../../dist/overlay/mpv-overlay.html'));
   global.overlayWindow = overlayWindow;
+
+  // If main window is not focused or is minimized, hide overlay until main window is focused again
+  if (mainWindow && (mainWindow.isMinimized() || !mainWindow.isFocused())) {
+    overlayWindow.hide();
+    // When main window is restored or focused, show overlay and sync bounds
+    const showOverlay = () => {
+      if (overlayWindow) {
+        overlayWindow.show();
+        const bounds = mainWindow.getContentBounds();
+        overlayWindow.setBounds({
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height
+        });
+      }
+      mainWindow.off('focus', showOverlay);
+      mainWindow.off('restore', showOverlay);
+    };
+    mainWindow.on('focus', showOverlay);
+    mainWindow.on('restore', showOverlay);
+  }
+
   overlayWindow.on('ready-to-show', () => {
     console.log('[Overlay] Overlay window ready to show');
+    if (mainWindow && mainWindow.isMinimized()) {
+      overlayWindow.minimize();
+    }
   });
   overlayWindow.on('closed', () => {
     console.log('[Overlay] Overlay window closed');
@@ -197,8 +221,12 @@ async function startIdleMpv() {
   return true;
 }
 
+// Store current torrent info for overlay
+let currentTorrentInfo = { infoHash: null, fileIdx: null };
 
-ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
+ipcMain.handle('play-in-mpv', async (event, streamUrl, infoHash, fileIdx) => {
+  // Save infoHash and fileIdx for overlay queries
+  currentTorrentInfo = { infoHash, fileIdx };
   await new Promise(resolve => setTimeout(resolve, 5000));
   try {
     // Make sure MPV is running
@@ -219,7 +247,7 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
     mpvIpcSocket.write(JSON.stringify(command) + "\n");
 
     // Poll MPV for duration, only create overlay and merge window when ready
-    const pollForDuration = async (retries = 25) => {
+    const pollForDuration = async (retries = 100) => {
       for (let i = 0; i < retries; i++) {
         try {
           console.log(`[Overlay] Polling MPV for duration (attempt ${i + 1}/${retries})...`);
@@ -258,14 +286,6 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
         }
         await new Promise(r => setTimeout(r, 200));
       }
-      // Fallback: merge and create overlay anyway after timeout
-      console.warn('[Overlay] Timed out waiting for valid duration, merging MPV window and creating overlay window as fallback.');
-      windowMergerProcess = spawn(
-        parentHelperPath,
-        [mpvTitle, electronTitle],
-        { detached: true }
-      );
-      createMpvOverlayWindow();
     };
     pollForDuration();
 
@@ -276,70 +296,46 @@ ipcMain.handle('play-in-mpv', async (event, streamUrl) => {
   }
 });
 
+function closeAll() {
+  if (process.platform === 'win32') {
+    // Use taskkill to kill all mpv.exe processes and their children
+    spawnSync('taskkill', ['/IM', 'mpv.exe', '/F', '/T']);
+  } else {
+    mpvProcess.kill('SIGKILL');
+  }
+  if (windowMergerProcess) {
+    try {
+      windowMergerProcess.kill('SIGKILL');
+    } catch (e) { }
+    windowMergerProcess = null;
+  }
+  removeMpvOverlayWindow();
+};
+
 ipcMain.handle('hide-mpv', async () => {
   try {
     console.log("Killing MPV and restarting in idle mode");
 
-    // First, disconnect from the socket if it exists
-    if (mpvIpcSocket) {
+    if (mpvProcess) {
       try {
-        // Try to send a quit command to MPV first
-        mpvIpcSocket.write(JSON.stringify({ command: ["quit"] }) + "\n");
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Then close the socket
-        mpvIpcSocket.end();
-        mpvIpcSocket.destroy();
-        mpvIpcSocket = null;
-
-        removeMpvOverlayWindow();
-      } catch (err) {
-        console.error('Error closing socket:', err);
-      }
+        mpvProcess.kill('SIGKILL');
+      } catch (e) { }
+      mpvProcess = null;
     }
-
-    // Kill the window merger process if it exists
-    if (windowMergerProcess && !windowMergerProcess.killed) {
+    if (windowMergerProcess) {
       try {
-        windowMergerProcess.kill('SIGKILL'); // Force kill with SIGKILL
-        windowMergerProcess = null;
-      } catch (err) {
-        console.error('Error killing window merger:', err);
-      }
+        windowMergerProcess.kill('SIGKILL');
+      } catch (e) { }
+      windowMergerProcess = null;
     }
+    removeMpvOverlayWindow();
 
-    // Kill the MPV process if it exists - use forceful termination
-    if (mpvProcess && !mpvProcess.killed) {
-      try {
-        // First try a graceful exit
-        mpvProcess.kill('SIGTERM');
-
-        // Wait a short time and check if it's still running
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        // If still running, force kill it
-        if (!mpvProcess.killed) {
-          mpvProcess.kill('SIGKILL');
-
-          // On Windows, as a last resort, use taskkill
-          try {
-            spawn('taskkill', ['/f', '/im', 'mpv.exe'], { stdio: 'ignore' });
-          } catch (taskKillErr) {
-            console.error('Error using taskkill:', taskKillErr);
-          }
-        }
-
-        mpvProcess = null;
-      } catch (err) {
-        console.error('Error killing MPV process:', err);
-
-        // As a fallback, try to kill using taskkill
-        try {
-          spawn('taskkill', ['/f', '/im', 'mpv.exe'], { stdio: 'ignore' });
-        } catch (taskKillErr) {
-          console.error('Error using taskkill fallback:', taskKillErr);
-        }
+    try {
+      if (currentTorrentInfo.infoHash) {
+        await fetch(`http://localhost:8888/remove/${currentTorrentInfo.infoHash}`, { method: 'DELETE' });
       }
+    } catch (err) {
+      console.error('Failed to remove torrent from backend:', err);
     }
 
     // Wait longer for everything to clean up
@@ -474,6 +470,21 @@ ipcMain.handle('mpv-fetch', async (event, data) => {
       reject(`Error sending command: ${err.message}`);
     }
   });
+});
+
+let isFull = null;
+
+ipcMain.handle('fullscreen-main-window', async () => {
+  if (mainWindow) {
+    isFull = mainWindow.isFullScreen();
+    mainWindow.setFullScreen(!isFull);
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('get-current-torrent-info', async () => {
+  return currentTorrentInfo;
 });
 
 app.whenReady().then(async () => {

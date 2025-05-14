@@ -83,7 +83,7 @@ export default function VideoPlayer() {
   // Automatically launch MPV when streamUrl becomes available
   useEffect(() => {
     if (streamUrl) {
-      window.electronAPI.playInMpv(streamUrl)
+      window.electronAPI.playInMpv(streamUrl, infoHash, fileIdx)
         .then((result) => {
           if (result && result.success) {
             setIsMpvActive(true);

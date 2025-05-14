@@ -23,5 +23,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   openUrlInChrome: (url) => ipcRenderer.invoke('open-url-in-chrome', url),
   onOAuthToken: (callback) => ipcRenderer.on('oauth-token', (event, token) => callback(token)),
-  playInMpv: (streamUrl) => ipcRenderer.invoke('play-in-mpv', streamUrl)
+  playInMpv: (streamUrl) => ipcRenderer.invoke('play-in-mpv', streamUrl),
 });
