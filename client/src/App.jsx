@@ -12,6 +12,8 @@ import ExtensionsModal from './components/app/ExtensionsModal';
 import SearchModal from './components/app/SearchModal';
 import AuthScreen from './components/app/AuthScreen';
 import VideoPlayer from './components/VideoPlayer';
+import loadingBg from "../public/loading.png";
+
 
 const BG_GRADIENT = "linear-gradient(135deg, #181818 0%, #000 100%)";
 const CARD_BG = "rgba(32,32,32,0.95)";
@@ -173,29 +175,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/stream" element={
-        <div style={{ minHeight: '100vh', background: BG_GRADIENT, fontFamily: FONT_HEADER, position: 'relative', display: 'flex' }}>
-          <div style={{ flexGrow: 1, marginLeft: 64, width: 'calc(100% - 64px)', display: 'flex', flexDirection: 'column' }}>
-            <button
-              onClick={() => navigate("/")}
-              style={{
-                alignSelf: 'flex-start',
-                margin: '24px 0 0 24px',
-                padding: '8px 18px',
-                fontSize: '1rem',
-                borderRadius: 8,
-                border: 'none',
-                background: '#222',
-                color: '#ffe082',
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px #0003',
-                transition: 'background 0.2s',
-              }}
-            >
-              ← Back
-            </button>
-            <div style={{ flexGrow: 1, display: 'flex' }}>
-              <VideoPlayer />
-            </div>
+        <div>
+          <MiniSidebar onSelect={handleMiniSidebar} loadingDetails={detailsLoading} onLogout={logout} />
+          <div>
+            <StreamWithLoadingBG />
           </div>
         </div>
       } />
@@ -277,5 +260,95 @@ export default function App() {
         </div>
       } />
     </Routes>
+  );
+}
+
+function StreamWithLoadingBG() {
+  const [showLoading, setShowLoading] = React.useState(true);
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShowLoading(false), 15000);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <div style={{ minHeight: '100vh', background: `url(${loadingBg}) 100% center / cover no-repeat, ${BG_GRADIENT}`, fontFamily: FONT_HEADER, position: 'relative', display: 'flex' }}>
+      <div style={{ flexGrow: 1, marginLeft: 64, width: 'calc(100% - 64px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flexGrow: 1, display: 'flex', position: 'relative' }}>
+          {showLoading && (
+            <div style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(18,18,20,0.82)',
+              zIndex: 9999
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <svg width="80" height="80" viewBox="0 0 50 50" style={{ animation: 'spin 1s linear infinite', marginBottom: 24, marginTop: -48 }}>
+                  <circle cx="25" cy="25" r="20" fill="none" stroke="#fff" strokeWidth="6" strokeLinecap="round" strokeDasharray="31.4 31.4" />
+                  <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+                </svg>
+                <button
+                  onClick={() => navigate("/")}
+                  style={{
+                    marginTop: 0,
+                    padding: '12px 36px',
+                    fontSize: '1.1rem',
+                    fontWeight: 600,
+                    color: '#181818',
+                    background: '#fff',
+                    border: 'none',
+                    borderRadius: 14,
+                    boxShadow: '0 2px 8px #0006',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s',
+                    outline: 'none',
+                    zIndex: 9999
+                  }}
+                >
+                  Back to Home
+                </button>
+              </div>
+            </div>
+          )}
+          <VideoPlayer />
+          {!showLoading && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, calc(-50% + 48px))',
+              width: '100%'
+            }}>
+              <button
+                onClick={() => navigate("/")}
+                style={{
+                  marginTop: 24,
+                  padding: '12px 36px',
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  color: '#181818',
+                  background: '#fff',
+                  border: 'none',
+                  borderRadius: 14,
+                  boxShadow: '0 2px 8px #0006',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  outline: 'none',
+                  zIndex: 9999
+                }}
+              >
+                Back to Home
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

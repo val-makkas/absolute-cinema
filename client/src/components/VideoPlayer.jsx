@@ -10,7 +10,6 @@ export default function VideoPlayer() {
   const [error, setError] = useState(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [isMpvActive, setIsMpvActive] = useState(false);
-  const [isOverlayMode, setIsOverlayMode] = useState(false); // Added missing state variable
 
   const source = location.state?.source;
   const infoHash = source?.infoHash;
@@ -101,16 +100,6 @@ export default function VideoPlayer() {
     }
   }, [streamUrl]);
 
-  useBeforeUnload(
-    React.useCallback(() => {
-      if (streamUrl) {
-        window.electron.ipcRenderer.invoke('stop-mpv').then(() => setIsMpvActive(false)).catch(err => {
-          console.error('Failed to stop MPV:', err);
-        });
-      }
-    })
-  );
-
   if (error) {
     return (
       <div style={styles.statusContainer}>
@@ -118,47 +107,6 @@ export default function VideoPlayer() {
       </div>
     );
   }
-
-  if (!streamUrl) {
-    return (
-      <div style={styles.modernLoadingScreen}>
-        <div style={styles.modernLoadingContent}>
-          <LoadingSpinner size={60} color="#ffe082" />
-          <h2 style={styles.modernMovieTitleFallback}>{movieTitle || "Loading Video..."}</h2>
-          {isLoading && <p style={{ color: '#ffe082', marginTop: 18, fontSize: 18 }}>Fetching torrent metadata...</p>}
-          {movieYear && <p style={styles.modernYearDisplay}>({movieYear})</p>}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={styles.videoContainer}>
-      {isMpvActive && !isOverlayMode && (
-        <button 
-          style={{position:'absolute',top:20,left:20,zIndex:2000}} 
-          onClick={() => {
-            // First hide MPV
-            window.electron.ipcRenderer.invoke('hide-mpv')
-              .then((result) => {
-                console.log("Hide MPV result:", result);
-                // Then switch to overlay mode
-                setIsOverlayMode(true);
-                // Stop streaming by removing the stream URL
-                setStreamUrl(null);
-                setIsMpvActive(false);
-              })
-              .catch(err => {
-                console.error("Failed to hide MPV:", err);
-                // Still switch to overlay mode even if hiding fails
-                setIsOverlayMode(true);
-              });
-          }}>
-          Back to Overlay
-        </button>
-      )}
-    </div>
-  );
 }
 
 const styles = {

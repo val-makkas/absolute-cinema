@@ -43,7 +43,7 @@ export default function MiniSidebar({ onSelect, loadingDetails, onLogout }) {
       <img
         src={logo}
         alt="Absolute Cinema Logo"
-        style={{ width: 44, height: 44, objectFit: 'contain', marginBottom: 18 }}
+        style={{ width: 60, height: 60, objectFit: 'contain', marginBottom: 18 }}
       />
       {/* Logout Button */}
       {/* Sidebar navigation icons */}

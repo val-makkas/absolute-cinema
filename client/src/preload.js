@@ -8,7 +8,6 @@ contextBridge.exposeInMainWorld('electron', {
 // Expose protected methods to renderer
 contextBridge.exposeInMainWorld('electronAPI', {
   send: (channel, data) => {
-    
     // Whitelist channels
     const validChannels = ['sync-event', 'chat-message', 'room-action', 'play-in-mpv', 'mpv-command', 'mpv-fetch', 'stop-mpv'];
     if (validChannels.includes(channel)) {
