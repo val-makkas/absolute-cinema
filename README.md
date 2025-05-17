@@ -11,7 +11,7 @@
 
   <img src="absolute-cinema-client/src/renderer/src/assets/logo_trans.png" alt="Absolute Cinema Logo" width="250"/>
 
-  <h3>A modern open-source streaming platform for movies and TV shows.</h3>
+  <h3>An open-source streaming platform for movies and TV shows.</h3>
 </div>
 
 ---
@@ -21,7 +21,7 @@
 - 🎭 **Modern UI** - Beautiful, responsive interface built with React, TypeScript, and TailwindCSS
 - 🎥 **Watch Together** - Host or join synchronized watch parties with your friends
 - 💬 **Live Chat** - Real-time communication while watching content
-- 🔌 **Custom Addons** - Support for custom Stremio addons to expand your content library
+- 🔌 **Custom Addons** - Support for custom Stremio addons
 - 🛡️ **Room Management** - Create private rooms, invite friends, and manage your watch parties
 - ⚡ **Fast Streaming** - Efficient torrent streaming with WebTorrent and HLS conversion
 - 🔒 **Authentication** - Secure login with Google OAuth
