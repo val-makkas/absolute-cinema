@@ -18,16 +18,12 @@
 
 ## ✨ Features
 
-- 🎭 **Modern UI** - Beautiful, responsive interface built with React, TypeScript, and TailwindCSS
 - 🎥 **Watch Together** - Host or join synchronized watch parties with your friends
 - 💬 **Live Chat** - Real-time communication while watching content
 - 🔌 **Custom Addons** - Support for custom Stremio addons
 - 🛡️ **Room Management** - Create private rooms, invite friends, and manage your watch parties
 - ⚡ **Fast Streaming** - Efficient torrent streaming with WebTorrent and HLS conversion
-- 🔒 **Authentication** - Secure login with Google OAuth
-- 🖥️ **Cross-Platform** - Windows, macOS, and Linux support via Electron
 - 📱 **Overlay Controls** - Unobtrusive UI with intuitive keyboard shortcuts
-- 🚀 **Performance Optimized** - Native window merging for seamless playback
 
 ## 🛠️ Technology Stack
 
