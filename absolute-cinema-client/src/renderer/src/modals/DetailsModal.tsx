@@ -3,9 +3,12 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Play, PartyPopper, X as XIcon } from 'lucide-react'
 import SourcesList from '@/components/SourcesList'
+import { seriesEntry, episode } from '@renderer/types'
+import SeriesSidebar from '@/components/SeriesSidebar'
 
 export default function DetailsModal({
   open,
+  type,
   details,
   extensionManifests,
   detailsLoading,
@@ -13,6 +16,7 @@ export default function DetailsModal({
   onWatchAlone
 }: {
   open: boolean
+  type: string
   details: any
   extensionManifests: Record<string, any>
   detailsLoading: boolean
@@ -25,19 +29,24 @@ export default function DetailsModal({
   const [sources, setSources] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedEpisode, setSelectedEpisode] = useState<episode | null>(null)
 
+  const isSeries = type === 'series'
+  console.log(isSeries)
   // Get unique providers from extensions
   const providers = [
     'All',
-    ...new Set(
-      Object.values(extensionManifests).map((manifest: any) => manifest?.name || 'Unknown')
+    ...Array.from(
+      new Set(
+        Object.values(extensionManifests).map((manifest: any) => manifest?.name || 'Unknown')
+      )
     )
   ]
 
   // Fetch sources - using logic from Sources.tsx
   useEffect(() => {
     const fetchStreamingSources = async (): Promise<void> => {
-      const imdbID = details?.imdb_id || details?.id
+      const imdbID = details.imdb_id
       if (!imdbID) {
         setError('No movie ID provided')
         setLoading(false)
@@ -141,10 +150,10 @@ export default function DetailsModal({
         <div className="relative z-20 flex flex-col flex-1 p-8">
           {/* Movie info header - reorganized with larger image */}
           <div className="flex flex-col mb-6">
-            {details?.avatar && (
+            {details?.logo && (
               <div className="flex justify-center mb-4">
                 <img
-                  src={details.avatar}
+                  src={details.logo}
                   alt={details.title}
                   className="w-56 h-56 object-contain rounded-xl drop-shadow-xl"
                 />
@@ -156,7 +165,7 @@ export default function DetailsModal({
                 {details?.release_date && <span>{details.release_date}</span>}
                 {details?.rating && (
                   <span className="flex items-center gap-1">
-                    • <span className="text-yellow-300 text-base">★</span> {details.rating}
+                    • <span className="text-yellow-300 text-base">★</span> {details.imdbRating}
                   </span>
                 )}
                 {details?.runtime && (
@@ -165,7 +174,7 @@ export default function DetailsModal({
               </div>
 
               <div className="flex flex-wrap justify-center gap-2 mt-1">
-                {details?.genre?.split(',').map((genre: string, i: number) => (
+                {details?.genre?.map((genre: string, i: number) => (
                   <span
                     key={i}
                     className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/80"
@@ -179,17 +188,21 @@ export default function DetailsModal({
 
           {/* Overview & details */}
           <div className="overflow-y-auto max-h-[calc(100vh-450px)] pr-4 custom-scrollbar">
-            <p className="text-sm text-white/90 mb-4 leading-relaxed">{details?.overview}</p>
+            <p className="text-sm text-white/90 mb-4 leading-relaxed">{details?.description}</p>
 
-            <div className="grid grid-cols-2 gap-4 text-sm mt-2 mb-6">
-              {details?.actors && (
-                <div>
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-2 mb-6">
+              {details?.cast && details.cast.length > 0 && (
+                <div className="w-full">
                   <div className="text-white/50 mb-1">Cast</div>
-                  <div className="text-white">{details.actors}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {details.cast.map((cast: string, i: number) => (
+                      <span key={i} className="text-white">{cast}{i < details.cast.length - 1 ? ',' : ''}</span>
+                    ))}
+                  </div>
                 </div>
               )}
               {details?.director && (
-                <div>
+                <div className='w-full'>
                   <div className="text-white/50 mb-1">Director</div>
                   <div className="text-white">{details.director}</div>
                 </div>
@@ -218,18 +231,45 @@ export default function DetailsModal({
         {/* Sources sidebar - updated container */}
         <div className="relative z-20 flex flex-col w-[350px] h-full backdrop-blur-sm bg-transparent border-l border-white/10">
           <div className="h-full overflow-hidden">
-            <SourcesList
-              sources={sources}
-              loading={loading}
-              error={error}
-              selectedSource={selectedSource}
-              onSourceSelect={setSelectedSource}
-              activeProvider={activeProvider}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              onProviderChange={setActiveProvider}
-              providers={providers}
-            />
+            {isSeries ? (
+              /* selectedEpisode ? (
+                // Show sources for the selected episode
+                <SourcesList
+                  sources={sources}
+                  loading={loading}
+                  error={error}
+                  selectedSource={selectedSource}
+                  onSourceSelect={setSelectedSource}
+                  activeProvider={activeProvider}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  onProviderChange={setActiveProvider}
+                  providers={providers}
+                  episode={selectedEpisode}
+                />
+              ) : ( */
+                // Show the series sidebar to pick an episode
+                <SeriesSidebar
+                  details={details}
+                  onEpisodeSelect={setSelectedEpisode}
+                  selectedEpisodeId={selectedEpisode?.id}
+                />
+              /* ) */
+            ) : (
+              // Always show sources for movies
+              <SourcesList
+                sources={sources}
+                loading={loading}
+                error={error}
+                selectedSource={selectedSource}
+                onSourceSelect={setSelectedSource}
+                activeProvider={activeProvider}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                onProviderChange={setActiveProvider}
+                providers={providers}
+              />
+            )}
           </div>
         </div>
       </DialogContent>

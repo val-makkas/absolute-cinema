@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
-import { Movie, UserPlayerSource } from '@/types'
+import { entry, UserPlayerSource } from '@/types'
 import { useMovies } from '@/hooks/useMovies'
 import { useMovieDetails } from '@/hooks/useMovieDetails'
 //import { useChat } from '@/hooks/useChat'
@@ -18,7 +18,7 @@ import VideoPlayer from '@/components/VideoPlayer'
 export default function App(): React.ReactElement {
   const [search, setSearch] = useState<string>('')
   //const [roomId, setRoomId] = useState<string>('default-room')
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
+  const [selectedMovie, setSelectedMovie] = useState<entry | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false)
   //const [chatInput, setChatInput] = useState('')
   //const [chatOpen, setChatOpen] = useState<boolean>(true)
@@ -27,6 +27,7 @@ export default function App(): React.ReactElement {
   const [newManifestUrl, setNewManifestUrl] = useState<string>('')
   const [showExtensionDetails, setShowExtensionDetails] = useState<string | null>(null) // url or null
   const [playerSource, setPlayerSource] = useState<UserPlayerSource | null>(null)
+  const [type, setType] = useState<'movie' | 'series'>('movie')
 
   // Extension manifests state
   const [extensionManifests, setExtensionManifests] = useState<Record<string, unknown>>({})
@@ -44,7 +45,7 @@ export default function App(): React.ReactElement {
     updateExtensions
   } = useUsers()
 
-  const { movies, loading: moviesLoading, error: moviesError } = useMovies(search)
+  const { movies, loading: moviesLoading, error: moviesError } = useMovies(search, type)
 
   const {
     details,
@@ -92,7 +93,7 @@ export default function App(): React.ReactElement {
       const source = {
         infoHash: selectedSource.infoHash,
         fileIdx: selectedSource.fileIdx,
-        name: details.title,
+        name: details.name,
         poster: details.poster
       }
       setPlayerSource(source)
@@ -174,14 +175,14 @@ export default function App(): React.ReactElement {
     )
   }
 
-  const handleMovieClick = (movie: Movie): void => {
+  const handleMovieClick = (movie: entry): void => {
     setSelectedMovie(movie)
-    if (movie.imdb_id && movie.tmdb_id && isCached(movie.imdb_id, movie.tmdb_id)) {
-      setDetailsFromCache(movie.imdb_id, movie.tmdb_id)
+    if (movie.imdb_id && isCached(movie.imdb_id)) {
+      setDetailsFromCache(movie.imdb_id)
       setShowDetailsModal(true)
-    } else if (movie.imdb_id && movie.tmdb_id) {
+    } else if (movie.imdb_id) {
       setShowDetailsModal(false) // wait for loading
-      fetchDetails(movie.imdb_id, movie.tmdb_id)
+      fetchDetails(movie.imdb_id, movie.type as 'movie' | 'series')
     } else {
       alert('Movie identifiers are missing.')
     }
@@ -227,9 +228,12 @@ export default function App(): React.ReactElement {
                 moviesLoading={moviesLoading}
                 moviesError={moviesError}
                 onMovieClick={handleMovieClick}
+                type={type}
+                onTypeChange={setType}
               />
               <DetailsModal
                 open={showDetailsModal}
+                type={type}
                 details={details}
                 extensionManifests={extensionManifests}
                 detailsLoading={detailsLoading}

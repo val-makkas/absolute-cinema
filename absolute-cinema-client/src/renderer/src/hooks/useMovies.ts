@@ -1,30 +1,33 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Movie } from '@/types'
+import { entry } from '@/types'
 
-const API_BASE = 'http://localhost:8080/api/metadata'
+const API_MANIFEST = 'https://v3-cinemeta.strem.io'
 
-export function useMovies(searchQuery: string): {
-  movies: Movie[]
+export function useMovies(searchQuery: string, type: 'movie' | 'series'): {
+  movies: entry[]
   loading: boolean
   error: string | null
-  refetch: () => Promise<void>
 } {
-  const [movies, setMovies] = useState<Movie[]>([])
+
+  const [movies, setMovies] = useState<entry[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchMovies = useCallback(async () => {
+  const fetchPopular = useCallback(async () => {
+    console.log('fetchPopular called with type:', type)
     setLoading(true)
     setError(null)
     try {
-      const url =
-        searchQuery && searchQuery.length >= 3
-          ? `${API_BASE}/movies/search?query=${encodeURIComponent(searchQuery)}`
-          : `${API_BASE}/movies/popular`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch movies')
+      let res
+      if (!type) {
+        res = await fetch(`${API_MANIFEST}/catalog/movie/top.json`)
+      } else {
+        res = await fetch(`${API_MANIFEST}/catalog/${type}/top.json`)
+      }
+      if (!res.ok) throw new Error('Failed to fetch popular movies')
       const data = await res.json()
-      setMovies(data)
+      console.log('Fetched data:', data)
+      setMovies(Array.isArray(data.metas) ? data.metas : [])
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message)
@@ -35,11 +38,11 @@ export function useMovies(searchQuery: string): {
     } finally {
       setLoading(false)
     }
-  }, [searchQuery])
+  }, [type])
 
   useEffect(() => {
-    fetchMovies()
-  }, [fetchMovies])
+    fetchPopular()
+  }, [fetchPopular, type])
 
-  return { movies, loading, error, refetch: fetchMovies }
+  return { movies, loading, error }
 }

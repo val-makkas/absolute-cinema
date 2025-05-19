@@ -42,7 +42,7 @@ export default function VideoPlayer(source): React.ReactElement {
   }
 
   const details = location.state?.details || {}
-  const movieTitle = source?.title || details.title || 'Loading video...'
+  const movieTitle = source?.title || details.name || 'Loading video...'
   const movieYear = details.year || ''
 
   useEffect(() => {

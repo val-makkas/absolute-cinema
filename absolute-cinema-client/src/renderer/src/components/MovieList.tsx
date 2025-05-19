@@ -1,21 +1,39 @@
 import { Skeleton } from '@/components/ui/skeleton'
-import { Movie } from '@/types/movie.types'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import { movieEntry, seriesEntry } from '@renderer/types'
+
+type Movie = movieEntry | seriesEntry
 
 interface MovieListProps {
   movies: Movie[]
   moviesLoading: boolean
   moviesError?: string | null
   onMovieClick: (movie: Movie) => void
+  type: 'movie' | 'series'
+  onTypeChange: (type: 'movie' | 'series') => void
 }
 
 export default function MovieList({
   movies,
   moviesLoading,
   moviesError,
-  onMovieClick
+  onMovieClick,
+  type,
+  onTypeChange
 }: MovieListProps): React.ReactElement {
   return (
     <main className="w-full min-h-screen flex flex-col items-center justify-start px-4 pb-12 pt-8 animate-fade-in relative">
+      <div className='mb-6 w-full max-w-[300px'>
+        <Select value={type} onValueChange={onTypeChange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='movie'>Movies</SelectItem>
+            <SelectItem value='series'>Series</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       {moviesError && (
         <div className="mb-4 w-full text-center text-red-400 font-semibold z-8">{moviesError}</div>
       )}
@@ -38,7 +56,7 @@ export default function MovieList({
                 <Skeleton className="absolute inset-0 w-full h-full rounded-2xl bg-gradient-to-br from-white/5 to-black/20" />
               </div>
             ))
-          : movies.map((m, i) => (
+          : (Array.isArray(movies) ? movies : []).map((m, i) => (
               <button
                 key={m.imdb_id || i}
                 className="group aspect-[2/3] rounded-2xl overflow-hidden bg-black/80 cursor-pointer relative w-full max-w-[260px] transition-all duration-300 hover:scale-[1.04] hover:z-8 focus:outline-none"
@@ -48,7 +66,7 @@ export default function MovieList({
                 {/* Movie poster */}
                 <img
                   src={m.poster}
-                  alt={m.title}
+                  alt={m.name}
                   className="absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:brightness-110"
                   draggable={false}
                 />

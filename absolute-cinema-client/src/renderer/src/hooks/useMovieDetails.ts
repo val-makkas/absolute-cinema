@@ -1,28 +1,24 @@
 import { useState, useCallback } from 'react'
+import { entry } from '@renderer/types'
+const API_MANIFEST = 'https://v3-cinemeta.strem.io'
 
-const API_BASE = 'http://localhost:8080/api/metadata'
-
-interface MovieDetails {
-  title: string
-  [key: string]: any
-}
-
+type MovieDetails = entry | null
 type DetailsCache = Record<string, MovieDetails | undefined>
 const detailsCache: DetailsCache = {}
 
 // Helper: Only cache valid details (adjust fields as needed)
 const isValidDetails = (data: any): data is MovieDetails => {
-  return data && typeof data === 'object' && data.title
+  return data && typeof data === 'object' && data.name
 }
 
 export function useMovieDetails(): {
   details: MovieDetails | null
   loading: boolean
   error: string | null
-  fetchDetails: (imdbId: string, tmdbId: string) => Promise<void>
-  isCached: (imdbId: string, tmdbId: string) => boolean
+  fetchDetails: (imdbId: string, type: 'movie' | 'series') => Promise<void>
+  isCached: (imdbId: string) => boolean
   clearDetails: () => void
-  setDetailsFromCache: (imdbId: string, tmdbId: string) => boolean
+  setDetailsFromCache: (imdbId: string) => boolean
 } {
   const [details, setDetails] = useState<MovieDetails | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -34,20 +30,20 @@ export function useMovieDetails(): {
     setLoading(false)
   }, [])
 
-  const isCached = useCallback((imdbId: string, tmdbId: string) => {
-    const cacheKey = imdbId + ':' + tmdbId
+  const isCached = useCallback((imdbId: string) => {
+    const cacheKey = imdbId
     const cached = detailsCache[cacheKey]
     return isValidDetails(cached)
   }, [])
 
-  const setDetailsFromCache = useCallback((imdbId: string, tmdbId: string) => {
-    if (!imdbId && !tmdbId) {
+  const setDetailsFromCache = useCallback((imdbId: string) => {
+    if (!imdbId) {
       // Clear details if no IDs provided
       setDetails(null)
       return false
     }
 
-    const cacheKey = imdbId + ':' + tmdbId
+    const cacheKey = imdbId
     const cached = detailsCache[cacheKey]
     if (isValidDetails(cached)) {
       setDetails(cached)
@@ -57,9 +53,9 @@ export function useMovieDetails(): {
   }, [])
 
   const fetchDetails = useCallback(
-    async (imdbId: string, tmdbId: string) => {
-      const cacheKey = imdbId + ':' + tmdbId
-      if (isCached(imdbId, tmdbId)) {
+    async (imdbId: string, type: 'movie' | 'series') => {
+      const cacheKey = imdbId
+      if (isCached(imdbId)) {
         setDetails(detailsCache[cacheKey]!)
         setLoading(false)
         return
@@ -68,13 +64,13 @@ export function useMovieDetails(): {
       setLoading(true)
       setError(null)
       try {
-        const url = `${API_BASE}/details/${imdbId}/${tmdbId}`
+        const url = `${API_MANIFEST}/meta/${type}/${imdbId}.json`
         const res = await fetch(url)
         if (!res.ok) throw new Error('Failed to fetch details')
         const data = await res.json()
-        if (isValidDetails(data)) {
-          detailsCache[cacheKey] = data
-          setDetails(data)
+        if (isValidDetails(data.meta)) {
+          detailsCache[cacheKey] = data.meta
+          setDetails(data.meta)
         } else {
           throw new Error('Movie details not found')
         }
