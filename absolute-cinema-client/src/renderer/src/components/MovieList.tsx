@@ -1,6 +1,13 @@
 import { Skeleton } from '@/components/ui/skeleton'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue
+} from '@/components/ui/select'
 import { movieEntry, seriesEntry } from '@renderer/types'
+import { useEffect, useState } from 'react'
 
 type Movie = movieEntry | seriesEntry
 
@@ -11,6 +18,7 @@ interface MovieListProps {
   onMovieClick: (movie: Movie) => void
   type: 'movie' | 'series'
   onTypeChange: (type: 'movie' | 'series') => void
+  onLoadMore: () => void
 }
 
 export default function MovieList({
@@ -19,18 +27,63 @@ export default function MovieList({
   moviesError,
   onMovieClick,
   type,
-  onTypeChange
+  onTypeChange,
+  onLoadMore
 }: MovieListProps): React.ReactElement {
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false)
+
+  useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout
+    let lastFetchTime = 0
+    const minTimeBetweenFetches = 2000 // 2 seconds minimum between fetches
+
+    function handleScroll(): void {
+      if (scrollTimeout) clearTimeout(scrollTimeout)
+
+      scrollTimeout = setTimeout(() => {
+        if (moviesLoading || isLoadingMore) return
+
+        const now = Date.now()
+        if (now - lastFetchTime < minTimeBetweenFetches) return
+
+        const scrollPosition = window.innerHeight + window.scrollY
+        const documentHeight = document.body.offsetHeight
+        const scrollThreshold = documentHeight - 300 // 300px from bottom
+
+        if (scrollPosition >= scrollThreshold) {
+          setIsLoadingMore(true)
+          lastFetchTime = now
+          onLoadMore()
+
+          // Force scroll up slightly to prevent immediate re-trigger
+          setTimeout(() => {
+            window.scrollTo({
+              top: window.scrollY - 10,
+              behavior: 'auto'
+            })
+            setIsLoadingMore(false)
+          }, 100)
+        }
+      }, 200)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollTimeout) clearTimeout(scrollTimeout)
+    }
+  }, [moviesLoading, onLoadMore, isLoadingMore])
+
   return (
     <main className="w-full min-h-screen flex flex-col items-center justify-start px-4 pb-12 pt-8 animate-fade-in relative">
-      <div className='mb-6 w-full max-w-[300px'>
+      <div className="mb-6 w-full max-w-[300px]">
         <Select value={type} onValueChange={onTypeChange}>
           <SelectTrigger>
             <SelectValue placeholder="Select type" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value='movie'>Movies</SelectItem>
-            <SelectItem value='series'>Series</SelectItem>
+          <SelectContent position="popper" portalContainer={document.body}>
+            <SelectItem value="movie">Movies</SelectItem>
+            <SelectItem value="series">Series</SelectItem>
           </SelectContent>
         </Select>
       </div>

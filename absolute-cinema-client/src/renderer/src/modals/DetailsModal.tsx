@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Play, PartyPopper, X as XIcon } from 'lucide-react'
 import SourcesList from '@/components/SourcesList'
-import { seriesEntry, episode } from '@renderer/types'
+import { episode, Source } from '@renderer/types'
 import SeriesSidebar from '@/components/SeriesSidebar'
 
 export default function DetailsModal({
@@ -21,12 +21,12 @@ export default function DetailsModal({
   extensionManifests: Record<string, any>
   detailsLoading: boolean
   onClose: () => void
-  onWatchAlone: (src: any) => void
+  onWatchAlone: (src: Source) => void
 }): React.ReactElement {
-  const [selectedSource, setSelectedSource] = useState<any>(null)
+  const [selectedSource, setSelectedSource] = useState<Source | null>(null)
   const [sortBy, setSortBy] = useState('quality')
   const [activeProvider, setActiveProvider] = useState('All')
-  const [sources, setSources] = useState<any[]>([])
+  const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedEpisode, setSelectedEpisode] = useState<episode | null>(null)
@@ -37,9 +37,7 @@ export default function DetailsModal({
   const providers = [
     'All',
     ...Array.from(
-      new Set(
-        Object.values(extensionManifests).map((manifest: any) => manifest?.name || 'Unknown')
-      )
+      new Set(Object.values(extensionManifests).map((manifest: any) => manifest?.name || 'Unknown'))
     )
   ]
 
@@ -54,7 +52,7 @@ export default function DetailsModal({
       }
       try {
         setLoading(true)
-        const allSources: any[] = []
+        const allSources: Source[] = []
         for (const [manifestUrl, manifest] of Object.entries(extensionManifests)) {
           const baseUrl = manifestUrl.replace(/\/manifest\.json$/, '')
           const streamUrl = `${baseUrl}/stream/movie/${imdbID}.json`
@@ -62,25 +60,21 @@ export default function DetailsModal({
             const response = await fetch(streamUrl)
             if (!response.ok) throw new Error('No streams')
             const data = await response.json()
-            let streams: any[] = []
+            let streams: Source[] = []
             if (Array.isArray(data.streams)) {
               streams = data.streams
-            } else if (Array.isArray(data)) {
-              streams = data
-            } else if (data.results && Array.isArray(data.results)) {
-              streams = data.results
             }
             allSources.push(
               ...streams.map((source) => {
-                const [displayName, ...rest] = source.name.split('\n')
-                const [displayTitle, ...restTitle] = source.title.split('\n')
+                const [displayName, ...rest] = source.name!.split('\n')
+                const [displayTitle, ...restTitle] = source.title!.split('\n')
                 return {
                   ...source,
                   extensionName: manifest.name || baseUrl,
                   displayName,
                   displayTitle,
-                  restTitle: restTitle.join('\n'),
-                  subName: rest.join('\n')
+                  info: restTitle.join('\n'),
+                  quality: rest.join('\n')
                 }
               })
             )
@@ -109,7 +103,13 @@ export default function DetailsModal({
 
   if (detailsLoading && !details) {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
+      <Dialog
+        open={open}
+        onOpenChange={() => {
+          setSelectedEpisode(null)
+          onClose()
+        }}
+      >
         <DialogContent className="flex items-center justify-center min-h-[300px] bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl">
           <div className="w-16 h-16 rounded-full border-4 border-yellow-300 border-t-transparent animate-spin" />
         </DialogContent>
@@ -118,7 +118,14 @@ export default function DetailsModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog
+      open={open}
+      onOpenChange={() => {
+        setSelectedEpisode(null)
+        setSelectedSource(null)
+        onClose()
+      }}
+    >
       <DialogContent
         className="flex flex-row p-0 max-w-7xl h-900 bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-10 duration-300"
         onClick={(e) => e.stopPropagation()}
@@ -177,7 +184,7 @@ export default function DetailsModal({
                 {details?.genre?.map((genre: string, i: number) => (
                   <span
                     key={i}
-                    className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/80"
+                    className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80"
                   >
                     {genre.trim()}
                   </span>
@@ -188,23 +195,32 @@ export default function DetailsModal({
 
           {/* Overview & details */}
           <div className="overflow-y-auto max-h-[calc(100vh-450px)] pr-4 custom-scrollbar">
-            <p className="text-sm text-white/90 mb-4 leading-relaxed">{details?.description}</p>
+            <p className="text-s text-white/90 mb-4 leading-relaxed text-center">
+              {details?.description}
+            </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-2 mb-6">
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-2 mb-6 text-center">
               {details?.cast && details.cast.length > 0 && (
                 <div className="w-full">
-                  <div className="text-white/50 mb-1">Cast</div>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="text-white/50 mb-2 text-center">Cast</div>
+                  <div className="flex flex-wrap justify-center gap-2">
                     {details.cast.map((cast: string, i: number) => (
-                      <span key={i} className="text-white">{cast}{i < details.cast.length - 1 ? ',' : ''}</span>
+                      <span
+                        key={i}
+                        className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80"
+                      >
+                        {cast}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
               {details?.director && (
-                <div className='w-full'>
-                  <div className="text-white/50 mb-1">Director</div>
-                  <div className="text-white">{details.director}</div>
+                <div>
+                  <div className="text-white/50 mb-1 text-center">Director</div>
+                  <div className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80 w-full">
+                    {details.director}
+                  </div>
                 </div>
               )}
             </div>
@@ -212,27 +228,53 @@ export default function DetailsModal({
 
           {/* Action buttons */}
           <div className="flex gap-4 mt-auto pt-4">
-            <button
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
-              onClick={() => onWatchAlone(selectedSource)}
-              disabled={!selectedSource}
-            >
-              <Play className="w-5 h-5" /> Watch Alone
-            </button>
-            <button
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-400 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
-              disabled={!selectedSource}
-            >
-              <PartyPopper className="w-5 h-5" /> Create Party
-            </button>
+            {selectedSource ? (
+              <>
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
+                  onClick={() => onWatchAlone(selectedSource)}
+                  disabled={!selectedSource}
+                >
+                  <Play className="w-5 h-5" /> Watch Alone
+                </button>
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-400 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
+                  disabled={!selectedSource}
+                >
+                  <PartyPopper className="w-5 h-5" /> Create Party
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl 
+                  font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 
+                text-white shadow-lg hover:scale-105 transition drop-shadow-xl
+                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  onClick={() => onWatchAlone(selectedSource)}
+                  disabled={!selectedSource}
+                >
+                  <Play className="w-5 h-5" /> Watch Alone
+                </button>
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl 
+                  font-bold text-base bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-400 
+                text-white shadow-lg hover:scale-105 transition drop-shadow-xl
+                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  disabled={!selectedSource}
+                >
+                  <PartyPopper className="w-5 h-5" /> Create Party
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         {/* Sources sidebar - updated container */}
         <div className="relative z-20 flex flex-col w-[350px] h-full backdrop-blur-sm bg-transparent border-l border-white/10">
-          <div className="h-full overflow-hidden">
+          <div className="h-full overflow-visible">
             {isSeries ? (
-              /* selectedEpisode ? (
+              selectedEpisode ? (
                 // Show sources for the selected episode
                 <SourcesList
                   sources={sources}
@@ -245,16 +287,17 @@ export default function DetailsModal({
                   onSortChange={setSortBy}
                   onProviderChange={setActiveProvider}
                   providers={providers}
+                  onEpisodeSelect={setSelectedEpisode}
                   episode={selectedEpisode}
                 />
-              ) : ( */
+              ) : (
                 // Show the series sidebar to pick an episode
                 <SeriesSidebar
                   details={details}
                   onEpisodeSelect={setSelectedEpisode}
                   selectedEpisodeId={selectedEpisode?.id}
                 />
-              /* ) */
+              )
             ) : (
               // Always show sources for movies
               <SourcesList
@@ -268,6 +311,8 @@ export default function DetailsModal({
                 onSortChange={setSortBy}
                 onProviderChange={setActiveProvider}
                 providers={providers}
+                onEpisodeSelect={setSelectedEpisode}
+                episode={null}
               />
             )}
           </div>

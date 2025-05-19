@@ -9,15 +9,6 @@ services:
       - "8080:8080"
     depends_on:
       - redis
-      - metadata-service
-
-  metadata-service:
-    build: ./content
-    image: imdb-metadata
-    environment:
-      - TMDB_API_KEY=${TMDB_API_KEY}
-    ports:
-      - "8000:8000"
 
   redis:
     image: redis:latest

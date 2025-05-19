@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
-import { entry, UserPlayerSource } from '@/types'
+import { entry, Source } from '@/types'
 import { useMovies } from '@/hooks/useMovies'
 import { useMovieDetails } from '@/hooks/useMovieDetails'
 //import { useChat } from '@/hooks/useChat'
@@ -26,7 +26,7 @@ export default function App(): React.ReactElement {
   const [searchOpen, setSearchOpen] = useState<boolean>(false)
   const [newManifestUrl, setNewManifestUrl] = useState<string>('')
   const [showExtensionDetails, setShowExtensionDetails] = useState<string | null>(null) // url or null
-  const [playerSource, setPlayerSource] = useState<UserPlayerSource | null>(null)
+  const [playerSource, setPlayerSource] = useState<Source | null>(null)
   const [type, setType] = useState<'movie' | 'series'>('movie')
 
   // Extension manifests state
@@ -45,7 +45,7 @@ export default function App(): React.ReactElement {
     updateExtensions
   } = useUsers()
 
-  const { movies, loading: moviesLoading, error: moviesError } = useMovies(search, type)
+  const { movies, loading: moviesLoading, error: moviesError, loadMore } = useMovies(search, type)
 
   const {
     details,
@@ -88,17 +88,11 @@ export default function App(): React.ReactElement {
     }
   }, [detailsLoading, details, selectedMovie, showDetailsModal])
 
-  const handleWatchAlone = (details, selectedSource): void => {
+  const handleWatchAlone = (details, selectedSource: Source): void => {
     if (details?.id && selectedSource?.infoHash) {
-      const source = {
-        infoHash: selectedSource.infoHash,
-        fileIdx: selectedSource.fileIdx,
-        name: details.name,
-        poster: details.poster
-      }
-      setPlayerSource(source)
+      setPlayerSource(selectedSource)
       setShowDetailsModal(false) // Close modal
-      navigate('/watch-alone/', { state: { source, details } }) // Pass source and details in the state
+      navigate('/watch-alone/', { state: { selectedSource, details } }) // Pass source and details in the state
     } else {
       alert('No valid streaming source selected.')
     }
@@ -198,6 +192,10 @@ export default function App(): React.ReactElement {
     }
   } */
   const handleSidebar = (key: string): void => {
+    if (key === 'home') {
+      navigate('/')
+      setShowDetailsModal(false)
+    }
     if (key === 'search') setSearchOpen(true)
     if (key === 'extensions') setExtensionsOpen(true)
   }
@@ -210,7 +208,7 @@ export default function App(): React.ReactElement {
           <div>
             <Sidebar onSelect={handleSidebar} onLogout={logout} username={username} />
             <div>
-              <VideoPlayer source={playerSource} />
+              <VideoPlayer source={playerSource} details={details} />
             </div>
           </div>
         }
@@ -230,6 +228,7 @@ export default function App(): React.ReactElement {
                 onMovieClick={handleMovieClick}
                 type={type}
                 onTypeChange={setType}
+                onLoadMore={loadMore}
               />
               <DetailsModal
                 open={showDetailsModal}

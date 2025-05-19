@@ -17,16 +17,16 @@ export default function Sidebar({
     <>
       {/* Sidebar (vertical, left) with animated gradient border */}
       {/* Actual sidebar content with a small inset to show the border */}
-      <aside className="fixed left-[2px] top-[2px] h-[calc(100vh-4px)] w-[calc(5rem-4px)] bg-black/70 backdrop-blur-xl shadow-2xl flex flex-col items-center py-4 gap-6 z-10">
+      <aside className="fixed left-[2px] h-[calc(100vh-4px)] w-[calc(5rem-4px)] bg-black/70 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-6 z-10">
         {/* Logo at top */}
         <div
-          className="relative w-11 h-11 group cursor-pointer flex items-center justify-center"
+          className="relative group cursor-pointer flex items-center justify-center"
           onClick={() => onSelect('home')}
         >
-          <Logo w={11} h={11} abs={false} />
+          <Logo w={10} h={10} abs={false} />
         </div>
 
-        <div className="h-7"></div>
+        <div className="h-5"></div>
 
         {/* Navigation icons with specific spacing */}
         <div className="flex-1 flex flex-col items-center gap-6 pt-4">

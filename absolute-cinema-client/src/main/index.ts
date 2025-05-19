@@ -23,9 +23,11 @@ const parentHelperPath = path.join(
   app.getAppPath(),
   '..',
   'tools',
-  'absolute-cinema-window-merger',
+  'window-merger',
   'window-merger.exe'
 )
+const mpvPath = path.join(app.getAppPath(), '..', 'mpv', 'mpv.exe')
+
 const pipeName = '\\\\.\\pipe\\mpvpipe'
 let request_id = 0
 
@@ -76,7 +78,7 @@ app.whenReady().then(async () => {
   createWindow()
 
   try {
-    const { process, socket } = await startIdleMpv(mpvTitle, pipeName, pendingRequests)
+    const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
     mpvProcess = process
     mpvIpcSocket = socket
   } catch (err) {
@@ -210,7 +212,7 @@ ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
     // Make sure MPV is running
     if (!mpvProcess || mpvProcess.killed) {
       console.log('ok')
-      const { process, socket } = await startIdleMpv(mpvTitle, pipeName, pendingRequests)
+      const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
       mpvIpcSocket = socket
     }
@@ -313,7 +315,7 @@ ipcMain.handle('hide-mpv', async () => {
 
     // Restart MPV in idle mode
     try {
-      const { process, socket } = await startIdleMpv(mpvTitle, pipeName, pendingRequests)
+      const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
       mpvIpcSocket = socket
       console.log('MPV restarted in idle mode')

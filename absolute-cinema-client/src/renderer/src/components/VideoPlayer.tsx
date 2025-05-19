@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Source, entry } from '@renderer/types'
 
 // Define ElectronAPI interface
 interface ElectronAPI {
@@ -23,27 +24,27 @@ interface TorrentResponse {
   // Add other properties if needed
 }
 
+interface VideoPlayerProps {
+  source: Source | null
+  details: entry | null
+}
+
 const API_BASE_URL = 'http://localhost:8888'
 
-export default function VideoPlayer(source): React.ReactElement {
-  const location = useLocation()
+export default function VideoPlayer({ source, details }: VideoPlayerProps): React.ReactElement {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [streamUrl, setStreamUrl] = useState<string | null>(null)
   const [isMpvActive, setIsMpvActive] = useState(false)
 
-  const infoHash = source?.infoHash
-  const fileIdx = source?.fileIdx ?? 0
+  const infoHash = source!.infoHash
+  const fileIdx = source!.fileIdx
 
-  let magnetUri = source?.magnetUri
-  if (!magnetUri && infoHash) {
-    magnetUri = `magnet:?xt=urn:btih:${infoHash}`
-  }
+  const magnetUri = `magnet:?xt=urn:btih:${infoHash}`
 
-  const details = location.state?.details || {}
-  const movieTitle = source?.title || details.name || 'Loading video...'
-  const movieYear = details.year || ''
+  const movieTitle = details!.name
+  const movieYear = 'year' in details! ? details!.year : details!.releaseInfo
 
   useEffect(() => {
     if (!magnetUri || magnetUri.includes('undefined')) {

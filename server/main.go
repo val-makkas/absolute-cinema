@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"absolute-cinema/proxy"
 	"absolute-cinema/users"
 	"absolute-cinema/ws"
 )
@@ -17,7 +15,7 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://localhost:5173"},
+		AllowOrigins:     []string{"https://localhost:5173", "http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -36,18 +34,12 @@ func main() {
 
 	ws.InitRedis("redis:6379")
 
-	http.Handle("/api/metadata/", proxy.NewMetadataProxy(
-		"/api/metadata",                // the prefix to strip
-		"http://metadata-service:8000", // the Docker service + port
-	))
-
-	http.HandleFunc("/ws", ws.HandleConnection)
-
-	// Mount Gin as the default handler for everything else
-	http.Handle("/", r)
+	r.GET("/ws", func(c *gin.Context) {
+		ws.HandleConnection(c.Writer, c.Request)
+	})
 
 	fmt.Println("Server started on :8080")
-	err := http.ListenAndServe(":8080", nil)
+	err := r.Run(":8080")
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}

@@ -1,15 +1,14 @@
 import { spawn, spawnSync } from 'child_process'
 import fs from 'fs'
-import path from 'path'
 import net from 'net'
 
 export async function startIdleMpv(
   mpvTitle: string,
+  mpvPath: string,
   pipeName: string,
   pendingRequests: Map<any, any>
 ): Promise<{ process: any; socket: any }> {
   await waitForPipeToBeDeleted(pipeName, 5000)
-  const mpvPath = path.resolve(__dirname, '../../../mpv/mpv.exe')
 
   const args = [
     '--idle',
