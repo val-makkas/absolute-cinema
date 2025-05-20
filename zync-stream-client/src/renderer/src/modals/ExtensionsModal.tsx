@@ -108,13 +108,10 @@ export default function ExtensionsModal({
                 />{' '}
                 <Button
                   onClick={onAdd}
-                  className="px-5 h-11 rounded-xl relative overflow-hidden group border-0 shadow-lg"
+                  className="px-5 h-11 border-1 bg-purple-800 rounded-xl relative overflow-hidden group shadow-lg"
                 >
-                  {/* Subtle gradient background */}
                   <span className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-md"></span>
-                  {/* Dark overlay for contrast */}
                   <span className="absolute inset-0 bg-black/70"></span>
-                  {/* Subtle accent on hover */}
                   <span className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-purple-600/10 to-blue-600/10 transition-opacity"></span>
 
                   <span className="relative z-10 text-white font-semibold">Add</span>

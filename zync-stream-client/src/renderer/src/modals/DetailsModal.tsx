@@ -12,7 +12,8 @@ export default function DetailsModal({
   extensionManifests,
   detailsLoading,
   onClose,
-  onWatchAlone
+  onWatchAlone,
+  addExtension
 }: {
   open: boolean
   details: any
@@ -20,6 +21,7 @@ export default function DetailsModal({
   detailsLoading: boolean
   onClose: () => void
   onWatchAlone: (src: Source) => void
+  addExtension: () => void
 }): React.ReactElement {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
   const [sortBy, setSortBy] = useState('quality')
@@ -142,7 +144,7 @@ export default function DetailsModal({
         {/* Blurred poster background */}
         {details?.poster && (
           <div
-            className="absolute inset-0 z-0"
+            className="absolute inset-0 z-0 pointer-events-none"
             style={{
               backgroundImage: `url(${details.poster})`,
               backgroundSize: 'cover',
@@ -154,7 +156,7 @@ export default function DetailsModal({
         )}
 
         {/* Overlay for readability */}
-        <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/60 via-black/70 to-black/80" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/60 via-black/70 to-black/80 pointer-events-none" />
 
         {/* Main content */}
         <div className="relative z-20 flex flex-col flex-1 p-8">
@@ -291,6 +293,7 @@ export default function DetailsModal({
                   providers={providers}
                   onEpisodeSelect={setSelectedEpisode}
                   episode={selectedEpisode}
+                  addExtension={addExtension}
                 />
               ) : (
                 // Show the series sidebar to pick an episode
@@ -315,6 +318,7 @@ export default function DetailsModal({
                 providers={providers}
                 onEpisodeSelect={setSelectedEpisode}
                 episode={null}
+                addExtension={addExtension}
               />
             )}
           </div>

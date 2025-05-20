@@ -1,4 +1,5 @@
 import { episode, Source } from '@renderer/types'
+import { Blocks } from 'lucide-react'
 import { Button } from './ui/button'
 
 interface SourcesListProps {
@@ -14,6 +15,7 @@ interface SourcesListProps {
   providers: string[]
   onEpisodeSelect: (ep: episode | null) => void
   episode: episode | null
+  addExtension: () => void
 }
 
 export default function SourcesList({
@@ -28,7 +30,8 @@ export default function SourcesList({
   onProviderChange,
   providers,
   onEpisodeSelect,
-  episode
+  episode,
+  addExtension
 }: SourcesListProps): React.ReactElement {
   // Filter sources based on active provider
   const filteredSources =
@@ -107,36 +110,49 @@ export default function SourcesList({
           ))}
         </select>
         <div className="flex flex-col mt-3 gap-1">
-          {sources.map((source) => {
-            const uniq = `${source.extensionName}-${source.displayTitle}-${source.quality || ''}-${source.info || ''}`
-
-            const isSelected =
-              selectedSource &&
-              selectedSource.displayTitle === source.displayTitle &&
-              selectedSource.extensionName === source.extensionName &&
-              selectedSource.info === source.info
-
-            return (
+          {sources.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-white/70">
+              <Blocks className="w-12 h-12 mb-5" />
+              <span className="mb-3 text-center">
+                No sources found! Spice things up by adding a new extension.
+              </span>
               <button
-                key={uniq}
-                className={`flex items-center gap-3 text-left px-2 py-2 rounded hover:bg-white/10 transition
-                h-[70px] min-h-[70px] ${
-                  isSelected ? 'bg-white/10 text-pink-400' : 'text-white/80'
-                }`}
-                onClick={() => onSourceSelect(source)}
+                onClick={() => addExtension()}
+                className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-xl transition-all duration-200"
               >
-                <div className="flex flex-col justify-center h-full overflow-hidden">
-                  <div className="font-mono text-xs opacity-90 line-clamp-1">
-                    {source.displayName} {source.quality}
-                  </div>
-                  <div className="font-semibold text-xs w-full truncate max-w-[250px] leading-tight">
-                    {source.displayTitle}
-                  </div>
-                  <div className="font-mono text-xs opacity-90 line-clamp-1">{source.info}</div>
-                </div>
+                Add Extension
               </button>
-            )
-          })}
+            </div>
+          ) : (
+            sources.map((source) => {
+              const uniq = `${source.extensionName}-${source.displayTitle}-${source.quality || ''}-${source.info || ''}`
+              const isSelected =
+                selectedSource &&
+                selectedSource.displayTitle === source.displayTitle &&
+                selectedSource.extensionName === source.extensionName &&
+                selectedSource.info === source.info
+              return (
+                <button
+                  key={uniq}
+                  className={`flex items-center gap-3 text-left px-2 py-2 rounded hover:bg-white/10 transition
+                  h-[70px] min-h-[70px] ${
+                    isSelected ? 'bg-white/10 text-pink-400' : 'text-white/80'
+                  }`}
+                  onClick={() => onSourceSelect(source)}
+                >
+                  <div className="flex flex-col justify-center h-full overflow-hidden">
+                    <div className="font-mono text-xs opacity-90 line-clamp-1">
+                      {source.displayName} {source.quality}
+                    </div>
+                    <div className="font-semibold text-xs w-full truncate max-w-[250px] leading-tight">
+                      {source.displayTitle}
+                    </div>
+                    <div className="font-mono text-xs opacity-90 line-clamp-1">{source.info}</div>
+                  </div>
+                </button>
+              )
+            })
+          )}
         </div>
       </div>
     </aside>

@@ -103,6 +103,12 @@ export default function App(): React.ReactElement {
     }
   }
 
+  const addExtension = (): void => {
+    setShowDetailsModal(false)
+    setSelectedMovie(null)
+    setExtensionsOpen(true)
+  }
+
   /* function LoginSuccessHandler(): React.ReactElement {
     const navigate = useNavigate()
     const { login } = useUsers() // get login from hook
@@ -266,6 +272,7 @@ export default function App(): React.ReactElement {
                 detailsLoading={detailsLoading}
                 onClose={handleCloseDetails}
                 onWatchAlone={(src) => handleWatchAlone(details, src)}
+                addExtension={addExtension}
               />
               <ExtensionsModal
                 open={extensionsOpen}

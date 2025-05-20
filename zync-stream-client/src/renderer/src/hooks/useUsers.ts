@@ -135,7 +135,9 @@ export function useUsers(): {
         const extensionsArray = Array.isArray(newExtensions) ? newExtensions : [newExtensions]
 
         // Extract URLs from UserExtensions objects for the API
-        const extensionUrls = extensionsArray.map((ext) => (typeof ext === 'string' ? ext : ext.url))
+        const extensionUrls = extensionsArray.map((ext) =>
+          typeof ext === 'string' ? ext : ext.url
+        )
 
         const response = await fetch('http://localhost:8080/api/users/extensions', {
           method: 'POST',
