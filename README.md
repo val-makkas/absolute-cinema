@@ -18,6 +18,10 @@
 > [!NOTE]
 > Actual video playback is currently only available on Windows.
 
+<img src="zync-stream-client/src/renderer/src/assets/screen1.png" alt="Zync Logo" width="800"/>
+<img src="zync-stream-client/src/renderer/src/assets/screen2.png" alt="Zync Logo" width="800"/>
+<img src="zync-stream-client/src/renderer/src/assets/screen3.png" alt="Zync Logo" width="800"/>
+
 ## Features
 
 - **Watch Together** - Host or join synchronized watch parties with friends
