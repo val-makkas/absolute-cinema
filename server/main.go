@@ -7,8 +7,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"absolute-cinema/users"
-	"absolute-cinema/ws"
+	"zync-stream/users"
+	"zync-stream/ws"
 )
 
 func main() {

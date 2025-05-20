@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { entry } from '@renderer/types'
 
-const API_MANIFEST = import.meta.env.VITE_API_MANIFEST
+const API_MANIFEST = import.meta.env.VITE_API_CINE
 
 type MovieDetails = entry | null
 type DetailsCache = Record<string, MovieDetails | undefined>

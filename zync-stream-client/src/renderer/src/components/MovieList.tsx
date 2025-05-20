@@ -17,6 +17,8 @@ interface MovieListProps {
   moviesError?: string | null
   onMovieClick: (movie: Movie) => void
   type: 'movie' | 'series'
+  catalog: 'IMDB' | 'CINE' | 'PDM'
+  onCatalogChange: (catalog: 'IMDB' | 'CINE' | 'PDM') => void
   onTypeChange: (type: 'movie' | 'series') => void
   onLoadMore: () => void
 }
@@ -27,6 +29,8 @@ export default function MovieList({
   moviesError,
   onMovieClick,
   type,
+  catalog,
+  onCatalogChange,
   onTypeChange,
   onLoadMore
 }: MovieListProps): React.ReactElement {
@@ -48,21 +52,12 @@ export default function MovieList({
 
         const scrollPosition = window.innerHeight + window.scrollY
         const documentHeight = document.body.offsetHeight
-        const scrollThreshold = documentHeight - 300 // 300px from bottom
+        const scrollThreshold = documentHeight - 150
 
         if (scrollPosition >= scrollThreshold) {
           setIsLoadingMore(true)
           lastFetchTime = now
           onLoadMore()
-
-          // Force scroll up slightly to prevent immediate re-trigger
-          setTimeout(() => {
-            window.scrollTo({
-              top: window.scrollY - 10,
-              behavior: 'auto'
-            })
-            setIsLoadingMore(false)
-          }, 100)
         }
       }, 200)
     }
@@ -76,16 +71,32 @@ export default function MovieList({
 
   return (
     <main className="w-full min-h-screen flex flex-col items-center justify-start px-4 pb-12 pt-8 animate-fade-in relative">
-      <div className="mb-6 w-full max-w-[300px]">
-        <Select value={type} onValueChange={onTypeChange}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent position="popper" portalContainer={document.body}>
-            <SelectItem value="movie">Movies</SelectItem>
-            <SelectItem value="series">Series</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="w-full max-w-[1200px] mx-auto relative z-8 mb-6">
+        <div className="flex flex-row gap-4 items-center">
+          <div>
+            <Select value={catalog} onValueChange={onCatalogChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Catalog" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="CINE">Cinemeta</SelectItem>
+                <SelectItem value="IMDB">IMDB</SelectItem>
+                <SelectItem value="PDM">Public Domain Movies</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Select value={type} onValueChange={onTypeChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="movie">Movies</SelectItem>
+                <SelectItem value="series">Series</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
       {moviesError && (
         <div className="mb-4 w-full text-center text-red-400 font-semibold z-8">{moviesError}</div>

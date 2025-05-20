@@ -1,13 +1,13 @@
 package users
 
 import (
-	"absolute-cinema/db"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
+	"zync-stream/db"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"

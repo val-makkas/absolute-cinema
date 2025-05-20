@@ -1,18 +1,25 @@
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Home, Search, Puzzle, LogOut } from 'lucide-react'
 import Logo from '@/components/ui/logo'
+import { useState } from 'react'
 
 interface SidebarProps {
   onSelect: (key: string) => void
+  onSearchValue: (value: string) => void
   onLogout: () => void
   username: string
+  searching: boolean
 }
 
 export default function Sidebar({
   onSelect,
+  onSearchValue,
   onLogout,
-  username
+  username,
+  searching
 }: SidebarProps): React.ReactElement {
+  const [searchInputValue, setSearchInputValue] = useState<string>('')
   return (
     <>
       {/* Sidebar (vertical, left) with animated gradient border */}
@@ -40,17 +47,6 @@ export default function Sidebar({
           >
             <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <Home className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
-            onClick={() => onSelect('search')}
-            title="Search"
-            style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
-          >
-            <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
-            <Search className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
           </Button>
           <Button
             variant="ghost"
@@ -84,6 +80,75 @@ export default function Sidebar({
       >
         {/* Left space */}
         <div className="flex-1" />
+
+        <div className="relative w-[275px]">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            {searching ? (
+              <svg
+                className="animate-spin h-5 w-5 text-purple-500"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            ) : (
+              <Search className="h-5 w-5 text-white/50" />
+            )}
+          </div>
+
+          <Input
+            placeholder="Search for movies, series, more..."
+            className="h-11 pl-10 pr-12 py-3 bg-black/40 border border-white/10 rounded-xl text-white/90 
+    placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-purple-500/50 
+    shadow-lg transition-all hover:bg-black/50"
+            value={searchInputValue}
+            onChange={(e) => setSearchInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                onSearchValue && onSearchValue(e.currentTarget.value.trim())
+              } else if (e.key === 'Escape') {
+                setSearchInputValue('')
+                onSearchValue && onSearchValue('')
+              }
+            }}
+          />
+
+          {searchInputValue && (
+            <button
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/50 hover:text-white/80"
+              onClick={() => {
+                setSearchInputValue('')
+                onSearchValue && onSearchValue('')
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
+        </div>
+
         {/* Right space with actions */}
         <div className="flex-1 flex justify-end items-center space-x-3">
           <Button

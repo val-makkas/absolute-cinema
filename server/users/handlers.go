@@ -1,7 +1,7 @@
 package users
 
 import (
-	"absolute-cinema/db"
+	"zync-stream/db"
 	"context"
 	"fmt"
 	"net/http"

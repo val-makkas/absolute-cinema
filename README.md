@@ -1,4 +1,4 @@
-# Absolute Cinema 🎬
+# Zync
 
 <div align="center">
   
@@ -7,25 +7,24 @@
   [![Electron](https://img.shields.io/badge/Electron-latest-brightgreen.svg)](https://www.electronjs.org/)
   [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://reactjs.org/)
   [![Go](https://img.shields.io/badge/Go-1.20+-00ADD8.svg)](https://go.dev/)
-  [![MPV](https://img.shields.io/badge/MPV-supported-purple.svg)](https://mpv.io/)
 
-  <img src="absolute-cinema-client/src/renderer/src/assets/logo_trans.png" alt="Absolute Cinema Logo" width="250"/>
+  <img src="zync-client/src/renderer/src/assets/logo_trans.png" alt="Zync Logo" width="250"/>
 
-  <h3>An open-source streaming platform for movies and TV shows.</h3>
+  <h3>An open-source streaming platform for synchronized movie and series viewing.</h3>
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎥 **Watch Together** - Host or join synchronized watch parties with your friends
-- 💬 **Live Chat** - Real-time communication while watching content
-- 🔌 **Custom Addons** - Support for custom Stremio addons
-- 🛡️ **Room Management** - Create private rooms, invite friends, and manage your watch parties
-- ⚡ **Fast Streaming** - Efficient torrent streaming with WebTorrent and HLS conversion
-- 📱 **Overlay Controls** - Unobtrusive UI with intuitive keyboard shortcuts
+- **Watch Together** - Host or join synchronized watch parties with friends
+- **Live Chat** - Real-time communication while watching content
+- **Custom Addons** - Support for custom Stremio addons
+- **Room Management** - Create private rooms, invite friends, and manage your watch parties
+- **Fast Streaming** - Efficient torrent streaming with WebTorrent and HLS conversion
+- **Overlay Controls** - Unobtrusive UI with intuitive keyboard shortcuts
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Frontend
 - **Framework**: Electron, React
@@ -48,7 +47,7 @@
 - **Window Management**: Custom C++ utility for merging windows
 - **Containerization**: Docker and Docker Compose
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js (v18+)
@@ -61,20 +60,19 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/absolute-cinema-port.git
-cd absolute-cinema-port
+git clone https://github.com/val-makkas/zync.git
+cd zync
 
 # Install client dependencies
-cd absolute-cinema-client
+cd zync-stream-client
 npm install
 
 # Install torrent stream service dependencies
-cd ../absolute-cinema-torrentstream
+cd .. && git clone https://github.com/val-makkas/zync-stream-torrentstream.git && cd zync-stream-torrentstream
 npm install
 
 # Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
+
 ```
 
 ### Running the Application
@@ -86,18 +84,18 @@ cd server
 go run main.go
 
 # Start the torrent stream service
-cd absolute-cinema-torrentstream
+cd zync-stream
 npm start
 
 # Start the client (in a new terminal)
-cd absolute-cinema-client
+cd zync-client
 npm run dev
 ```
 
 #### Production Build
 ```bash
 # Build the client
-cd absolute-cinema-client
+cd zync-client
 npm run build
 
 # Package the application
@@ -112,23 +110,23 @@ npm run build:linux  # For Linux
 docker-compose up --build
 ```
 
-## 📦 Project Structure
+## Project Structure
 
 ```
-absolute-cinema-port/
-├── absolute-cinema-client/     # Electron + React + TypeScript frontend
-├── absolute-cinema-torrentstream/ # WebTorrent streaming service
+zync/
+├── zync-stream-client/         # Electron + React + TypeScript frontend
+├── zync-stream-torrentstream/  # WebTorrent streaming service
 ├── server/                     # Go backend server
 │   ├── users/                  # Authentication and user management
 │   ├── ws/                     # WebSocket handling
 │   └── proxy/                  # API proxy services
 ├── tools/                      # Utility tools
-│   └── absolute-cinema-window-merger/ # C++ window merging utility
+│   └── window-merger/          # C++ window merging utility
 ├── mpv/                        # MPV player configuration
 └── docker-compose.yml          # Docker Compose configuration
 ```
 
-## 🎮 Controls
+## Controls
 
 | Key           | Action                |
 |---------------|------------------------|
@@ -142,9 +140,9 @@ absolute-cinema-port/
 | `O`           | Show Overlay          |
 | `Ctrl+O`      | Open Settings         |
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please follow these steps:
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -152,11 +150,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - Inspired by Stremio, Plex, and other open-source streaming platforms
 - Built with [Electron](https://www.electronjs.org/), [React](https://reactjs.org/), and [Go](https://go.dev/)

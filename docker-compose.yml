@@ -19,12 +19,12 @@ services:
   
   mongo:
     image: mongo:latest
-    container_name: absolute-cinema-mongo
+    container_name: zync-stream-mongo
     restart: always
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: absolute-cinema-db
+      MONGO_INITDB_DATABASE: zync-stream-db
     volumes:
       - mongo_data:/data/db
 

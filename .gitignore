@@ -7,9 +7,8 @@
 *.key
 *.cert
 /client/service/downloads
-/client/service/absolute-cinema-torrentstream
 /client/dist
-/torrent-stream-service
+/zync-stream-torrentstream
 /mpv
 
 # Ignore all files in ffmpeg_bin/

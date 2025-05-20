@@ -82,12 +82,8 @@ export default function LoginForm({
       <div className="absolute top-0 right-0">
         <HoverCard>
           <HoverCardTrigger asChild>
-            <a
-              href="https://github.com/val-makkas/absolute-cinema"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="link">@absolute-cinema</Button>
+            <a href="https://github.com/val-makkas/zync-stream" target="_blank" rel="noreferrer">
+              <Button variant="link">@zync-stream</Button>
             </a>
           </HoverCardTrigger>
           <HoverCardContent className="w-80 p-4 overflow-hidden bg-black/80 backdrop-blur-lg border border-white/10 rounded-lg shadow-xl">
@@ -124,7 +120,7 @@ export default function LoginForm({
                   <span className="text-xs text-white/60">Active Development</span>
                 </div>
                 <a
-                  href="https://github.com/val-makkas/absolute-cinema"
+                  href="https://github.com/val-makkas/zync-stream"
                   target="_blank"
                   rel="noreferrer"
                 >

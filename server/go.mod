@@ -1,4 +1,4 @@
-module absolute-cinema
+module zync-stream
 
 go 1.24.2
 

@@ -3,12 +3,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Extension } from '@/types'
 
-// Update the ExtensionsModalProps interface
 interface ExtensionsModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  extensions: Extension[] // This might need to be any[] or (string | {url: string})[]
-  extensionManifests: Record<string, any> // Should be an object mapping URLs to manifest data
+  extensions: Extension[]
+  extensionManifests: Record<string, any>
   newManifestUrl: string
   setNewManifestUrl: (url: string) => void
   onAdd: () => Promise<void>

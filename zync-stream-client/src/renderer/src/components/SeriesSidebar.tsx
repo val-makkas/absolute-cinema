@@ -1,14 +1,15 @@
 import { seriesEntry, episode } from '@/types/catalogs.types'
 import React, { useState } from 'react'
+import missing from '@/assets/missing.jpg'
 
 export default function SeriesSidebar({
   details,
   onEpisodeSelect,
-  selectedEpisodeId
+  selectedEpisodeid
 }: {
   details: seriesEntry
   onEpisodeSelect: (ep: episode) => void
-  selectedEpisodeId?: string
+  selectedEpisodeid?: string
 }): React.JSX.Element | null {
   console.log(details)
   // Group episodes by season
@@ -48,12 +49,20 @@ export default function SeriesSidebar({
             <button
               key={ep.id}
               className={`flex items-center gap-3 text-left px-2 py-2 rounded hover:bg-white/10 transition ${
-                selectedEpisodeId === ep.id ? 'bg-white/10 text-pink-400' : 'text-white/80'
+                selectedEpisodeid === ep.id ? 'bg-white/10 text-pink-400' : 'text-white/80'
               }`}
               onClick={() => onEpisodeSelect(ep)}
             >
               {ep.thumbnail && (
-                <img src={ep.thumbnail} alt={ep.name} className="w-12 h-16 object-cover rounded" />
+                <img
+                  onError={({ currentTarget }) => {
+                    currentTarget.onerror = null
+                    currentTarget.src = missing
+                  }}
+                  src={ep.thumbnail}
+                  alt={ep.name}
+                  className="w-12 h-16 object-cover rounded"
+                />
               )}
               <div>
                 <div className="font-mono text-xs opacity-70">

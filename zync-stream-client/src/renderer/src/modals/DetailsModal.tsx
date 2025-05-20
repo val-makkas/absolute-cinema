@@ -8,7 +8,6 @@ import SeriesSidebar from '@/components/SeriesSidebar'
 
 export default function DetailsModal({
   open,
-  type,
   details,
   extensionManifests,
   detailsLoading,
@@ -16,7 +15,6 @@ export default function DetailsModal({
   onWatchAlone
 }: {
   open: boolean
-  type: string
   details: any
   extensionManifests: Record<string, any>
   detailsLoading: boolean
@@ -31,7 +29,7 @@ export default function DetailsModal({
   const [error, setError] = useState<string | null>(null)
   const [selectedEpisode, setSelectedEpisode] = useState<episode | null>(null)
 
-  const isSeries = type === 'series'
+  const isSeries = details?.type === 'series'
   console.log(isSeries)
   // Get unique providers from extensions
   const providers = [
@@ -55,7 +53,12 @@ export default function DetailsModal({
         const allSources: Source[] = []
         for (const [manifestUrl, manifest] of Object.entries(extensionManifests)) {
           const baseUrl = manifestUrl.replace(/\/manifest\.json$/, '')
-          const streamUrl = `${baseUrl}/stream/movie/${imdbID}.json`
+          let streamUrl: string
+          if (selectedEpisode) {
+            streamUrl = `${baseUrl}/stream/series/${imdbID}:${selectedEpisode.season}:${selectedEpisode.number}.json`
+          } else {
+            streamUrl = `${baseUrl}/stream/movie/${imdbID}.json`
+          }
           try {
             const response = await fetch(streamUrl)
             if (!response.ok) throw new Error('No streams')
@@ -95,7 +98,7 @@ export default function DetailsModal({
     }
 
     // eslint-disable-next-line
-  }, [open, details, JSON.stringify(Object.keys(extensionManifests))])
+  }, [selectedEpisode, open, details, JSON.stringify(Object.keys(extensionManifests))])
 
   useEffect(() => {
     // Effect for any necessary loading state changes
@@ -194,7 +197,7 @@ export default function DetailsModal({
           </div>
 
           {/* Overview & details */}
-          <div className="overflow-y-auto max-h-[calc(100vh-450px)] pr-4 custom-scrollbar">
+          <div className="overflow-y-auto max-h-600px pr-4 custom-scrollbar">
             <p className="text-s text-white/90 mb-4 leading-relaxed text-center">
               {details?.description}
             </p>
@@ -251,7 +254,6 @@ export default function DetailsModal({
                   font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 
                 text-white shadow-lg hover:scale-105 transition drop-shadow-xl
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  onClick={() => onWatchAlone(selectedSource)}
                   disabled={!selectedSource}
                 >
                   <Play className="w-5 h-5" /> Watch Alone
@@ -295,7 +297,7 @@ export default function DetailsModal({
                 <SeriesSidebar
                   details={details}
                   onEpisodeSelect={setSelectedEpisode}
-                  selectedEpisodeId={selectedEpisode?.id}
+                  selectedEpisodeid={selectedEpisode?.['id']}
                 />
               )
             ) : (

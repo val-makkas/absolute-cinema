@@ -24,6 +24,7 @@ export interface e_Catalog extends s_Catalog {
 
 export interface baseEntry {
   imdb_id: string
+  id?: string
   moviedb_id: string
   imdbRating: number
   name: string

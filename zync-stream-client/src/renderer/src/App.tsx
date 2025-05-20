@@ -10,7 +10,6 @@ import DetailsModal from '@/modals/DetailsModal'
 //import ChatPanel from '@/components/ChatPanel';
 import Sidebar from '@/components/Sidebar'
 import ExtensionsModal from '@/modals/ExtensionsModal'
-import SearchModal from '@/modals/SearchModal'
 import AuthForm from '@/components/AuthForm'
 import VideoPlayer from '@/components/VideoPlayer'
 //import loadingBg from '../public/loading.png'
@@ -23,11 +22,11 @@ export default function App(): React.ReactElement {
   //const [chatInput, setChatInput] = useState('')
   //const [chatOpen, setChatOpen] = useState<boolean>(true)
   const [extensionsOpen, setExtensionsOpen] = useState<boolean>(false)
-  const [searchOpen, setSearchOpen] = useState<boolean>(false)
   const [newManifestUrl, setNewManifestUrl] = useState<string>('')
   const [showExtensionDetails, setShowExtensionDetails] = useState<string | null>(null) // url or null
   const [playerSource, setPlayerSource] = useState<Source | null>(null)
   const [type, setType] = useState<'movie' | 'series'>('movie')
+  const [catalog, setCatalog] = useState<'IMDB' | 'CINE' | 'PDM'>('CINE')
 
   // Extension manifests state
   const [extensionManifests, setExtensionManifests] = useState<Record<string, unknown>>({})
@@ -45,7 +44,13 @@ export default function App(): React.ReactElement {
     updateExtensions
   } = useUsers()
 
-  const { movies, loading: moviesLoading, error: moviesError, loadMore } = useMovies(search, type)
+  const {
+    movies,
+    loading: moviesLoading,
+    error: moviesError,
+    loadMore,
+    searching
+  } = useMovies(search, type, catalog)
 
   const {
     details,
@@ -174,6 +179,12 @@ export default function App(): React.ReactElement {
     if (movie.imdb_id && isCached(movie.imdb_id)) {
       setDetailsFromCache(movie.imdb_id)
       setShowDetailsModal(true)
+    } else if (movie.id && isCached(movie.id)) {
+      setDetailsFromCache(movie.id)
+      setShowDetailsModal(true)
+    } else if (movie.id) {
+      setShowDetailsModal(false) // wait for loading
+      fetchDetails(movie.id, movie.type as 'movie' | 'series')
     } else if (movie.imdb_id) {
       setShowDetailsModal(false) // wait for loading
       fetchDetails(movie.imdb_id, movie.type as 'movie' | 'series')
@@ -194,10 +205,14 @@ export default function App(): React.ReactElement {
   const handleSidebar = (key: string): void => {
     if (key === 'home') {
       navigate('/')
+      setSearch('')
       setShowDetailsModal(false)
     }
-    if (key === 'search') setSearchOpen(true)
     if (key === 'extensions') setExtensionsOpen(true)
+  }
+
+  const handleSearch = (value: string): void => {
+    value.length > 3 ? setSearch(value) : setSearch('')
   }
 
   return (
@@ -206,7 +221,13 @@ export default function App(): React.ReactElement {
         path="/watch-alone/"
         element={
           <div>
-            <Sidebar onSelect={handleSidebar} onLogout={logout} username={username} />
+            <Sidebar
+              onSelect={handleSidebar}
+              onSearchValue={handleSearch}
+              onLogout={logout}
+              username={username}
+              searching={searching}
+            />
             <div>
               <VideoPlayer source={playerSource} details={details} />
             </div>
@@ -218,7 +239,13 @@ export default function App(): React.ReactElement {
         element={
           <div className="flex-auto bg-background font-sans text-white">
             {/* Sidebar */}
-            <Sidebar onSelect={handleSidebar} onLogout={logout} username={username} />
+            <Sidebar
+              onSelect={handleSidebar}
+              onSearchValue={handleSearch}
+              onLogout={logout}
+              username={username}
+              searching={searching}
+            />
             {/* Main Content */}
             <main className="flex-1 px-4 md:px-40 py-18 bg-background min-h-screen">
               <MovieList
@@ -227,12 +254,13 @@ export default function App(): React.ReactElement {
                 moviesError={moviesError}
                 onMovieClick={handleMovieClick}
                 type={type}
+                catalog={catalog}
+                onCatalogChange={setCatalog}
                 onTypeChange={setType}
                 onLoadMore={loadMore}
               />
               <DetailsModal
                 open={showDetailsModal}
-                type={type}
                 details={details}
                 extensionManifests={extensionManifests}
                 detailsLoading={detailsLoading}
@@ -313,12 +341,6 @@ export default function App(): React.ReactElement {
                 }}
                 showExtensionDetails={showExtensionDetails}
                 setShowExtensionDetails={setShowExtensionDetails}
-              />
-              <SearchModal
-                open={searchOpen}
-                onOpenChange={setSearchOpen}
-                search={search}
-                setSearch={setSearch}
               />
             </main>
           </div>

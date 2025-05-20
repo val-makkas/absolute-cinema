@@ -1,5 +1,5 @@
-appId: com.absolutecinema
-productName: absolute-cinema
+appId: com.zync-stream
+productName: zync-stream
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: absolute-cinema
+  executableName: zync-stream
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

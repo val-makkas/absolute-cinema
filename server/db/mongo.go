@@ -32,5 +32,5 @@ func GetMongoClient() *mongo.Client {
 
 func GetUsers() *mongo.Collection {
 	client := GetMongoClient()
-	return client.Database("absolute-cinema-db").Collection("users")
+	return client.Database("zync-stream-db").Collection("users")
 }

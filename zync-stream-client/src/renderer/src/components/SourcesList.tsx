@@ -1,5 +1,3 @@
-import { Check, SlidersHorizontal } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { episode, Source } from '@renderer/types'
 import { Button } from './ui/button'
 
