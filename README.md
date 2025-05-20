@@ -8,12 +8,15 @@
   [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://reactjs.org/)
   [![Go](https://img.shields.io/badge/Go-1.20+-00ADD8.svg)](https://go.dev/)
 
-  <img src="zync-client/src/renderer/src/assets/logo_trans.png" alt="Zync Logo" width="250"/>
+  <img src="zync-stream-client/src/renderer/src/assets/logo_trans.png" alt="Zync Logo" width="250"/>
 
   <h3>An open-source streaming platform for synchronized movie and series viewing.</h3>
 </div>
 
 ---
+
+> [!NOTE]
+> Actual video playback is currently only available on Windows.
 
 ## Features
 
@@ -71,6 +74,12 @@ npm install
 cd .. && git clone https://github.com/val-makkas/zync-stream-torrentstream.git && cd zync-stream-torrentstream
 npm install
 
+## Install window-merger
+cd ../tools && git clone https://github.com/val-makkas/window-merger.git
+cd window-merger
+```
+and build using dev tools cmd with ```g++ window-merger.cpp -o window-merger.exe -lcomctl32 -static -static-libgcc -static-libstdc++```
+```
 # Set up environment variables
 
 ```
