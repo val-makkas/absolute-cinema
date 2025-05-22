@@ -20,27 +20,22 @@ var (
 
 func GetPostgresClient() (*pgxpool.Pool, error) {
 	pgOnce.Do(func() {
-		connString := os.Getenv("DATABASE_URL")
-		if connString == "" {
-			connString = fmt.Sprintf(
-				"postgres://%s:%s@%s:%s/%s",
-				os.Getenv("DB_USER"),
-				os.Getenv("DB_PASSWORD"),
-				os.Getenv("DB_HOST"),
-				os.Getenv("DB_PORT"),
-				os.Getenv("DB_NAME"),
-			)
+		con_url := os.Getenv("DB_URL")
+		if con_url == "" {
+			pgError = fmt.Errorf("con_url missing")
 		}
 
-		config, err := pgxpool.ParseConfig(connString)
+		config, err := pgxpool.ParseConfig(con_url)
 		if err != nil {
 			pgError = fmt.Errorf("error parsing con_url: %+v", err)
 			return
 		}
 
-		config.MaxConns = 15
+		config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
+		config.MaxConns = 10
 		config.MinConns = 2
-		config.MaxConnLifetime = 1 * time.Hour
+		config.MaxConnLifetime = time.Hour
 		config.MaxConnIdleTime = 30 * time.Minute
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

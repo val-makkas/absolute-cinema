@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name VARCHAR(100),
     profile_picture_url TEXT,
     bio TEXT,
-    extension TEXT[] DEFAULT '{}'
+    extensions TEXT[] DEFAULT '{}',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_login_at TIMESTAMP
@@ -39,6 +39,17 @@ CREATE TABLE IF NOT EXISTS watch_rooms (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS room_invitations (
+    id SERIAL PRIMARY KEY,
+    room_id INTEGER NOT NULL REFERENCES watch_rooms(id) ON DELETE CASCADE,
+    invited_by INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    invited_user INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(room_id, invited_user)
+);
+
 CREATE TABLE IF NOT EXISTS room_members (
     room_id INTEGER NOT NULL REFERENCES watch_rooms(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -54,3 +65,20 @@ CREATE TABLE IF NOT EXISTS room_messages (
     content TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS watch_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    imdb_id VARCHAR(20) NOT NULL,
+    media_type VARCHAR(10) NOT NULL CHECK (media_type IN ('movie', 'series')),
+    season_number INTEGER DEFAULT 0,
+    episode_number INTEGER DEFAULT 0,
+    timestamp_seconds INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER,
+    percentage_watched FLOAT NOT NULL DEFAULT 0,
+    last_watched TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_watch_history UNIQUE (user_id, imdb_id, season_number, episode_number)
+);
+
+CREATE INDEX idx_watch_history_user_time 
+ON watch_history(user_id, last_watched DESC);
