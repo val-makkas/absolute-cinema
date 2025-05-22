@@ -17,17 +17,21 @@ services:
     volumes:
       - redis_data:/data
   
-  mongo:
-    image: mongo:latest
-    container_name: zync-stream-mongo
-    restart: always
-    ports:
-      - "27017:27017"
+
+  postgres:
+    image: postgres
+    container_name: zync-postgres
     environment:
-      MONGO_INITDB_DATABASE: zync-stream-db
+      - POSTGRES_USER: ${USER}
+      - POSTGRES_PASSWORD: ${PASSWORD}
+      - POSTGRES_DB: zyncdb
+    ports:
+      - "5432:5432"
     volumes:
-      - mongo_data:/data/db
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
 
 volumes:
   redis_data:
-  mongo_data:
+  postgres_data:

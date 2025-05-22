@@ -1,13 +1,19 @@
 package users
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 )
 
 type User struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Username   string             `bson:"username" json:"username"`
-	Email      string             `bson:"email" json:"email"`
-	Password   string             `bson:"password" json:"password"`
-	Extensions []string           `bson:"extensions" json:"extensions"`
+	ID                int        `json:"id"`
+	Username          string     `json:"username"`
+	Email             string     `json:"email"`
+	PasswordHash      string     `json:"-"`
+	DisplayName       string     `json:"display_name,omitempty"`
+	ProfilePictureURL string     `json:"profile_picture_url,omitempty"`
+	Bio               string     `json:"bio,omitempty"`
+	Extensions        []string   `json:"extensions"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	LastLoginAt       *time.Time `json:"last_login_at,omitempty"`
 }
