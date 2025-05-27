@@ -55,7 +55,10 @@ func main() {
 	}
 	defer db.CloseRedisClient()
 
-	redisClient, _ := db.GetRedisClient()
+	redisClient, err := db.GetRedisClient()
+	if err != nil {
+		log.Fatal("Failed to get Redis client:", err)
+	}
 
 	ws.InitRedis(redisClient)
 

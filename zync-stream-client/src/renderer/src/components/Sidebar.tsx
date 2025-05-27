@@ -8,7 +8,7 @@ interface SidebarProps {
   onSelect: (key: string) => void
   onSearchValue: (value: string) => void
   onLogout: () => void
-  username: string
+  username: string | null
   searching: boolean
 }
 
@@ -214,7 +214,7 @@ export default function Sidebar({
             {/* Hover effect */}
             <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600/30 to-blue-600/30 flex items-center justify-center relative z-10">
-              <span className="text-white text-xs font-semibold">{Array.from(username)[0]}</span>
+              <span className="text-white text-xs font-semibold"></span>
             </div>
             <span className="text-sm relative z-10">{username}</span>
           </Button>

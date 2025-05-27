@@ -21,8 +21,8 @@ func NewUserRepo(db *pgxpool.Pool) *UserRepo {
 
 func (r *UserRepo) Create(ctx context.Context, user *User) error {
 	query := `
-    INSERT INTO users (username, email, password_hash, extensions)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO users (username, email, password_hash, display_name, extensions)
+    VALUES ($1, $2, $3, $4 ,$5)
     RETURNING id, created_at, updated_at
     `
 
@@ -34,6 +34,7 @@ func (r *UserRepo) Create(ctx context.Context, user *User) error {
 		user.Username,
 		user.Email,
 		user.PasswordHash,
+		user.DisplayName,
 		user.Extensions,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 }
@@ -418,7 +419,7 @@ func (r *UserRepo) GetFriends(ctx context.Context, userID int) ([]map[string]int
 	}
 	defer rows.Close()
 
-	var friends []map[string]interface{}
+	var friends []map[string]any
 
 	for rows.Next() {
 		var id int
@@ -503,7 +504,7 @@ func (r *UserRepo) GetFriendRequests(ctx context.Context, userID int) ([]map[str
 	}
 	defer rows.Close()
 
-	var requests []map[string]interface{}
+	var requests []map[string]any
 
 	for rows.Next() {
 		var id, senderID int

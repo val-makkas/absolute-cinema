@@ -1,8 +1,10 @@
 package users
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -120,6 +122,11 @@ func (h *UserHandlers) Register(c *gin.Context) {
 		Password string `json:"password" binding:"required,min=6"`
 	}
 
+	body, _ := c.GetRawData()
+	log.Printf("REGISTER REQUEST: %s", string(body))
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondWithError(c, http.StatusBadRequest, "Invalid input: "+err.Error())
 		return
@@ -162,16 +169,11 @@ func (h *UserHandlers) Register(c *gin.Context) {
 	}
 
 	user := &User{
-		Username:          req.Username,
-		Email:             req.Email,
-		PasswordHash:      string(hashedPassword),
-		DisplayName:       req.Username,
-		ProfilePictureURL: "",
-		Bio:               "",
-		Extensions:        []string{},
-		CreatedAt:         time.Now(),
-		UpdatedAt:         time.Now(),
-		LastLoginAt:       time.Now(),
+		Username:     req.Username,
+		Email:        req.Email,
+		PasswordHash: string(hashedPassword),
+		DisplayName:  req.Username,
+		Extensions:   []string{},
 	}
 
 	err = h.repo.Create(ctx, user)
@@ -603,7 +605,7 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 		return
 	}
 
-	// Don't allow sending request to yourself
+	// Dont allow sending request to yourself
 	if targetUser.ID == userID.(int) {
 		h.respondWithError(c, http.StatusBadRequest, "Cannot send friend request to yourself")
 		return

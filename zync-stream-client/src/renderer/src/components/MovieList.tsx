@@ -70,27 +70,27 @@ export default function MovieList({
   }, [moviesLoading, onLoadMore, isLoadingMore])
 
   return (
-    <main className="w-full min-h-screen flex flex-col items-center justify-start px-4 pb-12 pt-8 animate-fade-in relative">
-      <div className="w-full max-w-[1200px] mx-auto relative z-8 mb-6">
-        <div className="flex flex-row gap-4 items-center">
-          <div>
+    <main className="w-full min-h-screen flex flex-col justify-start pl-2 mt-15 pr-80 pb-12 pt-8 animate-fade-in relative">
+      <div className="w-full relative z-10 mb-6">
+        <div className="flex ml-20 flex-row gap-4 items-center">
+          <div className="relative z-10">
             <Select value={catalog} onValueChange={onCatalogChange}>
-              <SelectTrigger>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Catalog" />
               </SelectTrigger>
-              <SelectContent position="popper">
+              <SelectContent position="popper" className="z-10">
                 <SelectItem value="CINE">Cinemeta</SelectItem>
                 <SelectItem value="IMDB">IMDB</SelectItem>
                 <SelectItem value="PDM">Public Domain Movies</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className="relative z-15">
             <Select value={type} onValueChange={onTypeChange}>
-              <SelectTrigger>
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
-              <SelectContent position="popper">
+              <SelectContent position="popper" className="z-10">
                 <SelectItem value="movie">Movies</SelectItem>
                 <SelectItem value="series">Series</SelectItem>
               </SelectContent>
@@ -98,11 +98,14 @@ export default function MovieList({
           </div>
         </div>
       </div>
+
       {moviesError && (
-        <div className="mb-4 w-full text-center text-red-400 font-semibold z-8">{moviesError}</div>
+        <div className="mb-4 w-full text-left text-red-400 font-semibold relative z-10">
+          {moviesError}
+        </div>
       )}
       <div
-        className="grid w-full max-w-[1200px] mx-auto relative z-8"
+        className="grid ml-20 w-full max-w-[1200px] mx-auto relative z-8"
         style={{
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: '2rem',
@@ -123,31 +126,16 @@ export default function MovieList({
           : (Array.isArray(movies) ? movies : []).map((m, i) => (
               <button
                 key={m.imdb_id || i}
-                className="group aspect-[2/3] rounded-2xl overflow-hidden bg-black/80 cursor-pointer relative w-full max-w-[260px] transition-all duration-300 hover:scale-[1.04] hover:z-8 focus:outline-none"
+                className="group aspect-[2/3] rounded-2xl overflow-hidden bg-black/80 cursor-pointer relative w-full max-w-[260px] transition-all duration-300 hover:scale-[1.04] hover:z-20 focus:outline-none"
                 style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
                 onClick={() => onMovieClick(m)}
               >
-                {/* Movie poster */}
                 <img
                   src={m.poster}
                   alt={m.name}
                   className="absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:brightness-110"
                   draggable={false}
                 />
-                {/* Top gradient border on hover */}
-                <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-purple-600 to-blue-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
-
-                {/* Subtle inner border */}
-                <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] rounded-2xl opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-                {/* Subtle outer glow on hover */}
-                <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-purple-600/0 to-blue-600/0 group-hover:from-purple-600/20 group-hover:to-blue-600/20 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-300 -z-8 group-hover:shadow-[0_0_20px_rgba(120,87,255,0.3)]"></div>
-
-                {/* Play indicator on hover */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 border border-white/20">
-                  <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[16px] border-l-white/90 border-b-[8px] border-b-transparent ml-1"></div>
-                </div>
-                {/* Bottom gradient for text */}
-                <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-black via-black/30 to-transparent transform transition-all duration-300 group-hover:opacity-50" />
               </button>
             ))}
       </div>

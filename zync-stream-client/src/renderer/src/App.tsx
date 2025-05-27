@@ -8,6 +8,7 @@ import { useUsers } from '@/hooks/useUsers'
 import MovieList from '@/components/MovieList'
 import DetailsModal from '@/modals/DetailsModal'
 //import ChatPanel from '@/components/ChatPanel';
+import FriendsSidebar from '@/components/Friends/FriendsSidebar'
 import Sidebar from '@/components/Sidebar'
 import ExtensionsModal from '@/modals/ExtensionsModal'
 import AuthForm from '@/components/AuthForm'
@@ -34,7 +35,7 @@ export default function App(): React.ReactElement {
   // Use the custom user hook
   const {
     token,
-    username,
+    user,
     extensions,
     loading: userLoading,
     error: userError,
@@ -231,7 +232,7 @@ export default function App(): React.ReactElement {
               onSelect={handleSidebar}
               onSearchValue={handleSearch}
               onLogout={logout}
-              username={username}
+              username={user?.display_name || null}
               searching={searching}
             />
             <div>
@@ -244,242 +245,115 @@ export default function App(): React.ReactElement {
         path="/"
         element={
           <div className="flex-auto bg-background font-sans text-white">
-            {/* Sidebar */}
             <Sidebar
               onSelect={handleSidebar}
               onSearchValue={handleSearch}
               onLogout={logout}
-              username={username}
+              username={user?.display_name || null}
               searching={searching}
             />
-            {/* Main Content */}
-            <main className="flex-1 px-4 md:px-40 py-18 bg-background min-h-screen">
-              <MovieList
-                movies={movies}
-                moviesLoading={moviesLoading}
-                moviesError={moviesError}
-                onMovieClick={handleMovieClick}
-                type={type}
-                catalog={catalog}
-                onCatalogChange={setCatalog}
-                onTypeChange={setType}
-                onLoadMore={loadMore}
-              />
-              <DetailsModal
-                open={showDetailsModal}
-                details={details}
-                extensionManifests={extensionManifests}
-                detailsLoading={detailsLoading}
-                onClose={handleCloseDetails}
-                onWatchAlone={(src) => handleWatchAlone(details, src)}
-                addExtension={addExtension}
-              />
-              <ExtensionsModal
-                open={extensionsOpen}
-                onOpenChange={setExtensionsOpen}
-                extensions={extensions}
-                extensionManifests={extensionManifests}
-                newManifestUrl={newManifestUrl}
-                setNewManifestUrl={setNewManifestUrl}
-                onAdd={async () => {
-                  if (!newManifestUrl) return
-                  if (!/^https?:\/\//.test(newManifestUrl)) return alert('Please enter a valid URL')
+            <div className="flex">
+              <div className="flex-1 mix-w-0">
+                <main className="px-4 md:px-8 py-4 bg-background min-h-screen">
+                  <MovieList
+                    movies={movies}
+                    moviesLoading={moviesLoading}
+                    moviesError={moviesError}
+                    onMovieClick={handleMovieClick}
+                    type={type}
+                    catalog={catalog}
+                    onCatalogChange={setCatalog}
+                    onTypeChange={setType}
+                    onLoadMore={loadMore}
+                  />
+                  <DetailsModal
+                    open={showDetailsModal}
+                    details={details}
+                    extensionManifests={extensionManifests}
+                    detailsLoading={detailsLoading}
+                    onClose={handleCloseDetails}
+                    onWatchAlone={(src) => handleWatchAlone(details, src)}
+                    addExtension={addExtension}
+                  />
+                  <ExtensionsModal
+                    open={extensionsOpen}
+                    onOpenChange={setExtensionsOpen}
+                    extensions={extensions}
+                    extensionManifests={extensionManifests}
+                    newManifestUrl={newManifestUrl}
+                    setNewManifestUrl={setNewManifestUrl}
+                    onAdd={async () => {
+                      if (!newManifestUrl) return
+                      if (!/^https?:\/\//.test(newManifestUrl))
+                        return alert('Please enter a valid URL')
 
-                  // Check for duplicates
-                  if (
-                    extensions.some(
-                      (ext) =>
-                        ext.url === newManifestUrl ||
-                        (typeof ext === 'object' && ext.url === newManifestUrl)
-                    )
-                  )
-                    return alert('Extension already added')
+                      if (
+                        extensions.some(
+                          (ext) =>
+                            ext.url === newManifestUrl ||
+                            (typeof ext === 'object' && ext.url === newManifestUrl)
+                        )
+                      )
+                        return alert('Extension already added')
 
-                  try {
-                    // Fetch the manifest data first
-                    const manifestResponse = await fetch(newManifestUrl, {
-                      headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json'
+                      try {
+                        const manifestResponse = await fetch(newManifestUrl, {
+                          headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json'
+                          }
+                        })
+
+                        if (!manifestResponse.ok) {
+                          throw new Error('Failed to fetch manifest data')
+                        }
+
+                        const manifestData = await manifestResponse.json()
+
+                        if (!manifestData.name) {
+                          throw new Error('Invalid manifest: missing name property')
+                        }
+
+                        setExtensionManifests((prevManifests) => ({
+                          ...prevManifests,
+                          [newManifestUrl]: manifestData
+                        }))
+
+                        await updateExtensions([...extensions, { url: newManifestUrl }])
+
+                        console.log('Extension added successfully:', manifestData.name)
+                        setNewManifestUrl('')
+                      } catch (error) {
+                        console.error('Failed to add extension:', error)
+                        alert(`Failed to add extension: ${(error as Error).message}`)
                       }
-                    })
+                    }}
+                    onRemove={async (url) => {
+                      try {
+                        await updateExtensions(extensions.filter((ext) => ext.url !== url))
 
-                    if (!manifestResponse.ok) {
-                      throw new Error('Failed to fetch manifest data')
-                    }
-
-                    const manifestData = await manifestResponse.json()
-
-                    // Validate the manifest has the required fields
-                    if (!manifestData.name) {
-                      throw new Error('Invalid manifest: missing name property')
-                    }
-
-                    // Store the manifest data
-                    setExtensionManifests((prevManifests) => ({
-                      ...prevManifests,
-                      [newManifestUrl]: manifestData
-                    }))
-
-                    // Update extensions list
-                    await updateExtensions([...extensions, { url: newManifestUrl }])
-
-                    console.log('Extension added successfully:', manifestData.name)
-                    setNewManifestUrl('')
-                  } catch (error) {
-                    console.error('Failed to add extension:', error)
-                    alert(`Failed to add extension: ${(error as Error).message}`)
-                  }
-                }}
-                onRemove={async (url) => {
-                  try {
-                    await updateExtensions(extensions.filter((ext) => ext.url !== url))
-
-                    // Remove the manifest data for this URL
-                    setExtensionManifests((prevManifests) => {
-                      const newManifests = { ...prevManifests }
-                      delete newManifests[url]
-                      return newManifests
-                    })
-                  } catch (error) {
-                    console.error('Failed to remove extension:', error)
-                    alert('Failed to remove extension.')
-                  }
-                }}
-                showExtensionDetails={showExtensionDetails}
-                setShowExtensionDetails={setShowExtensionDetails}
-              />
-            </main>
+                        setExtensionManifests((prevManifests) => {
+                          const newManifests = { ...prevManifests }
+                          delete newManifests[url]
+                          return newManifests
+                        })
+                      } catch (error) {
+                        console.error('Failed to remove extension:', error)
+                        alert('Failed to remove extension.')
+                      }
+                    }}
+                    showExtensionDetails={showExtensionDetails}
+                    setShowExtensionDetails={setShowExtensionDetails}
+                  />
+                </main>
+              </div>
+              <div className="fixed right-0 top-0 h-full">
+                <FriendsSidebar currUser={user} />
+              </div>
+            </div>
           </div>
         }
       />
     </Routes>
   )
 }
-
-/* function StreamWithLoadingBG() {
-  const [showLoading, setShowLoading] = React.useState(true)
-  const navigate = useNavigate()
-  React.useEffect(() => {
-    const timer = setTimeout(() => setShowLoading(false), 15000)
-    return () => clearTimeout(timer)
-  }, [])
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: `url(${loadingBg}) 100% center / cover no-repeat, ${BG_GRADIENT}`,
-        fontFamily: FONT_HEADER,
-        position: 'relative',
-        display: 'flex'
-      }}
-    >
-      <div
-        style={{
-          flexGrow: 1,
-          marginLeft: 64,
-          width: 'calc(100% - 64px)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        <div style={{ flexGrow: 1, display: 'flex', position: 'relative' }}>
-          {showLoading && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(18,18,20,0.82)',
-                zIndex: 9999
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <svg
-                  width="80"
-                  height="80"
-                  viewBox="0 0 50 50"
-                  style={{ animation: 'spin 1s linear infinite', marginBottom: 24, marginTop: -48 }}
-                >
-                  <circle
-                    cx="25"
-                    cy="25"
-                    r="20"
-                    fill="none"
-                    stroke="#fff"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeDasharray="31.4 31.4"
-                  />
-                  <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
-                </svg>
-                <button
-                  onClick={() => navigate('/')}
-                  style={{
-                    marginTop: 0,
-                    padding: '12px 36px',
-                    fontSize: '1.1rem',
-                    fontWeight: 600,
-                    color: '#181818',
-                    background: '#fff',
-                    border: 'none',
-                    borderRadius: 14,
-                    boxShadow: '0 2px 8px #0006',
-                    cursor: 'pointer',
-                    transition: 'background 0.2s',
-                    outline: 'none',
-                    zIndex: 9999
-                  }}
-                >
-                  Back to Home
-                </button>
-              </div>
-            </div>
-          )}
-          <VideoPlayer />
-          {!showLoading && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                position: 'absolute',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, calc(-50% + 48px))',
-                width: '100%'
-              }}
-            >
-              <button
-                onClick={() => navigate('/')}
-                style={{
-                  marginTop: 24,
-                  padding: '12px 36px',
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  color: '#181818',
-                  background: '#fff',
-                  border: 'none',
-                  borderRadius: 14,
-                  boxShadow: '0 2px 8px #0006',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                  outline: 'none',
-                  zIndex: 9999
-                }}
-              >
-                Back to Home
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-} */

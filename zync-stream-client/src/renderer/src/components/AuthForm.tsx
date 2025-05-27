@@ -46,15 +46,14 @@ export default function LoginForm({
       // Call parent register (should accept username, email, password)
       const ok = await onRegister(username, email, password)
       if (ok) {
-        // Automatically login after successful registration
-        const loginOk = await onLogin(username, password)
+        const loginOk = await onLogin(email, password)
         if (!loginOk) setError('Registered but failed to login. Please try manually.')
       } else {
         setError('Registration failed. Please try again.')
       }
     } else {
       // Call parent login (should accept username or email, and password)
-      const ok = await onLogin(username || email, password)
+      const ok = await onLogin(email, password)
       if (!ok) setError('Login failed. Please check your credentials.')
     }
     setLoading(false)

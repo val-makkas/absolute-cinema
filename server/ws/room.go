@@ -74,14 +74,11 @@ func HandleRoomWebSocket(c *gin.Context) {
 		Send:     make(chan []byte, 256),
 	}
 
-	// Start goroutines for reading and writing
 	go roomConn.readPump()
 	go roomConn.writePump()
 
-	// Subscribe to room events
 	go roomConn.subscribeToRoomEvents()
 
-	// Announce user joined
 	roomConn.announceUserJoined()
 }
 
