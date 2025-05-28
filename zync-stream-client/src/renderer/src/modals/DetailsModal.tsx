@@ -102,10 +102,6 @@ export default function DetailsModal({
     // eslint-disable-next-line
   }, [selectedEpisode, open, details, JSON.stringify(Object.keys(extensionManifests))])
 
-  useEffect(() => {
-    // Effect for any necessary loading state changes
-  }, [detailsLoading, details])
-
   if (detailsLoading && !details) {
     return (
       <Dialog
@@ -204,7 +200,7 @@ export default function DetailsModal({
               {details?.description}
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-2 mb-6 text-center">
+            <div className="flex flex-col items-center gap-4 mt-2 mb-6 text-center">
               {details?.cast && details.cast.length > 0 && (
                 <div className="w-full">
                   <div className="text-white/50 mb-2 text-center">Cast</div>
@@ -220,11 +216,19 @@ export default function DetailsModal({
                   </div>
                 </div>
               )}
-              {details?.director && (
+              {details?.director && details?.director.length > 0 && (
                 <div>
                   <div className="text-white/50 mb-1 text-center">Director</div>
                   <div className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80 w-full">
                     {details.director}
+                  </div>
+                </div>
+              )}
+              {details?.awards && (
+                <div>
+                  <div className="text-white/50 mb-1 text-center">Awards</div>
+                  <div className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80 w-full">
+                    {details.awards}
                   </div>
                 </div>
               )}

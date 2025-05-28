@@ -9,10 +9,9 @@
 /client/service/downloads
 /client/dist
 /zync-stream-torrentstream
-/mpv
 
-# Ignore all files in ffmpeg_bin/
 tools/window-merger/*
+tools/mpv/*
 
 # But do not ignore the folder itself (so it exists in the repo)
 !tools/window-merger/

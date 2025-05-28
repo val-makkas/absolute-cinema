@@ -22,10 +22,7 @@ export default function Sidebar({
   const [searchInputValue, setSearchInputValue] = useState<string>('')
   return (
     <>
-      {/* Sidebar (vertical, left) with animated gradient border */}
-      {/* Actual sidebar content with a small inset to show the border */}
       <aside className="fixed left-[2px] h-[calc(100vh-4px)] w-[calc(5rem-4px)] bg-black/70 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-6 z-10">
-        {/* Logo at top */}
         <div
           className="relative group cursor-pointer flex items-center justify-center"
           onClick={() => onSelect('home')}
@@ -35,7 +32,6 @@ export default function Sidebar({
 
         <div className="h-5"></div>
 
-        {/* Navigation icons with specific spacing */}
         <div className="flex-1 flex flex-col items-center gap-6 pt-4">
           <Button
             variant="ghost"
@@ -60,7 +56,6 @@ export default function Sidebar({
             <Puzzle className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
           </Button>
         </div>
-        {/* Logout at bottom */}
         <Button
           variant="ghost"
           size="icon"
@@ -73,12 +68,10 @@ export default function Sidebar({
           <LogOut className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
         </Button>
       </aside>
-      {/* Topbar (horizontal, merges with sidebar) */}
       <header
         className="fixed left-0 top-0 right-0 h-[calc(4rem-4px)] bg-#121212 backdrop-blur-xl flex items-center px-8 z-9"
         style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
       >
-        {/* Left space */}
         <div className="flex-1" />
 
         <div className="relative w-[275px]">
@@ -214,7 +207,9 @@ export default function Sidebar({
             {/* Hover effect */}
             <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600/30 to-blue-600/30 flex items-center justify-center relative z-10">
-              <span className="text-white text-xs font-semibold"></span>
+              <span className="text-white text-xs font-semibold">
+                {username?.charAt(0).toUpperCase() ?? ''}
+              </span>
             </div>
             <span className="text-sm relative z-10">{username}</span>
           </Button>

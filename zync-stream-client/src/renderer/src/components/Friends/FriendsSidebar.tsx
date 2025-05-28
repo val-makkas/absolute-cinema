@@ -1,150 +1,81 @@
-import { User, Friend } from '@/types'
 import { useState, useEffect } from 'react'
-import { Users, UserPlus, Circle } from 'lucide-react'
+import { Users, UserPlus } from 'lucide-react'
+import { User, Friend, FriendRequest } from '@/types'
 import FriendItem from './FriendItem'
 
 interface FriendsSidebarProps {
-  currUser: User | null
+  friends: Friend[]
+  friendRequests: FriendRequest[]
+  friendsLoading: boolean
+  friendsError: string | null
+  onFriendAction: (action: 'send' | 'accept' | 'reject' | 'remove', payload: string) => void
 }
 
-export default function FriendsSidebar({ currUser }: FriendsSidebarProps): React.ReactElement {
-  const [friends, setFriends] = useState<Friend[]>([])
-  const [onlineFriends, setOnlineFriends] = useState<Friend[]>([])
-  const [offlineFriends, setOfflineFriends] = useState<Friend[]>([])
-  const [loading, setLoading] = useState<boolean>(false)
-
-  useEffect(() => {
-    const mockFriends: Friend[] = [
-      {
-        id: 1,
-        username: 'alice_cooper',
-        display_name: 'Alice Cooper',
-        status: 'online',
-        activity: 'Watching The Matrix'
-      },
-      {
-        id: 2,
-        username: 'bob_builder',
-        display_name: 'Bob the Builder',
-        status: 'away',
-        activity: 'Away for 5 minutes'
-      },
-      {
-        id: 3,
-        username: 'charlie_brown',
-        display_name: 'Charlie',
-        status: 'DND',
-        activity: 'In a room'
-      },
-      {
-        id: 4,
-        username: 'diana_prince',
-        display_name: 'Diana Prince',
-        status: 'offline',
-        last_seen: '2 hours ago'
-      }
-    ]
-
-    setFriends(mockFriends)
-    setOnlineFriends(mockFriends.filter((f) => f.status !== 'offline'))
-    setOfflineFriends(mockFriends.filter((f) => f.status === 'offline'))
-    setLoading(false)
-  }, [])
-
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'online':
-        return 'bg-green-500'
-      case 'DND':
-        return 'bg-red-500'
-      case 'away':
-        return 'bg-yellow-500'
-      case 'offline':
-        return 'bg-gray-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
-
-  const setStatusIcon = (status: string): React.ReactElement => {
-    return (
-      <Circle className={`w-3 h-3 ${getStatusColor(status)} rounded-full`} fill="currentColor" />
-    )
-  }
-
-  const handleInviteToRoom = (friend: Friend) => {
-    console.log(`Inviting ${friend.username} to room`)
-  }
-
-  const handleDirectMessage = (friend: Friend) => {
-    console.log(`Starting DM with ${friend.username}`)
-  }
-
+export default function FriendsSidebar({
+  friends,
+  friendRequests,
+  friendsLoading,
+  friendsError,
+  onFriendAction
+}: FriendsSidebarProps): React.ReactElement {
   return (
-    <div className="w-80 h-full bg-background border-l border-white/10 flex flex-col">
-      <div className="p-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <Users className="w-5 h-5 text-purple-400" />
+    <div className="w-80 h-full bg-[#1B1B1B] border-l border-white/10 flex flex-col">
+      {/* header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <Users className="w-6 h-6 text-purple-400" />
           <h2 className="text-lg font-semibold text-white">Friends</h2>
         </div>
+        <UserPlus className="w-5 h-5 text-white/60 hover:text-white cursor-pointer transition-colors" />
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20">
-        {loading ? (
-          <div className="p-4 text-center text-white/60">Loading friends...</div>
-        ) : (
-          <div className="p-2">
-            {onlineFriends.length > 0 && (
-              <div className="mb-4">
-                <div className="px-2 py-1 text-xs font-semibold text-white/60 uppercase tracking-wide">
-                  Online — {onlineFriends.length}
-                </div>
-                <div className="space-y-1">
-                  {onlineFriends.map((friend) => (
-                    <FriendItem
-                      key={friend.id}
-                      friend={friend}
-                      onInvite={() => handleInviteToRoom(friend)}
-                      onMessage={() => handleDirectMessage(friend)}
-                    />
-                  ))}
-                </div>
+      {/* incoming requests */}
+      {friendRequests.length > 0 && (
+        <div className="px-4 py-2 space-y-2 border-b border-white/10">
+          <h3 className="text-xs text-white/60 uppercase">Requests</h3>
+          {friendRequests.map((r) => (
+            <div
+              key={r.id}
+              className="flex items-center justify-between p-2 bg-[rgba(255,255,255,0.05)] rounded"
+            >
+              <span className="text-sm text-white truncate">{r.username}</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onFriendAction('accept', r.sender_id.toString())}
+                  className="text-green-400 hover:text-green-500 text-sm"
+                >
+                  Accept
+                </button>
+                <button
+                  onClick={() => onFriendAction('reject', r.sender_id.toString())}
+                  className="text-red-400 hover:text-red-500 text-sm"
+                >
+                  Reject
+                </button>
               </div>
-            )}
+            </div>
+          ))}
+        </div>
+      )}
 
-            {offlineFriends.length > 0 && (
-              <div>
-                <div className="px-2 py-1 text-xs font-semibold text-white/60 uppercase tracking-wide">
-                  Offline — {offlineFriends.length}
-                </div>
-                <div className="space-y-1">
-                  {offlineFriends.map((friend) => (
-                    <FriendItem
-                      key={friend.id}
-                      friend={friend}
-                      onInvite={() => handleInviteToRoom(friend)}
-                      onMessage={() => handleDirectMessage(friend)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {friends.length === 0 && (
-              <div className="p-4 text-center text-white/60">
-                <UserPlus className="w-8 h-8 mx-auto mb-2 text-white/40" />
-                <p>No friends yet</p>
-                <p className="text-sm">Share the word bro.</p>
-              </div>
-            )}
-          </div>
-        )}
+      {/* friends list */}
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1 scrollbar-thin scrollbar-thumb-white/20">
+        {(Array.isArray(friends) ? friends : []).map((f) => (
+          <FriendItem
+            key={f.id}
+            friend={f}
+            onInvite={() => onFriendAction('remove', f.username)}
+            onMessage={() => console.log(`DM ${f.username}`)}
+          />
+        ))}
       </div>
-
+      {/* footer */}
       <div className="p-4 border-t border-white/10">
-        <button className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          Add Friend
+        <button
+          onClick={() => onFriendAction('send', prompt('Enter username') || '')}
+          className="w-full flex items-center justify-center gap-2 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
+        >
+          <UserPlus className="w-4 h-4" /> Add Friend
         </button>
       </div>
     </div>

@@ -693,17 +693,33 @@ func (h *UserHandlers) RejectFriendRequest(c *gin.Context) {
 // RemoveFriend handles removing a friend
 func (h *UserHandlers) RemoveFriend(c *gin.Context) {
 	userID, _ := c.Get("user_id")
-	friendIDStr := c.Param("id")
-	friendID, err := strconv.Atoi(friendIDStr)
-	if err != nil {
-		h.respondWithError(c, http.StatusBadRequest, "Invalid friend ID")
+
+	var req struct {
+		Username string `json:"username" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.respondWithError(c, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	err = h.repo.RemoveFriend(ctx, userID.(int), friendID)
+	// Find the target user
+	targetUser, err := h.repo.GetByUsername(ctx, req.Username)
+	if err != nil || targetUser == nil {
+		h.respondWithError(c, http.StatusNotFound, "User not found")
+		return
+	}
+
+	// Dont allow sending request to yourself
+	if targetUser.ID == userID.(int) {
+		h.respondWithError(c, http.StatusBadRequest, "Cannot remove friend if it is yourself")
+		return
+	}
+
+	err = h.repo.RemoveFriend(ctx, userID.(int), targetUser.ID)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Failed to remove friend")
 		return

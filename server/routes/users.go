@@ -48,6 +48,6 @@ func SetupUserRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redi
 		friendGroup.GET("/requests", userHandlers.GetFriendRequests)
 		friendGroup.POST("/requests/:id/accept", userHandlers.AcceptFriendRequest)
 		friendGroup.POST("/requests/:id/reject", userHandlers.RejectFriendRequest)
-		friendGroup.DELETE("/:id", userHandlers.RemoveFriend)
+		friendGroup.DELETE("", userHandlers.RemoveFriend)
 	}
 }

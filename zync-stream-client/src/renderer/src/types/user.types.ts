@@ -22,6 +22,14 @@ export interface Friend {
   last_seen?: string
 }
 
+export interface FriendRequest {
+  id: number
+  sender_id: number
+  username: string
+  created_at: string
+  display_name?: string
+}
+
 export interface UserExtensions {
   url: string
 }

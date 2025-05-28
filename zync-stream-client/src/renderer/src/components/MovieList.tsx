@@ -105,13 +105,16 @@ export default function MovieList({
         </div>
       )}
       <div
-        className="grid ml-20 w-full max-w-[1200px] mx-auto relative z-8"
-        style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '2rem',
-          justifyItems: 'center',
-          alignItems: 'start'
-        }}
+        className="
+          grid
+          w-full
+          grid-cols-[repeat(auto-fit,minmax(180px,1fr))]
+          gap-8
+          pl-20    /* align with your filters */
+          pr-4     /* shrink right padding to reduce unused space */
+          relative
+          z-8
+        "
       >
         {moviesLoading
           ? Array.from({ length: 12 }).map((_, i) => (
@@ -125,8 +128,22 @@ export default function MovieList({
             ))
           : (Array.isArray(movies) ? movies : []).map((m, i) => (
               <button
-                key={m.imdb_id || i}
-                className="group aspect-[2/3] rounded-2xl overflow-hidden bg-black/80 cursor-pointer relative w-full max-w-[260px] transition-all duration-300 hover:scale-[1.04] hover:z-20 focus:outline-none"
+                key={`${m.imdb_id}${i}`}
+                className="
+                  group
+                  aspect-[2/3]
+                  rounded-2xl
+                  overflow-hidden
+                  bg-black/80
+                  cursor-pointer
+                  relative
+                  w-full
+                  transition-all
+                  duration-300
+                  hover:scale-[1.04]
+                  hover:z-20
+                  focus:outline-none
+                "
                 style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
                 onClick={() => onMovieClick(m)}
               >

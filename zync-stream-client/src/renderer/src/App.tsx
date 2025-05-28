@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { entry, Source } from '@/types'
 import { useMovies } from '@/hooks/useMovies'
@@ -13,6 +13,7 @@ import Sidebar from '@/components/Sidebar'
 import ExtensionsModal from '@/modals/ExtensionsModal'
 import AuthForm from '@/components/AuthForm'
 import VideoPlayer from '@/components/VideoPlayer'
+import useFriends from '@/hooks/useFriends'
 //import loadingBg from '../public/loading.png'
 
 export default function App(): React.ReactElement {
@@ -44,6 +45,17 @@ export default function App(): React.ReactElement {
     logout,
     updateExtensions
   } = useUsers()
+
+  const {
+    friends,
+    friendRequests,
+    loading: friendsLoading,
+    error: friendsError,
+    sendFriendRequest,
+    acceptFriendRequest,
+    rejectFriendRequest,
+    removeFriend
+  } = useFriends(token)
 
   const {
     movies,
@@ -179,6 +191,27 @@ export default function App(): React.ReactElement {
         />
       </Routes>
     )
+  }
+
+  const handleFriendAction = (
+    action: 'send' | 'accept' | 'reject' | 'remove',
+    payload: string
+  ): void => {
+    switch (action) {
+      case 'send':
+        if (!payload) return
+        sendFriendRequest(payload)
+        break
+      case 'accept':
+        acceptFriendRequest(payload)
+        break
+      case 'reject':
+        rejectFriendRequest(payload)
+        break
+      case 'remove':
+        removeFriend(payload)
+        break
+    }
   }
 
   const handleMovieClick = (movie: entry): void => {
@@ -348,7 +381,13 @@ export default function App(): React.ReactElement {
                 </main>
               </div>
               <div className="fixed right-0 top-0 h-full">
-                <FriendsSidebar currUser={user} />
+                <FriendsSidebar
+                  friends={friends}
+                  friendRequests={friendRequests}
+                  friendsLoading={friendsLoading}
+                  friendsError={friendsError}
+                  onFriendAction={handleFriendAction}
+                />
               </div>
             </div>
           </div>
