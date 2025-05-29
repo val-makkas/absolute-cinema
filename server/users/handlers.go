@@ -630,7 +630,6 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 	}
 }
 
-// GetFriendRequests handles getting pending friend requests
 func (h *UserHandlers) GetFriendRequests(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
@@ -646,7 +645,6 @@ func (h *UserHandlers) GetFriendRequests(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"requests": requests})
 }
 
-// AcceptFriendRequest handles accepting a friend request
 func (h *UserHandlers) AcceptFriendRequest(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	requestIDStr := c.Param("id")

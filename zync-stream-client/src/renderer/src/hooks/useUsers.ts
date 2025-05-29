@@ -13,7 +13,7 @@ export function useUsers(): {
   login: (email: string, password: string) => Promise<boolean>
   loginWithToken: (jwtToken: string) => Promise<boolean>
   logout: () => void
-  updateExtensions: (newExtensions: UserExtensions[] | UserExtensions) => Promise<boolean>
+  updateExtensions: (newExtensions: UserExtensions[] | UserExtensions) => Promise<void>
 } {
   const [token, setToken] = useState<string>('')
   const [user, setUser] = useState<User | null>(null)

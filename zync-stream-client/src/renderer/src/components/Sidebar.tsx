@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Home, Search, Puzzle, LogOut } from 'lucide-react'
+import { Home, Search, Puzzle, LogOut, Compass } from 'lucide-react'
 import Logo from '@/components/ui/logo'
 import { useState } from 'react'
 
@@ -22,7 +22,7 @@ export default function Sidebar({
   const [searchInputValue, setSearchInputValue] = useState<string>('')
   return (
     <>
-      <aside className="fixed left-[2px] h-[calc(100vh-4px)] w-[calc(5rem-4px)] bg-black/70 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-6 z-10">
+      <aside className="fixed left-[2px] h-[calc(100vh-4px)] w-[calc(5rem-4px)] bg-black/70 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-6 z-60">
         <div
           className="relative group cursor-pointer flex items-center justify-center"
           onClick={() => onSelect('home')}
@@ -48,12 +48,23 @@ export default function Sidebar({
             variant="ghost"
             size="icon"
             className="rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
+            onClick={() => onSelect('discover')}
+            title="Extensions"
+            style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
+          >
+            <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
+            <Compass className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
             onClick={() => onSelect('extensions')}
             title="Extensions"
             style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
           >
             <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
-            <Puzzle className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
+            <Puzzle className="w-10 h-10 text-white relative z-10 group-hover:text-white" />
           </Button>
         </div>
         <Button
@@ -68,10 +79,7 @@ export default function Sidebar({
           <LogOut className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
         </Button>
       </aside>
-      <header
-        className="fixed left-0 top-0 right-0 h-[calc(4rem-4px)] bg-#121212 backdrop-blur-xl flex items-center px-8 z-9"
-        style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
-      >
+      <header className="fixed left-0 top-0 right-0 h-[calc(4rem-4px)] backdrop-blur-xl flex items-center px-8 z-50">
         <div className="flex-1" />
 
         <div className="relative w-[275px]">
@@ -103,7 +111,7 @@ export default function Sidebar({
           </div>
 
           <Input
-            placeholder="Search for movies, series, more..."
+            placeholder="Search for movies, series..."
             className="h-11 pl-10 pr-12 py-3 bg-black/40 border border-white/10 rounded-xl text-white/90 
     placeholder:text-white/40 focus-visible:ring-1 focus-visible:ring-purple-500/50 
     shadow-lg transition-all hover:bg-black/50"

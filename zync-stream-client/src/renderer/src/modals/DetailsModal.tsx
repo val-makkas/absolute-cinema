@@ -127,6 +127,10 @@ export default function DetailsModal({
         onClose()
       }}
     >
+      <DialogPrimitive.Overlay
+        className="fixed inset-0 bg-black/50 backdrop-blur-lg"
+        style={{ zIndex: 65 }}
+      />
       <DialogContent
         className="flex flex-row p-0 max-w-7xl h-900 bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-10 duration-300"
         onClick={(e) => e.stopPropagation()}
@@ -140,7 +144,7 @@ export default function DetailsModal({
         {/* Blurred poster background */}
         {details?.poster && (
           <div
-            className="absolute inset-0 z-0 pointer-events-none"
+            className="absolute inset-0 pointer-events-none"
             style={{
               backgroundImage: `url(${details.poster})`,
               backgroundSize: 'cover',
@@ -151,12 +155,9 @@ export default function DetailsModal({
           />
         )}
 
-        {/* Overlay for readability */}
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/60 via-black/70 to-black/80 pointer-events-none" />
 
-        {/* Main content */}
         <div className="relative z-20 flex flex-col flex-1 p-8">
-          {/* Movie info header - reorganized with larger image */}
           <div className="flex flex-col mb-6">
             {details?.logo && (
               <div className="flex justify-center mb-4">
@@ -235,7 +236,6 @@ export default function DetailsModal({
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex gap-4 mt-auto pt-4">
             {selectedSource ? (
               <>

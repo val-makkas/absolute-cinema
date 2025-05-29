@@ -106,13 +106,13 @@ export default function LoginForm({
                     </svg>
                   </div>
                   <div>
-                    <h4 className="text-base font-semibold">Absolute Cinema=Open Source</h4>
+                    <h4 className="text-base font-semibold">zync_is_open_source</h4>
                     <p className="text-xs text-white/60">Looking for Contributors</p>
                   </div>
                 </div>
                 <p className="text-sm text-white/80">
-                  Absolute Cinema is a one-person project seeking help to build the future of
-                  streaming experiences.
+                  Zync is a one-person project seeking help to build the future of streaming
+                  experiences.
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <div className="h-1.5 w-1.5 rounded-full bg-blue-400"></div>
