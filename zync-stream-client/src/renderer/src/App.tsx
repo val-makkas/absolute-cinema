@@ -44,7 +44,8 @@ export default function App(): React.ReactElement {
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
-    removeFriend
+    removeFriend,
+    searchUser
   } = useFriends(token)
 
   const {
@@ -170,6 +171,7 @@ export default function App(): React.ReactElement {
                 friendsLoading={friendsLoading}
                 friendsError={friendsError}
                 onFriendAction={onFriendAction}
+                searchUser={searchUser}
               />
               <DiscoverPage onMovieClick={handleMovieClick} />
             </div>
@@ -192,6 +194,7 @@ export default function App(): React.ReactElement {
                 friendsLoading={friendsLoading}
                 friendsError={friendsError}
                 onFriendAction={onFriendAction}
+                searchUser={searchUser}
               />
               <HomePage watchHistory={watchHistory} onMovieClick={handleMovieClick} />
             </div>

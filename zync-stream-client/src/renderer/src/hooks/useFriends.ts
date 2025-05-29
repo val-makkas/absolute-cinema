@@ -3,6 +3,15 @@ import { Friend, FriendRequest } from '@/types'
 
 const API_BASE = 'http://localhost:8080/api/friends'
 
+const API_USERS = 'http://localhost:8080/api/users'
+
+interface SearchUser {
+  id: string
+  username: string
+  display_name: string
+  avatar?: string
+}
+
 export default function useFriends(token: string): {
   friends: Friend[]
   friendRequests: FriendRequest[]
@@ -12,6 +21,7 @@ export default function useFriends(token: string): {
   acceptFriendRequest: (requestId: string) => Promise<void>
   rejectFriendRequest: (requestId: string) => Promise<void>
   removeFriend: (username: string) => Promise<void>
+  searchUser: (query: string) => Promise<SearchUser[]>
 } {
   const [friends, setFriends] = useState<Friend[]>([])
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([])
@@ -56,6 +66,7 @@ export default function useFriends(token: string): {
       if (res.ok) {
         const friendRequestsData: FriendRequest[] = await res.json()
         setFriendRequests(friendRequestsData)
+        console.log('🔔 Friend requests data:', friendRequestsData)
         localStorage.setItem('friendRequests', JSON.stringify(friendRequestsData))
         setLoading(false)
       } else {
@@ -185,6 +196,48 @@ export default function useFriends(token: string): {
     [token]
   )
 
+  const searchUser = useCallback(
+    async (query: string): Promise<SearchUser[]> => {
+      if (!token || !query.trim()) return []
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const res = await fetch(`${API_USERS}/search?q=${encodeURIComponent(query)}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (res.ok) {
+          const response = await res.json()
+          const searchResults: SearchUser[] = response.users || []
+          const mappedResults = searchResults.map((user: any) => ({
+            id: user.id.toString(), // Convert to string
+            username: user.username,
+            display_name: user.display_name || user.username, // Fallback to username
+            avatar: user.profile_picture_url
+          }))
+          setLoading(false)
+          return mappedResults
+        } else {
+          setLoading(false)
+          setError('Failed to search users')
+          return []
+        }
+      } catch (err) {
+        setLoading(false)
+        setError('Network error while searching users')
+        console.log(err)
+        return []
+      }
+    },
+    [token]
+  )
+
   useEffect(() => {
     if (token) {
       fetchFriends()
@@ -200,6 +253,7 @@ export default function useFriends(token: string): {
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
-    removeFriend
+    removeFriend,
+    searchUser
   }
 }

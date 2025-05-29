@@ -86,7 +86,7 @@ export default function useWatchHistory(token: string): {
         let res: Response
         if (season && episode) {
           res = await fetch(
-            `${API_BASE}/me/watch-history/${imdb_id}?season=${season}&episode=${episode}`,
+            `${API_BASE}/me/watch-history/${encodeURIComponent(imdb_id)}?season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`,
             {
               headers: { Authorization: `Bearer ${token}` }
             }

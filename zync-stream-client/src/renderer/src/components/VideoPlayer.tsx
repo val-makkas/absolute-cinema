@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Source, entry } from '@renderer/types'
 
-// Define ElectronAPI interface
 interface ElectronAPI {
   playInMpv: (
     streamUrl: string,
@@ -21,7 +20,6 @@ declare global {
 
 interface TorrentResponse {
   infoHash: string
-  // Add other properties if needed
 }
 
 interface VideoPlayerProps {
@@ -99,7 +97,6 @@ export default function VideoPlayer({ source, details }: VideoPlayerProps): Reac
     addTorrent()
   }, [magnetUri, fileIdx])
 
-  // Automatically launch MPV when streamUrl becomes available
   useEffect(() => {
     if (streamUrl && typeof window !== 'undefined' && window.electronAPI) {
       window.electronAPI
@@ -125,7 +122,6 @@ export default function VideoPlayer({ source, details }: VideoPlayerProps): Reac
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg">
         <div className="w-full max-w-md mx-auto p-8 bg-black/80 border border-white/5 rounded-xl shadow-2xl relative overflow-hidden">
-          {/* Animated gradient border */}
           <div className="absolute inset-0 rounded-xl p-[2px] [mask:linear-gradient(#fff_0px,#fff_100%)_content-box,linear-gradient(#fff_0px,#fff_100%)]">
             <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-red-600 via-purple-600 to-red-600 animate-gradient-worm"></div>
           </div>
