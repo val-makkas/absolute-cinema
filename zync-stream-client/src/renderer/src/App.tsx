@@ -14,6 +14,7 @@ import ExtensionsModal from '@/modals/ExtensionsModal'
 import AuthForm from '@/components/AuthForm'
 import VideoPlayer from '@/components/VideoPlayer'
 import useFriends from '@/hooks/useFriends'
+import useWatchHistory from './hooks/useWatchHistory'
 //import loadingBg from '../public/loading.png'
 
 export default function App(): React.ReactElement {
@@ -56,6 +57,15 @@ export default function App(): React.ReactElement {
     rejectFriendRequest,
     removeFriend
   } = useFriends(token)
+
+  const {
+    watchHistory,
+    watchHistoryItem,
+    loading,
+    error,
+    updateWatchHistory,
+    getWatchHistoryItem
+  } = useWatchHistory(token)
 
   const {
     movies,
