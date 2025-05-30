@@ -1,16 +1,13 @@
 package users
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
+	"zync-stream/ws"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -37,81 +34,35 @@ func (h *UserHandlers) respondWithError(c *gin.Context, status int, message stri
 	c.JSON(status, gin.H{"error": message})
 }
 
-func getJWTSecretKey() string {
+func GenerateJWT(user *User) (string, error) {
+	// Use the same secret key function as middleware
 	key := os.Getenv("JWT_SECRET_KEY")
 	if key == "" {
-		// Development fallback - DO NOT use this in production!
 		key = "my-development-secret-key-for-jwt-signing"
 	}
-	return key
-}
+	jwtKey := []byte(key)
 
-var jwtKey = []byte(getJWTSecretKey())
-
-func GenerateJWT(user *User) (string, error) {
+	// Create claims
 	claims := jwt.MapClaims{
-		"user_id":  user.ID,
-		"username": user.Username,
-		"email":    user.Email,
-		"exp":      time.Now().Add(24 * time.Hour).Unix(),
+		"user_id":      user.ID,
+		"username":     user.Username,
+		"email":        user.Email,
+		"display_name": user.DisplayName,
+		"exp":          time.Now().Add(24 * time.Hour).Unix(),
+		"iat":          time.Now().Unix(), // Add issued at time
 	}
+
+	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtKey)
-}
+	tokenString, err := token.SignedString(jwtKey)
 
-func JWTAuth() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			c.Abort()
-			return
-		}
-
-		// Extract token from "Bearer <token>"
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == authHeader {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token format required"})
-			c.Abort()
-			return
-		}
-
-		// Parse and validate token
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate signing method
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("invalid token signing method")
-			}
-			return jwtKey, nil
-		})
-
-		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-			c.Abort()
-			return
-		}
-
-		// Extract claims
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			c.Abort()
-			return
-		}
-
-		// Set user info in context
-		userID := int(claims["user_id"].(float64))
-		username := claims["username"].(string)
-		c.Set("user_id", userID)
-		c.Set("username", username)
-
-		// Try to extract avatar URL if available
-		if avatarURL, exists := claims["avatar_url"]; exists && avatarURL != nil {
-			c.Set("avatar_url", avatarURL.(string))
-		}
-
-		c.Next()
+	if err != nil {
+		log.Printf("Error signing JWT: %v", err)
+		return "", err
 	}
+
+	log.Printf("Generated JWT for user %d (%s)", user.ID, user.Username)
+	return tokenString, nil
 }
 
 // Register handles user registration
@@ -122,12 +73,8 @@ func (h *UserHandlers) Register(c *gin.Context) {
 		Password string `json:"password" binding:"required,min=6"`
 	}
 
-	body, _ := c.GetRawData()
-	log.Printf("REGISTER REQUEST: %s", string(body))
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Binding Error: %v", err) // Fixed: was "DATABASE ERROR"
 		h.respondWithError(c, http.StatusBadRequest, "Invalid input: "+err.Error())
 		return
 	}
@@ -207,7 +154,7 @@ func (h *UserHandlers) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("DATABASE ERROR: %v", err)
+		log.Printf("Binding Error: %v", err)
 		h.respondWithError(c, http.StatusBadRequest, "Invalid input")
 		return
 	}
@@ -219,12 +166,6 @@ func (h *UserHandlers) Login(c *gin.Context) {
 	if err != nil {
 		log.Printf("DATABASE ERROR: %v", err)
 		h.respondWithError(c, http.StatusInternalServerError, "Error retrieving user")
-		return
-	}
-
-	if user == nil {
-		log.Printf("DATABASE ERROR: %v", err)
-		h.respondWithError(c, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
@@ -584,50 +525,96 @@ func (h *UserHandlers) GetFriends(c *gin.Context) {
 
 // SendFriendRequest handles sending a friend request
 func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-
 	var req struct {
 		Username string `json:"username" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.respondWithError(c, http.StatusBadRequest, "Invalid request")
+		log.Printf("Friend request binding error: %v", err)
+		log.Printf("Request body: %+v", req)
+		h.respondWithError(c, http.StatusBadRequest, "Invalid input: "+err.Error())
+		return
+	}
+
+	log.Printf("Processing friend request from user %d to username: %s",
+		c.GetInt("user_id"), req.Username)
+
+	// Get the current user ID from the JWT token
+	senderID := c.GetInt("user_id")
+	if senderID == 0 {
+		log.Printf("No user_id found in context")
+		h.respondWithError(c, http.StatusUnauthorized, "User not authenticated")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Find the target user
+	// Find the user to send request to
 	targetUser, err := h.repo.GetByUsername(ctx, req.Username)
-	if err != nil || targetUser == nil {
+	if err != nil {
+		log.Printf("Error finding target user '%s': %v", req.Username, err)
+		h.respondWithError(c, http.StatusInternalServerError, "Error finding user")
+		return
+	}
+
+	if targetUser == nil {
+		log.Printf("Target user '%s' not found", req.Username)
 		h.respondWithError(c, http.StatusNotFound, "User not found")
 		return
 	}
 
-	// Dont allow sending request to yourself
-	if targetUser.ID == userID.(int) {
+	if targetUser.ID == senderID {
+		log.Printf("User %d tried to send friend request to themselves", senderID)
 		h.respondWithError(c, http.StatusBadRequest, "Cannot send friend request to yourself")
 		return
 	}
 
-	// Send friend request
-	err = h.repo.SendFriendRequest(ctx, userID.(int), targetUser.ID)
+	log.Printf("Sending friend request from user %d to user %d (%s)",
+		senderID, targetUser.ID, targetUser.Username)
+
+	// Check if friendship already exists
+	existingFriend, err := h.repo.GetFriendship(ctx, senderID, targetUser.ID)
 	if err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			h.respondWithError(c, http.StatusBadRequest, "Friend request already sent or friendship already exists")
-		} else {
-			h.respondWithError(c, http.StatusInternalServerError, "Failed to send friend request")
-		}
+		log.Printf("Error checking existing friendship: %v", err)
+		h.respondWithError(c, http.StatusInternalServerError, "Error checking friendship")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Friend request sent"})
-
-	// Send notification via Redis if available
-	if h.redis != nil {
-		// This could be implemented to send a real-time notification
+	if existingFriend != nil {
+		log.Printf("Friendship already exists between %d and %d", senderID, targetUser.ID)
+		h.respondWithError(c, http.StatusConflict, "Already friends or request pending")
+		return
 	}
+
+	// Create the friend request
+	err = h.repo.SendFriendRequest(ctx, senderID, targetUser.ID)
+	if err != nil {
+		log.Printf("Error creating friend request: %v", err)
+		h.respondWithError(c, http.StatusInternalServerError, "Failed to send friend request")
+		return
+	}
+
+	log.Printf("✅ Friend request created successfully from %d to %d", senderID, targetUser.ID)
+
+	// Send notification via Redis
+	notificationData := map[string]interface{}{
+		"sender_id":    senderID,
+		"username":     h.getCurrentUsername(c),    // You'll need to implement this
+		"display_name": h.getCurrentDisplayName(c), // You'll need to implement this
+	}
+
+	err = ws.SendNotification(targetUser.ID, "friend_request_received", notificationData)
+	if err != nil {
+		log.Printf("Error sending friend request notification: %v", err)
+		// Don't fail the request, just log the error
+	} else {
+		log.Printf("✅ Friend request notification sent to user %d", targetUser.ID)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Friend request sent successfully",
+	})
 }
 
 func (h *UserHandlers) GetFriendRequests(c *gin.Context) {
@@ -657,6 +644,18 @@ func (h *UserHandlers) AcceptFriendRequest(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
+	friendRequest, err := h.repo.GetFriendRequestByID(ctx, requestID)
+	if err != nil || friendRequest == nil {
+		h.respondWithError(c, http.StatusNotFound, "Friend request not found")
+		return
+	}
+
+	// Verify this request is for the current user
+	if friendRequest.ReceiverID != userID.(int) {
+		h.respondWithError(c, http.StatusForbidden, "Not authorized to accept this request")
+		return
+	}
+
 	err = h.repo.RespondToFriendRequest(ctx, requestID, userID.(int), true)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Failed to accept friend request")
@@ -664,6 +663,19 @@ func (h *UserHandlers) AcceptFriendRequest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Friend request accepted"})
+
+	accepterUser, err := h.repo.GetByID(ctx, userID.(int))
+	if err == nil && accepterUser != nil {
+		err = ws.SendFriendRequestAcceptedNotification(
+			friendRequest.SenderID,
+			accepterUser.ID,
+			accepterUser.Username,
+			accepterUser.DisplayName,
+		)
+		if err != nil {
+			log.Printf("Failed to send friend request acceptance notification: %v", err)
+		}
+	}
 }
 
 // RejectFriendRequest handles rejecting a friend request
@@ -679,6 +691,17 @@ func (h *UserHandlers) RejectFriendRequest(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
+	friendRequest, err := h.repo.GetFriendRequestByID(ctx, requestID)
+	if err != nil || friendRequest == nil {
+		h.respondWithError(c, http.StatusNotFound, "Friend request not found")
+		return
+	}
+
+	if friendRequest.ReceiverID != userID.(int) {
+		h.respondWithError(c, http.StatusForbidden, "Not authorized to reject this request")
+		return
+	}
+
 	err = h.repo.RespondToFriendRequest(ctx, requestID, userID.(int), false)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Failed to reject friend request")
@@ -686,6 +709,19 @@ func (h *UserHandlers) RejectFriendRequest(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Friend request rejected"})
+
+	rejecterUser, err := h.repo.GetByID(ctx, userID.(int))
+	if err == nil && rejecterUser != nil {
+		err = ws.SendFriendRequestRejectedNotification(
+			friendRequest.SenderID,
+			rejecterUser.ID,
+			rejecterUser.Username,
+			rejecterUser.DisplayName,
+		)
+		if err != nil {
+			log.Printf("Failed to send friend request rejection notification: %v", err)
+		}
+	}
 }
 
 // RemoveFriend handles removing a friend
@@ -724,4 +760,18 @@ func (h *UserHandlers) RemoveFriend(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Friend removed successfully"})
+}
+
+func (h *UserHandlers) getCurrentUsername(c *gin.Context) string {
+	if username, exists := c.Get("username"); exists {
+		return username.(string)
+	}
+	return "Unknown"
+}
+
+func (h *UserHandlers) getCurrentDisplayName(c *gin.Context) string {
+	if displayName, exists := c.Get("display_name"); exists {
+		return displayName.(string)
+	}
+	return h.getCurrentUsername(c)
 }

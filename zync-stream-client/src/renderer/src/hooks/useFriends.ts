@@ -22,6 +22,7 @@ export default function useFriends(token: string): {
   rejectFriendRequest: (requestId: string) => Promise<void>
   removeFriend: (username: string) => Promise<void>
   searchUser: (query: string) => Promise<SearchUser[]>
+  refreshData: () => Promise<void>
 } {
   const [friends, setFriends] = useState<Friend[]>([])
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([])
@@ -38,7 +39,8 @@ export default function useFriends(token: string): {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (res.ok) {
-        const friendsData: Friend[] = await res.json()
+        const data = await res.json()
+        const friendsData: Friend[] = data.friends
         setFriends(friendsData)
         localStorage.setItem('friends', JSON.stringify(friendsData))
         setLoading(false)
@@ -60,12 +62,18 @@ export default function useFriends(token: string): {
     setError(null)
 
     try {
+      //localhost:8080/api/friends/requests
       const res = await fetch(`${API_BASE}/requests`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       })
       if (res.ok) {
-        const friendRequestsData: FriendRequest[] = await res.json()
+        const data = await res.json()
+        const friendRequestsData: FriendRequest[] = data.requests || []
         setFriendRequests(friendRequestsData)
+        console.log('🔔 Friend requests data:', friendRequestsData)
         console.log('🔔 Friend requests data:', friendRequestsData)
         localStorage.setItem('friendRequests', JSON.stringify(friendRequestsData))
         setLoading(false)
@@ -196,6 +204,19 @@ export default function useFriends(token: string): {
     [token]
   )
 
+  const refreshData = useCallback(async () => {
+    if (!token) return
+
+    try {
+      setLoading(true)
+      await Promise.all([fetchFriends(), getFriendRequests()])
+    } catch (err) {
+      console.log(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [token, fetchFriends, getFriendRequests])
+
   const searchUser = useCallback(
     async (query: string): Promise<SearchUser[]> => {
       if (!token || !query.trim()) return []
@@ -254,6 +275,7 @@ export default function useFriends(token: string): {
     acceptFriendRequest,
     rejectFriendRequest,
     removeFriend,
-    searchUser
+    searchUser,
+    refreshData
   }
 }

@@ -3,6 +3,8 @@ import { Input } from '@/components/ui/input'
 import { Home, Search, Puzzle, LogOut, Compass } from 'lucide-react'
 import Logo from '@/components/ui/logo'
 import { useState } from 'react'
+import { Notification } from '@/types'
+import NotificationBell from '@/components/Notifications/NotificationBell'
 
 interface SidebarProps {
   onSelect: (key: string) => void
@@ -10,6 +12,13 @@ interface SidebarProps {
   onLogout: () => void
   username: string | null
   searching: boolean
+  notifications?: Notification[]
+  unreadCount?: number
+  connected?: boolean
+  onMarkAsRead?: (id: string) => void
+  onMarkAllAsRead?: () => void
+  onClearAll?: () => void
+  onRemoveNotification?: (id: string) => void
 }
 
 export default function Sidebar({
@@ -17,7 +26,14 @@ export default function Sidebar({
   onSearchValue,
   onLogout,
   username,
-  searching
+  searching,
+  notifications = [],
+  unreadCount = 0,
+  connected = false,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onClearAll,
+  onRemoveNotification
 }: SidebarProps): React.ReactElement {
   const [searchInputValue, setSearchInputValue] = useState<string>('')
   return (
@@ -178,41 +194,23 @@ export default function Sidebar({
                 strokeLinejoin="round"
               />
             </svg>
-          </Button>{' '}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 w-9 p-0 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
-            title="Notifications"
-          >
-            {/* Hover effect */}
-            <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="relative z-10"
-            >
-              <path
-                d="M12 3C12.5523 3 13 3.44772 13 4V4.51986C15.5704 5.08259 17.5 7.375 17.5 10.1667V14.25L18.6429 16.5357C18.8783 17.0064 18.6418 17.5798 18.1711 17.8152C18.0252 17.8864 17.8654 17.9231 17.7032 17.9231H6.26782C5.76605 17.9231 5.35951 17.5166 5.35951 17.0148C5.35951 16.8527 5.39614 16.6928 5.46741 16.5469L6.5 14.25V10.1667C6.5 7.36502 8.4407 5.06614 11.0256 4.51248L11 4C11 3.44772 11.4477 3 12 3Z"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-              <path
-                d="M9 18H15V18.5C15 19.8807 13.8807 21 12.5 21H11.5C10.1193 21 9 19.8807 9 18.5V18Z"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
-          </Button>{' '}
+          </Button>
+          {onMarkAsRead && onMarkAllAsRead && onClearAll && onRemoveNotification && (
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={unreadCount}
+              connected={connected}
+              onMarkAsRead={onMarkAsRead}
+              onMarkAllAsRead={onMarkAllAsRead}
+              onClearAll={onClearAll}
+              onRemoveNotification={onRemoveNotification}
+            />
+          )}
           <Button
             variant="ghost"
             size="sm"
             className="flex items-center gap-2 h-9 px-3 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
           >
-            {/* Hover effect */}
             <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600/30 to-blue-600/30 flex items-center justify-center relative z-10">
               <span className="text-white text-xs font-semibold">

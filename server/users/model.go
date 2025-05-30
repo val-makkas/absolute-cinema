@@ -41,3 +41,19 @@ type WatchHistoryRequest struct {
 	DurationSeconds   int     `json:"duration_seconds,omitempty"`
 	PercentageWatched float64 `json:"percentage_watched" binding:"required,min=0,max=100"`
 }
+
+type FriendRequestDetails struct {
+	ID         int    `json:"id"`
+	SenderID   int    `json:"sender_id"`
+	ReceiverID int    `json:"receiver_id"`
+	CreatedAt  string `json:"created_at"`
+}
+
+type Friendship struct {
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	FriendID  int       `json:"friend_id"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

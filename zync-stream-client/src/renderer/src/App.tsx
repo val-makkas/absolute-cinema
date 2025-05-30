@@ -5,6 +5,7 @@ import useFriends from '@/hooks/useFriends'
 import useWatchHistory from '@/hooks/useWatchHistory'
 import useExtensions from '@/hooks/useExtensions'
 import useDetailsModal from '@/hooks/useDetailsModal'
+import useNotifications from './hooks/useNotifications'
 import Sidebar from '@/components/Sidebar'
 import FriendsSidebar from '@/components/Friends/FriendsSidebar'
 import ExtensionsModal from '@/modals/ExtensionsModal'
@@ -45,8 +46,19 @@ export default function App(): React.ReactElement {
     acceptFriendRequest,
     rejectFriendRequest,
     removeFriend,
-    searchUser
+    searchUser,
+    refreshData
   } = useFriends(token)
+
+  const {
+    notifications,
+    connected: notificationsConnected,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    clearAll,
+    removeNotification
+  } = useNotifications(token, refreshData)
 
   const {
     extensionManifests,
@@ -149,6 +161,13 @@ export default function App(): React.ReactElement {
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
+                notifications={notifications}
+                unreadCount={unreadCount}
+                connected={notificationsConnected}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onClearAll={clearAll}
+                onRemoveNotification={removeNotification}
               />
               <VideoPlayer source={playerSource} details={null} />
             </div>
@@ -164,6 +183,13 @@ export default function App(): React.ReactElement {
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
+                notifications={notifications}
+                unreadCount={unreadCount}
+                connected={notificationsConnected}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onClearAll={clearAll}
+                onRemoveNotification={removeNotification}
               />
               <FriendsSidebar
                 friends={friends}
@@ -187,6 +213,13 @@ export default function App(): React.ReactElement {
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
+                notifications={notifications}
+                unreadCount={unreadCount}
+                connected={notificationsConnected}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onClearAll={clearAll}
+                onRemoveNotification={removeNotification}
               />
               <FriendsSidebar
                 friends={friends}

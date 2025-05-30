@@ -129,13 +129,13 @@ export default function FriendsSidebar({
                 <span className="text-sm text-white truncate">{r.username}</span>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onFriendAction('accept', r.sender_id.toString())}
+                    onClick={() => onFriendAction('accept', r.id.toString())}
                     className="text-green-400 hover:text-green-500 text-sm"
                   >
                     Accept
                   </button>
                   <button
-                    onClick={() => onFriendAction('reject', r.sender_id.toString())}
+                    onClick={() => onFriendAction('reject', r.id.toString())}
                     className="text-red-400 hover:text-red-500 text-sm"
                   >
                     Reject

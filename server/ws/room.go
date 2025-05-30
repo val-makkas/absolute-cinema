@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"zync-stream/middleware"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -20,6 +22,7 @@ type RoomConnection struct {
 	RoomID   int
 	Conn     *websocket.Conn
 	Send     chan []byte
+	done     chan struct{}
 }
 
 // RoomEvent represents an event within a room
@@ -33,18 +36,30 @@ type RoomEvent struct {
 
 // HandleRoomWebSocket handles WebSocket connections for a specific room
 func HandleRoomWebSocket(c *gin.Context) {
-	// Get user from context (set by auth middleware)
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	// Get and validate token from query parameter
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token required"})
 		return
 	}
 
-	// Get username from context or query (in a real app, get from DB or session)
-	username, _ := c.Get("username")
-	usernameStr, ok := username.(string)
+	claims, err := middleware.ValidateJWT(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Extract user info from JWT claims
+	userIDFloat, ok := claims["user_id"].(float64)
 	if !ok {
-		usernameStr = fmt.Sprintf("user_%d", userID.(int))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})
+		return
+	}
+	userID := int(userIDFloat)
+
+	username, ok := claims["username"].(string)
+	if !ok {
+		username = fmt.Sprintf("user_%d", userID)
 	}
 
 	// Get room ID from URL
@@ -55,8 +70,8 @@ func HandleRoomWebSocket(c *gin.Context) {
 		return
 	}
 
-	// TODO: Check if user has access to this room
-	// This would call your room repository to verify permissions
+	// Check if user has access to this room
+	log.Printf("User %d (%s) connecting to room %d (no access check)", userID, username, roomID)
 
 	// Upgrade connection to WebSocket
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -64,11 +79,12 @@ func HandleRoomWebSocket(c *gin.Context) {
 		log.Printf("Failed to upgrade connection: %v", err)
 		return
 	}
+	defer conn.Close()
 
 	// Create room connection
 	roomConn := &RoomConnection{
-		UserID:   userID.(int),
-		Username: usernameStr,
+		UserID:   userID,
+		Username: username,
 		RoomID:   roomID,
 		Conn:     conn,
 		Send:     make(chan []byte, 256),
@@ -76,20 +92,47 @@ func HandleRoomWebSocket(c *gin.Context) {
 
 	go roomConn.readPump()
 	go roomConn.writePump()
-
 	go roomConn.subscribeToRoomEvents()
 
 	roomConn.announceUserJoined()
+
+	log.Printf("User %d (%s) connected to room %d WebSocket", userID, username, roomID)
+
+	<-roomConn.done
+	log.Printf("User %d (%s) WebSocket connection closed for room %d", userID, username, roomID)
 }
 
-// readPump reads messages from the client WebSocket
+// checkRoomAccess verifies if a user has access to a room
+func checkRoomAccess(ctx context.Context, roomID, userID int) (bool, error) {
+
+	// For now, allow access to all users
+	// In a real implementation, you would:
+	// 1. Check if room is public
+	// 2. Check if user is a member of private rooms
+	// 3. Query your database to verify permissions
+
+	// Simple check - you can implement more complex logic
+	// This is a placeholder - replace with actual room permission logic
+
+	// Example query (you'd need to implement this with your database):
+	// SELECT COUNT(*) FROM room_members WHERE room_id = $1 AND user_id = $2
+	// OR
+	// SELECT is_private FROM rooms WHERE id = $1 AND (is_private = false OR owner_id = $2)
+
+	log.Printf("Checking room access for user %d to room %d", userID, roomID)
+
+	// For development, allow all access
+	// TODO: Implement proper room access control
+	return true, nil
+}
+
+// Rest of your existing methods stay the same...
 func (rc *RoomConnection) readPump() {
 	defer func() {
 		rc.announceUserLeft()
 		rc.Conn.Close()
 	}()
 
-	// Set read parameters
 	rc.Conn.SetReadLimit(4096)
 	rc.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	rc.Conn.SetPongHandler(func(string) error {
@@ -97,7 +140,6 @@ func (rc *RoomConnection) readPump() {
 		return nil
 	})
 
-	// Read messages
 	for {
 		_, message, err := rc.Conn.ReadMessage()
 		if err != nil {
@@ -107,44 +149,35 @@ func (rc *RoomConnection) readPump() {
 			break
 		}
 
-		// Parse message
 		var event RoomEvent
 		if err := json.Unmarshal(message, &event); err != nil {
 			log.Printf("Error parsing message: %v", err)
 			continue
 		}
 
-		// Set user info
 		event.UserID = rc.UserID
 		event.Username = rc.Username
 		event.Timestamp = time.Now().Unix()
 
-		// Process based on event type
 		switch event.Type {
 		case "chat_message":
-			// Publish to Redis
 			rc.publishRoomEvent(event)
-
 		case "playback_update":
-			// Publish to Redis
 			rc.publishRoomEvent(event)
-
 		case "ping":
-			// Just respond with pong directly
 			rc.Send <- []byte(`{"type":"pong","timestamp":` + fmt.Sprintf("%d", time.Now().Unix()) + `}`)
-
 		default:
-			// Unknown event type, could log or handle
+			log.Printf("Unknown event type: %s", event.Type)
 		}
 	}
 }
 
-// writePump sends messages to the client WebSocket
 func (rc *RoomConnection) writePump() {
 	ticker := time.NewTicker(54 * time.Second)
 	defer func() {
 		ticker.Stop()
 		rc.Conn.Close()
+		log.Printf("User %d (%s) disconnected from room %d", rc.UserID, rc.Username, rc.RoomID)
 	}()
 
 	for {
@@ -152,7 +185,6 @@ func (rc *RoomConnection) writePump() {
 		case message, ok := <-rc.Send:
 			rc.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if !ok {
-				// Channel closed
 				rc.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -163,7 +195,7 @@ func (rc *RoomConnection) writePump() {
 			}
 			w.Write(message)
 
-			// Add queued messages
+			// Check for additional messages in the queue
 			n := len(rc.Send)
 			for i := 0; i < n; i++ {
 				w.Write([]byte{'\n'})
@@ -179,11 +211,13 @@ func (rc *RoomConnection) writePump() {
 			if err := rc.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
+
+		case <-rc.done:
+			return
 		}
 	}
 }
 
-// subscribeToRoomEvents subscribes to Redis channel for room events
 func (rc *RoomConnection) subscribeToRoomEvents() {
 	redisClient, err := GetRedisClient()
 	if err != nil {
@@ -195,24 +229,30 @@ func (rc *RoomConnection) subscribeToRoomEvents() {
 	pubsub := redisClient.Subscribe(context.Background(), roomChannel)
 	defer pubsub.Close()
 
-	// Process messages from Redis
-	for {
-		msg, err := pubsub.ReceiveMessage(context.Background())
-		if err != nil {
-			log.Printf("Error receiving message: %v", err)
-			break
-		}
+	log.Printf("User %d subscribed to room %d events", rc.UserID, rc.RoomID)
 
-		// Forward to client
+	for {
 		select {
-		case rc.Send <- []byte(msg.Payload):
+		case <-rc.done:
+			return
 		default:
-			log.Printf("Send buffer full, dropping message")
+			msg, err := pubsub.ReceiveMessage(context.Background())
+			if err != nil {
+				log.Printf("Error receiving message: %v", err)
+				return
+			}
+
+			select {
+			case rc.Send <- []byte(msg.Payload):
+			case <-rc.done:
+				return
+			default:
+				log.Printf("Send buffer full for user %d in room %d, dropping message", rc.UserID, rc.RoomID)
+			}
 		}
 	}
 }
 
-// publishRoomEvent publishes an event to the room's Redis channel
 func (rc *RoomConnection) publishRoomEvent(event RoomEvent) {
 	redisClient, err := GetRedisClient()
 	if err != nil {
@@ -220,21 +260,20 @@ func (rc *RoomConnection) publishRoomEvent(event RoomEvent) {
 		return
 	}
 
-	// Serialize event
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
 		log.Printf("Error serializing event: %v", err)
 		return
 	}
 
-	// Publish to Redis
 	roomChannel := fmt.Sprintf("room:%d:events", rc.RoomID)
 	if err := redisClient.Publish(context.Background(), roomChannel, eventJSON).Err(); err != nil {
 		log.Printf("Error publishing event: %v", err)
+	} else {
+		log.Printf("Published %s event to room %d by user %d", event.Type, rc.RoomID, rc.UserID)
 	}
 }
 
-// announceUserJoined sends a message when a user joins the room
 func (rc *RoomConnection) announceUserJoined() {
 	event := RoomEvent{
 		Type:      "user_joined",
@@ -244,12 +283,12 @@ func (rc *RoomConnection) announceUserJoined() {
 		Data: map[string]interface{}{
 			"user_id":  rc.UserID,
 			"username": rc.Username,
+			"message":  fmt.Sprintf("%s joined the room", rc.Username),
 		},
 	}
 	rc.publishRoomEvent(event)
 }
 
-// announceUserLeft sends a message when a user leaves the room
 func (rc *RoomConnection) announceUserLeft() {
 	event := RoomEvent{
 		Type:      "user_left",
@@ -259,6 +298,7 @@ func (rc *RoomConnection) announceUserLeft() {
 		Data: map[string]interface{}{
 			"user_id":  rc.UserID,
 			"username": rc.Username,
+			"message":  fmt.Sprintf("%s left the room", rc.Username),
 		},
 	}
 	rc.publishRoomEvent(event)

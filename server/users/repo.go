@@ -456,6 +456,36 @@ func (r *UserRepo) GetFriends(ctx context.Context, userID int) ([]map[string]int
 	return friends, nil
 }
 
+func (r *UserRepo) GetFriendship(ctx context.Context, userID1, userID2 int) (*Friendship, error) {
+	query := `
+        SELECT id, user_id, friend_id, status, created_at, updated_at
+        FROM friendships
+        WHERE 
+            (user_id = $1 AND friend_id = $2) OR
+            (user_id = $2 AND friend_id = $1)
+        LIMIT 1
+    `
+
+	var friendship Friendship
+	err := r.db.QueryRow(ctx, query, userID1, userID2).Scan(
+		&friendship.ID,
+		&friendship.UserID,
+		&friendship.FriendID,
+		&friendship.Status,
+		&friendship.CreatedAt,
+		&friendship.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No friendship exists
+		}
+		return nil, err
+	}
+
+	return &friendship, nil
+}
+
 // SendFriendRequest creates a new friend request
 func (r *UserRepo) SendFriendRequest(ctx context.Context, senderID, receiverID int) error {
 	// Check if friendship or request already exists
@@ -594,4 +624,31 @@ func (r *UserRepo) RemoveFriend(ctx context.Context, userID, friendID int) error
     `, userID, friendID)
 
 	return err
+}
+
+func (r *UserRepo) GetFriendRequestByID(ctx context.Context, requestID int) (*FriendRequestDetails, error) {
+	query := `
+        SELECT id, user_id as sender_id, friend_id as receiver_id, created_at
+        FROM friendships
+        WHERE id = $1 AND status = 'pending'
+    `
+
+	row := r.db.QueryRow(ctx, query, requestID)
+
+	var request FriendRequestDetails
+	err := row.Scan(
+		&request.ID,
+		&request.SenderID,
+		&request.ReceiverID,
+		&request.CreatedAt,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &request, nil
 }
