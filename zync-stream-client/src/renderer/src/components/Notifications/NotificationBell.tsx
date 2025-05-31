@@ -62,7 +62,7 @@ export default function NotificationBell({
       <Button
         variant="ghost"
         size="sm"
-        className="h-9 w-9 p-0 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
+        className="h-9 w-9 p-0 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105"
         onClick={handleToggle}
         disabled={!connected}
         title={connected ? 'Notifications' : 'Notifications (Disconnected)'}

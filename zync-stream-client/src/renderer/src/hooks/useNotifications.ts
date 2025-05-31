@@ -1,9 +1,10 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Notification } from '@/types'
+import { websocketService } from '../services/websocketService'
 
 export default function useNotifications(
   token: string,
-  onConnectionEstablished?: () => void
+  onNotificationReceived?: () => void
 ): {
   notifications: Notification[]
   connected: boolean
@@ -12,183 +13,24 @@ export default function useNotifications(
   markAllAsRead: () => void
   clearAll: () => void
   removeNotification: (notificationId: string) => void
-  connect: () => void
   disconnect: () => void
+  connect: () => void
 } {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [connected, setConnected] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const onNotificationReceivedRef = useRef(onNotificationReceived)
 
-  const socket = useRef<WebSocket | null>(null)
-  const reconnectAttempts = useRef(0)
-  const maxReconnectAttempts = 5
+  onNotificationReceivedRef.current = onNotificationReceived
 
-  useEffect(() => {
-    console.log('📩 useNotifications state:', {
-      notificationsCount: notifications.length,
-      notifications: notifications,
-      connected,
-      unreadCount,
-      token: token ? `${token.slice(0, 10)}...` : 'none'
-    })
-  }, [notifications, connected, unreadCount, token])
-
-  const connect = useCallback(() => {
-    if (!token) {
-      console.log('No token provided for WebSocket connection')
-      return
-    }
-
-    if (socket.current?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected')
-      return
-    }
-
-    try {
-      console.log('Connecting to notifications WebSocket...')
-
-      // Create WebSocket without token in URL
-      socket.current = new WebSocket('ws://localhost:8080/api/notifications/ws')
-
-      // Send authentication after connection opens
-      socket.current.onopen = () => {
-        console.log('🔌 Connected to notifications WebSocket')
-
-        // Send authentication message
-        const authMessage = {
-          type: 'auth',
-          token: token
-        }
-        socket.current?.send(JSON.stringify(authMessage))
-
-        setConnected(true)
-        reconnectAttempts.current = 0
-      }
-
-      socket.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-
-          // Handle auth response
-          if (data.type === 'auth_success') {
-            console.log('✅ Authentication successful')
-            return
-          }
-
-          if (data.type === 'auth_error') {
-            console.error('❌ Authentication failed:', data.message)
-            socket.current?.close()
-            return
-          }
-
-          console.log('📩 Received notification:', data)
-          handleNotification(data)
-        } catch (error) {
-          console.error('Error parsing notification message:', error)
-        }
-      }
-
-      socket.current.onclose = (event) => {
-        console.log('🔌 WebSocket disconnected:', event.code, event.reason)
-        setConnected(false)
-
-        // Auto-reconnect if not a normal closure
-        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000)
-          reconnectAttempts.current++
-
-          console.log(
-            `Reconnecting in ${delay}ms... (attempt ${reconnectAttempts.current}/${maxReconnectAttempts})`
-          )
-
-          setTimeout(() => {
-            connect()
-          }, delay)
-        }
-      }
-
-      socket.current.onerror = (error) => {
-        console.error('🔌 WebSocket error:', error)
-        setConnected(false)
-      }
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error)
-    }
-  }, [token])
-
-  const disconnect = useCallback(() => {
-    if (socket.current) {
-      socket.current.close(1000, 'User disconnected')
-      socket.current = null
-    }
-    setConnected(false)
-    reconnectAttempts.current = 0
-  }, [])
-
-  const convertFriendRequestsToNotifications = useCallback(async () => {
-    try {
-      console.log('🔄 Fetching pending friend requests...')
-
-      const response = await fetch('http://localhost:8080/api/friends/requests', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('📨 Friend requests data:', data)
-
-        if (data.requests && data.requests.length > 0) {
-          const notifications: Notification[] = data.requests.map((request: any) => ({
-            id: `friend_request_${request.id}`,
-            type: 'friend_request_received',
-            title: 'New friend request',
-            message: `${request.display_name || request.username} sent you a friend request`,
-            data: {
-              sender_id: request.sender_id,
-              username: request.username,
-              display_name: request.display_name,
-              request_id: request.id
-            },
-            read: false,
-            createdAt: request.created_at
-          }))
-
-          console.log('🔔 Converting friend requests to notifications:', notifications)
-
-          setNotifications((prev) => {
-            const existingIds = prev.map((n) => n.id)
-            const newNotifications = notifications.filter((n) => !existingIds.includes(n.id))
-
-            return [...newNotifications, ...prev].slice(0, 49)
-          })
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error fetching friend requests:', error)
-    }
-  }, [token])
-
-  const handleNotification = useCallback(
+  const handleMessage = useCallback(
     (data: any) => {
-      console.log('📨 Raw WebSocket message received:', data)
+      console.log('🔔 Notifications: Received message:', data.type)
 
-      if (data.type === 'connection_established') {
-        console.log('🔗 Connection established, calling onConnectionEstablished')
-        if (onConnectionEstablished) {
-          onConnectionEstablished()
-        }
-
-        convertFriendRequestsToNotifications()
-        return
-      }
-
-      // Handle the backend's notification wrapper format
       if (data.type === 'notification') {
-        console.log('🔔 Notification wrapper received:', data)
-
+        if (onNotificationReceived) {
+          onNotificationReceived()
+        }
         const notificationId = `${Date.now()}_${Math.random()}`
         let notification: Notification
 
@@ -238,25 +80,59 @@ export default function useNotifications(
             }
             break
           default:
-            console.log('❌ Unknown notification type:', data.notification_type)
             return
         }
 
-        console.log('🔔 Created notification object:', notification)
-
-        setNotifications((prev) => {
-          const updated = [notification, ...prev.slice(0, 49)]
-          console.log('🔔 Updated notifications array:', updated)
-          return updated
-        })
-        return
+        setNotifications((prev) => [notification, ...prev.slice(0, 49)])
       }
-
-      console.log('❌ Unknown message type:', data.type)
     },
-    [onConnectionEstablished]
+    [onNotificationReceived]
   )
 
+  // Connect and subscribe to notification messages
+  useEffect(() => {
+    if (!token) return
+
+    const subscribe = () => {
+      if (websocketService.getConnectionStatus()) {
+        websocketService.subscribe(
+          'notifications',
+          ['connection_established', 'auth_success', 'notification'],
+          handleMessage
+        )
+        console.log('🔔 Notifications: Subscribed to messages')
+      } else {
+        // Wait for connection and try again
+        const timeoutId = setTimeout(subscribe, 1000)
+        return () => clearTimeout(timeoutId)
+      }
+    }
+
+    subscribe()
+
+    return () => {
+      websocketService.unsubscribe('notifications')
+      console.log('🔔 Notifications: Unsubscribed')
+    }
+  }, [token, handleMessage])
+
+  const connect = useCallback(async () => {
+    if (!token) return
+    try {
+      await websocketService.connect(token)
+      setConnected(true)
+    } catch (error) {
+      console.log(error)
+      setConnected(false)
+    }
+  }, [token])
+
+  const disconnect = useCallback(() => {
+    websocketService.disconnect()
+    setConnected(false)
+  }, [])
+
+  // ... rest of your notification management functions stay the same
   const markAsRead = useCallback((notificationId: string) => {
     setNotifications((prev) =>
       prev.map((notification) =>
@@ -282,13 +158,6 @@ export default function useNotifications(
     setUnreadCount(unread)
   }, [notifications])
 
-  useEffect(() => {
-    if (token) {
-      connect()
-    }
-    return () => disconnect()
-  }, [token, connect, disconnect])
-
   return {
     notifications,
     connected,
@@ -297,7 +166,7 @@ export default function useNotifications(
     markAllAsRead,
     clearAll,
     removeNotification,
-    connect,
-    disconnect
+    disconnect,
+    connect
   }
 }

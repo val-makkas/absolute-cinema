@@ -12,11 +12,14 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// In production, validate origin properly
+		// change prod
 		origin := r.Header.Get("Origin")
 		return origin == "http://localhost:3000" ||
 			origin == "http://localhost:5173" ||
-			origin == "app://-" // For Electron apps
+			origin == "https://localhost:5173" ||
+			origin == "http://localhost:5174" ||
+			origin == "https://localhost:5174" ||
+			origin == "app://-"
 	},
 }
 

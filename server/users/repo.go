@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"time"
+	"zync-stream/ws"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -651,4 +652,74 @@ func (r *UserRepo) GetFriendRequestByID(ctx context.Context, requestID int) (*Fr
 	}
 
 	return &request, nil
+}
+
+func (r *UserRepo) UpdateUserStatus(ctx context.Context, userID int, status, activity string) error {
+	return r.UpdateStatus(ctx, userID, status, activity)
+}
+
+// GetUserFriends - returns just friend IDs
+func (r *UserRepo) GetUserFriends(ctx context.Context, userID int) ([]int, error) {
+	query := `
+        SELECT 
+            CASE 
+                WHEN f.user_id = $1 THEN f.friend_id
+                ELSE f.user_id
+            END as friend_id
+        FROM friendships f
+        WHERE (f.user_id = $1 OR f.friend_id = $1) 
+        AND f.status = 'accepted'
+    `
+
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var friendIDs []int
+	for rows.Next() {
+		var friendID int
+		if err := rows.Scan(&friendID); err != nil {
+			return nil, err
+		}
+		friendIDs = append(friendIDs, friendID)
+	}
+
+	return friendIDs, nil
+}
+
+// GetFriendsWithStatus - returns friends with status info for presence manager
+func (r *UserRepo) GetFriendsWithStatus(ctx context.Context, userID int) ([]ws.FriendStatusInfo, error) {
+	query := `
+        SELECT 
+            u.id, u.username,
+            COALESCE(s.status, 'offline') as status,
+            COALESCE(s.custom_status, '') as activity,
+            COALESCE(s.updated_at, NOW()) as last_seen
+        FROM users u
+        JOIN friendships f ON (u.id = f.user_id OR u.id = f.friend_id)
+        LEFT JOIN user_status s ON u.id = s.user_id
+        WHERE 
+            (f.user_id = $1 OR f.friend_id = $1) AND
+            f.status = 'accepted' AND
+            u.id != $1
+    `
+
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var friends []ws.FriendStatusInfo
+	for rows.Next() {
+		var friend ws.FriendStatusInfo
+		if err := rows.Scan(&friend.UserID, &friend.Username, &friend.Status, &friend.Activity, &friend.LastSeen); err != nil {
+			return nil, err
+		}
+		friends = append(friends, friend)
+	}
+
+	return friends, nil
 }

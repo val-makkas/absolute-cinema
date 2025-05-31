@@ -27,3 +27,12 @@ export interface FriendRequestNotification {
   profile_picture_url?: string
   created_at: string
 }
+
+export interface StatusData {
+  user_id: number
+  username: string
+  status: 'online' | 'offline' | 'dnd' | 'watching'
+  activity: string
+  timestamp: number
+  data?: any
+}

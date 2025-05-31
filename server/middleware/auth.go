@@ -21,18 +21,12 @@ func getJWTSecretKey() string {
 	return key
 }
 
-// ValidateJWT validates a JWT token and returns claims - used by WebSocket
 func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
-	// Remove "Bearer " prefix if present
-	if strings.HasPrefix(tokenString, "Bearer ") {
-		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-	}
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
 	jwtKey := []byte(getJWTSecretKey())
 
-	// Parse and validate token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Validate signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -55,7 +49,6 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 		return nil, errors.New("invalid token claims")
 	}
 
-	// Check expiration
 	if exp, ok := claims["exp"].(float64); ok {
 		if time.Now().Unix() > int64(exp) {
 			log.Printf("JWT token expired")
@@ -71,9 +64,7 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get Authorization header
 		authHeader := c.GetHeader("Authorization")
-		log.Printf("Auth Header: '%s'", authHeader) // Debug log
 
 		if authHeader == "" {
 			log.Printf("Missing Authorization header")
@@ -90,11 +81,8 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Extract token
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		log.Printf("Token: '%s'", tokenString[:min(len(tokenString), 20)]+"...") // Debug log (partial)
 
-		// Validate token
 		claims, err := ValidateJWT(tokenString)
 		if err != nil {
 			log.Printf("Token validation failed: %v", err)
@@ -103,12 +91,9 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Extract and set user info in context
 		if userID, ok := claims["user_id"].(float64); ok {
 			c.Set("user_id", int(userID))
-			log.Printf("Set user_id: %d", int(userID)) // Debug log
 		} else {
-			log.Printf("Invalid user_id in token claims")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})
 			c.Abort()
 			return
@@ -124,12 +109,10 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Set("display_name", displayName)
 		}
 
-		log.Printf("Auth successful for user: %v", claims["username"])
 		c.Next()
 	}
 }
 
-// Helper function for min
 func min(a, b int) int {
 	if a < b {
 		return a

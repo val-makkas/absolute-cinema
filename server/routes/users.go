@@ -9,7 +9,7 @@ import (
 	"zync-stream/users"
 )
 
-func SetupUserRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redis.Client) {
+func SetupUserRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redis.Client) *users.UserRepo {
 	userRepo := users.NewUserRepo(dbPool)
 	userHandlers := users.NewHandlers(userRepo, redisClient)
 
@@ -50,4 +50,6 @@ func SetupUserRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redi
 		friendGroup.POST("/requests/:id/reject", userHandlers.RejectFriendRequest)
 		friendGroup.DELETE("", userHandlers.RemoveFriend)
 	}
+
+	return userRepo
 }

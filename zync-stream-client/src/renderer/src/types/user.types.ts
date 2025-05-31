@@ -15,9 +15,9 @@ export interface User {
 export interface Friend {
   id: number
   username: string
-  display_name: string
-  avatar_url?: string
-  status: 'online' | 'DND' | 'offline' | 'away'
+  display_name?: string
+  profile_picture_url?: string
+  status: 'online' | 'offline' | 'dnd' | 'watching'
   activity?: string
   last_seen?: string
 }

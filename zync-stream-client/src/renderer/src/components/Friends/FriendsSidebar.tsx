@@ -8,7 +8,7 @@ interface FriendsSidebarProps {
   friendRequests: FriendRequest[]
   friendsLoading: boolean
   friendsError: string | null
-  onFriendAction: (action: 'send' | 'accept' | 'reject' | 'remove', payload: string) => void
+  onFriendAction: (action: 'send' | 'accept' | 'reject' | 'invite', payload: string) => void
   searchUser: (query: string) => Promise<SearchUser[]>
 }
 
@@ -41,7 +41,6 @@ export default function FriendsSidebar({
     setSearching(true)
     try {
       const results = await searchUser(query)
-      console.log('Search results:', results)
       setSearchResults(results)
     } catch (error) {
       console.error('Search failed:', error)
@@ -65,7 +64,7 @@ export default function FriendsSidebar({
   }
 
   return (
-    <div className="fixed right-0 top-0 w-80 h-screen bg-[#121212] backdrop-blur-xl border-l border-white/10 flex flex-col z-8">
+    <div className="fixed right-0 top-0 w-80 h-screen backdrop-blur-xl border-l border-white/10 flex flex-col z-8">
       <div className="mt-15">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -163,7 +162,7 @@ export default function FriendsSidebar({
                     <FriendItem
                       key={f.id}
                       friend={f}
-                      onInvite={() => onFriendAction('remove', f.username)}
+                      onInvite={() => onFriendAction('invite', f.username)}
                       onMessage={() => console.log(`DM ${f.username}`)}
                     />
                   ))

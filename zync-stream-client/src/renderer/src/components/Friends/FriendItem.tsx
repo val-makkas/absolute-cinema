@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { MessageCircle, UserPlus } from 'lucide-react'
 import { Friend } from '@/types'
 
 interface FriendItemProps {
@@ -8,58 +6,63 @@ interface FriendItemProps {
   onMessage: () => void
 }
 
+// FriendItem.tsx - Add status indicators
 export default function FriendItem({
   friend,
   onInvite,
   onMessage
 }: FriendItemProps): React.ReactElement {
-  const [hover, setHover] = useState(false)
-
-  const statusColor =
-    {
-      online: 'bg-green-500',
-      away: 'bg-yellow-500',
-      DND: 'bg-red-500',
-      offline: 'bg-gray-500'
-    }[friend.status] || 'bg-gray-500'
+  // Status color mapping
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online':
+        return 'bg-green-500'
+      case 'dnd':
+        return 'bg-red-500'
+      case 'watching':
+        return 'bg-purple-500'
+      case 'offline':
+      default:
+        return 'bg-gray-500'
+    }
+  }
 
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      className="flex items-center justify-between p-3 bg-[rgba(255,255,255,0.05)] rounded-lg transition-colors hover:bg-[rgba(255,255,255,0.1)]"
-    >
+    <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors">
       <div className="flex items-center gap-3">
+        {/* Avatar with status indicator */}
         <div className="relative">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white font-semibold">
-            {friend.display_name?.charAt(0) || friend.username.charAt(0)}
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-sm font-medium">
+              {friend.display_name?.charAt(0).toUpperCase() ||
+                friend.username.charAt(0).toUpperCase()}
+            </span>
           </div>
-          <span
-            className={`absolute -bottom-0.5 -right-0.5 block w-3 h-3 rounded-full border-2 border-[#1B1B1B] ${statusColor}`}
+          {/* 🆕 Status indicator dot */}
+          <div
+            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 ${getStatusColor(friend.status)} border-2 border-gray-900 rounded-full`}
           />
         </div>
-        <div className="min-w-0">
-          <p className="text-white text-sm font-medium truncate">
+
+        <div className="flex-1">
+          <div className="text-white text-sm font-medium">
             {friend.display_name || friend.username}
-          </p>
-          <p className="text-xs text-white/60 truncate">
-            {friend.status === 'offline' ? friend.last_seen : friend.activity}
-          </p>
+          </div>
+          <div className="text-white/60 text-xs">@{friend.username}</div>
+          {/* 🆕 Activity status */}
+          {friend.activity && <div className="text-white/50 text-xs mt-0.5">{friend.activity}</div>}
         </div>
       </div>
 
-      {hover && friend.status !== 'offline' && (
-        <div className="flex items-center gap-2 text-white">
-          <MessageCircle
-            className="w-5 h-5 hover:text-purple-400 transition-colors"
-            onClick={onMessage}
-          />
-          <UserPlus
-            className="w-5 h-5 hover:text-purple-400 transition-colors"
-            onClick={onInvite}
-          />
-        </div>
-      )}
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <button onClick={onMessage} className="text-white/60 hover:text-white">
+          💬
+        </button>
+        <button onClick={onInvite} className="text-white/60 hover:text-white">
+          🎬
+        </button>
+      </div>
     </div>
   )
 }

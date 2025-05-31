@@ -17,22 +17,18 @@ func SetupRoomRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redi
 	roomGroup := router.Group("/api/rooms")
 	roomGroup.Use(middleware.AuthMiddleware())
 	{
-		roomGroup.GET("", roomHandlers.GetRooms)
 		roomGroup.POST("", roomHandlers.CreateRoom)
 		roomGroup.GET("/:id", roomHandlers.GetRoom)
-		roomGroup.POST("/:id/invite", roomHandlers.InviteToRoom)
-		roomGroup.POST("/:id/join", roomHandlers.JoinRoom)
-		roomGroup.POST("/:id/leave", roomHandlers.LeaveRoom)
-		roomGroup.POST("/:id/playback", roomHandlers.UpdatePlayback)
+		roomGroup.GET("/:id/members", roomHandlers.GetMembers)
+		roomGroup.PUT("/:id", roomHandlers.UpdateRoom)
+		roomGroup.DELETE("/:id", roomHandlers.DeleteRoom)
 	}
 
 	inviteGroup := router.Group("/api/invitations")
 	inviteGroup.Use(middleware.AuthMiddleware())
 	{
 		inviteGroup.GET("", roomHandlers.GetInvitations)
-		inviteGroup.POST("/:id/respond", roomHandlers.RespondToInvitation)
 	}
 
-	router.GET("/api/rooms/:id/ws", ws.HandleRoomWebSocket)
-	router.GET("/api/notifications/ws", ws.HandleNotificationsWS)
+	router.GET("/api/ws", ws.HandleMasterWebSocket)
 }

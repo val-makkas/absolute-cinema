@@ -240,7 +240,6 @@ const HomePage = (watchHistory): React.ReactElement => {
 
   const handleMoreInfo = (item: entry | WatchHistoryEntry): void => {
     const displayData = getDisplayData(item)
-    console.log('More info for:', displayData.name)
   }
 
   const ContentRow: React.FC<{

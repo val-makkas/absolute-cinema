@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Friend, FriendRequest } from '@/types'
 
 const API_BASE = 'http://localhost:8080/api/friends'
@@ -28,6 +28,7 @@ export default function useFriends(token: string): {
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const fetchFriends = useCallback(async () => {
     if (!token) return
@@ -64,7 +65,7 @@ export default function useFriends(token: string): {
     try {
       //localhost:8080/api/friends/requests
       const res = await fetch(`${API_BASE}/requests`, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -73,7 +74,6 @@ export default function useFriends(token: string): {
         const data = await res.json()
         const friendRequestsData: FriendRequest[] = data.requests || []
         setFriendRequests(friendRequestsData)
-        console.log('🔔 Friend requests data:', friendRequestsData)
         console.log('🔔 Friend requests data:', friendRequestsData)
         localStorage.setItem('friendRequests', JSON.stringify(friendRequestsData))
         setLoading(false)
@@ -133,6 +133,7 @@ export default function useFriends(token: string): {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
+          refreshData()
           setLoading(false)
         } else {
           setLoading(false)
@@ -160,6 +161,7 @@ export default function useFriends(token: string): {
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
+          refreshData()
           setLoading(false)
         } else {
           setLoading(false)
@@ -219,45 +221,65 @@ export default function useFriends(token: string): {
 
   const searchUser = useCallback(
     async (query: string): Promise<SearchUser[]> => {
-      if (!token || !query.trim()) return []
+      // 🔧 Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
 
-      setLoading(true)
-      setError(null)
-
-      try {
-        const res = await fetch(`${API_USERS}/search?q=${encodeURIComponent(query)}`, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-
-        if (res.ok) {
-          const response = await res.json()
-          const searchResults: SearchUser[] = response.users || []
-          const mappedResults = searchResults.map((user: any) => ({
-            id: user.id.toString(), // Convert to string
-            username: user.username,
-            display_name: user.display_name || user.username, // Fallback to username
-            avatar: user.profile_picture_url
-          }))
-          setLoading(false)
-          return mappedResults
-        } else {
-          setLoading(false)
-          setError('Failed to search users')
-          return []
-        }
-      } catch (err) {
-        setLoading(false)
-        setError('Network error while searching users')
-        console.log(err)
+      // 🔧 Don't search if query is too short
+      if (query.length < 2) {
         return []
       }
+
+      return new Promise((resolve) => {
+        searchTimeoutRef.current = setTimeout(async () => {
+          try {
+            setLoading(true)
+
+            const res = await fetch(`${API_USERS}/search?q=${encodeURIComponent(query)}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+
+            if (res.ok) {
+              const response = await res.json()
+              const searchResults: SearchUser[] = response.users || response || []
+              const mappedResults = searchResults.map((user: any) => ({
+                id: user.id.toString(), // Convert to string
+                username: user.username,
+                display_name: user.display_name || user.username,
+                avatar: user.profile_picture_url
+              }))
+
+              console.log('Search results:', mappedResults)
+              resolve(mappedResults)
+            } else {
+              console.error('Search failed:', res.status, res.statusText)
+              setError('Failed to search users')
+              resolve([])
+            }
+          } catch (err) {
+            console.error('Search error:', err)
+            setError('Network error while searching users')
+            resolve([])
+          } finally {
+            setLoading(false)
+          }
+        }, 500)
+      })
     },
     [token]
   )
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (token) {
