@@ -13,15 +13,12 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
     overlayWindow = null
   }
 
-  // Get the preload script path and verify it exists
   const preloadPath = join(__dirname, '../preload/overlay-preload.js')
   console.log('[Overlay] Overlay preload path:', preloadPath)
   console.log('[Overlay] Preload script exists:', existsSync(preloadPath))
 
-  // Use content bounds for perfect overlay alignment
   const bounds = mainWindow.getContentBounds()
 
-  // Create new overlay window
   overlayWindow = new BrowserWindow({
     x: bounds.x,
     y: bounds.y,
@@ -64,7 +61,6 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
 
   // Make sure the overlay is shown
   overlayWindow.show()
-  overlayWindow.focus()
 
   if (mainWindow && (mainWindow.isMinimized() || !mainWindow.isFocused())) {
     overlayWindow.hide()
@@ -130,7 +126,6 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
     }
   })
 
-  // Handle maximize event - restore overlay when main window is maximized
   main.on('maximize', () => {
     console.log('[Overlay] Main window maximized')
     isMainMinimized = false
@@ -140,7 +135,6 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
     }
   })
 
-  // Handle restore event (from minimized)
   main.on('restore', () => {
     console.log('[Overlay] Main window restored')
     isMainMinimized = false
@@ -165,7 +159,6 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
     }
   })
 
-  // Also handle main window visibility changes
   main.on('hide', () => {
     console.log('[Overlay] Main window hidden')
     if (overlay && !overlay.isDestroyed()) {
@@ -173,7 +166,6 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
     }
   })
 
-  // Same handler for overlay show events to avoid recursion
   let isSyncingPosition = false
   overlay.on('show', () => {
     if (isSyncingPosition) return
@@ -186,7 +178,6 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
     }, 50)
   })
 
-  // Keep existing handlers for close, blur, focus
   main.on('close', () => {
     if (overlay && !overlay.isDestroyed()) {
       overlay.close()

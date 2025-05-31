@@ -19,16 +19,17 @@ let overlayWindow!: BrowserWindow
 let isFull: boolean | null
 
 const mpvTitle = 'MPV-EMBED-' + Date.now()
-const parentHelperPath = path.join(
-  app.getAppPath(),
-  '..',
-  'tools',
-  'window-merger',
-  'window-merger.exe'
-)
-const mpvPath = path.join(app.getAppPath(), '..', 'mpv', 'mpv.exe')
 
-const pipeName = '\\\\.\\pipe\\mpvpipe'
+const parentHelperPath =
+  process.platform === 'win32'
+    ? path.join(app.getAppPath(), '..', 'tools', 'window-merger', 'window-merger-win.exe')
+    : path.join(app.getAppPath(), '..', 'tools', 'window-merger', 'window-merger-wayland')
+
+const mpvPath =
+  process.platform === 'win32' ? join(app.getAppPath(), '..', 'tools', 'mpv', 'mpv.exe') : 'mpv'
+
+const pipeName = process.platform === 'win32' ? `\\\\.\\pipe\\mpvpipe` : '/tmp/mpvpipe' + Date.now()
+
 let request_id = 0
 
 const pendingRequests = new Map()
@@ -47,6 +48,8 @@ function createWindow(): void {
       webSecurity: false
     }
   })
+
+  mainWindow.webContents.openDevTools({ mode: 'detach' })
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -69,7 +72,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.absolutecinema')
+  electronApp.setAppUserModelId('com.zync.client')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -86,16 +89,12 @@ app.whenReady().then(async () => {
   }
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Add these console logs to verify handlers are registered
 console.log('[MAIN] Registering MPV IPC handlers')
 
-// Handle MPV commands
 ipcMain.handle('mpv-command', async (_, args) => {
   console.log('[MAIN] Received mpv-command:', args)
 
@@ -136,7 +135,6 @@ ipcMain.handle('mpv-command', async (_, args) => {
   }
 })
 
-// Handle MPV property fetching
 ipcMain.handle('mpv-fetch', async (_, args) => {
   console.log('[MAIN] Received mpv-fetch:', args)
 
@@ -205,11 +203,9 @@ ipcMain.handle('mpv-fetch', async (_, args) => {
 console.log('[MAIN] MPV IPC handlers registered')
 
 ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
-  // Save infoHash and fileIdx for overlay queries
   currentTorrentInfo = { infoHash, fileIdx }
   await new Promise((resolve) => setTimeout(resolve, 5000))
   try {
-    // Make sure MPV is running
     if (!mpvProcess || mpvProcess.killed) {
       console.log('ok')
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
@@ -295,7 +291,6 @@ ipcMain.handle('hide-mpv', async () => {
   try {
     console.log('Killing MPV and restarting in idle mode')
 
-    // Use your existing closeAll function
     closeAll(mpvProcess, windowMergerProcess, () => removeMpvOverlayWindow(overlayWindow))
     mpvProcess = null
     windowMergerProcess = null
@@ -310,10 +305,8 @@ ipcMain.handle('hide-mpv', async () => {
       console.error('Failed to remove torrent from backend:', err)
     }
 
-    // Wait longer for everything to clean up
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // Restart MPV in idle mode
     try {
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process

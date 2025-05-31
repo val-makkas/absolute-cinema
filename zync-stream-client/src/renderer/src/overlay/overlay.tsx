@@ -436,7 +436,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
             </svg>
           </button>
         </div>
-        {/* Top info bar - Stremio-like with gradual fade */}
         <div
           className={`w-full py-8 px-10 pointer-events-auto bg-gradient-to-b from-black/80 via-black/40 to-transparent ${
             isHovering
@@ -447,7 +446,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           {' '}
           <h1 className="text-2xl font-medium text-white drop-shadow-md">{mediaTitle}</h1>
         </div>
-        {/* Central click area for play/pause - transparent but clickable */}
         <div
           className="flex-grow w-full pointer-events-auto"
           onClick={handlePlayPause}
@@ -456,14 +454,11 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           <button className="w-full h-full cursor-default opacity-0"></button>
         </div>
 
-        {/* Bottom controls with gradient background */}
         <div
           className={`relative px-8 pb-3 pt-8 backdrop-blur-sm bg-transparent border-l border-white/10 to-transparent ${
             isHovering ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'
           } transition-all duration-350 delay-100 ease-out`}
         >
-          {' '}
-          {/* Seek bar with perfect alignment */}
           <div className="w-full mb-3 px-1 pointer-events-auto relative h-2">
             <div
               className="absolute left-0 top-0 bottom-0 rounded-full overflow-hidden"

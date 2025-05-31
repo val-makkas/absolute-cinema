@@ -1,49 +1,74 @@
 import { useState, useCallback, useEffect } from 'react'
-import { UserExtensions } from '@/types'
+import { UserExtensions, User } from '@/types'
 
 const API_BASE = 'http://localhost:8080/api/users'
 
 export function useUsers(): {
   token: string
-  username: string
+  user: User | null
   extensions: UserExtensions[]
   loading: boolean
   error: string | null
   register: (username: string, email: string, password: string) => Promise<boolean>
-  login: (usernameOrEmail: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<boolean>
   loginWithToken: (jwtToken: string) => Promise<boolean>
   logout: () => void
-  updateExtensions: (newExtensions: UserExtensions[] | UserExtensions) => Promise<boolean>
+  updateExtensions: (newExtensions: UserExtensions[] | UserExtensions) => Promise<void>
 } {
   const [token, setToken] = useState<string>('')
-  const [username, setUsername] = useState<string>('')
+  const [user, setUser] = useState<User | null>(null)
   const [extensions, setExtensions] = useState<UserExtensions[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setToken(localStorage.getItem('jwt') || '')
-      setUsername(localStorage.getItem('username') || '')
-      try {
-        const exts = JSON.parse(localStorage.getItem('extensions') || '[]')
-        setExtensions(Array.isArray(exts) ? exts : [])
-      } catch {
-        setExtensions([])
+      const storedToken = localStorage.getItem('jwt') || ''
+      const storedUser = localStorage.getItem('user') || ''
+      if (storedToken) {
+        setToken(storedToken)
+      }
+      if (storedUser) {
+        setUser(JSON.parse(storedUser))
       }
     }
   }, [])
 
-  useEffect(() => {
-    if (token) {
-      fetch(`${API_BASE}/extensions`, {
+  const logout = useCallback(() => {
+    setToken('')
+    setUser(null)
+    localStorage.removeItem('jwt')
+    localStorage.removeItem('user')
+  }, [])
+
+  const refreshUser = useCallback(async (): Promise<void> => {
+    if (!token) return
+
+    try {
+      const res = await fetch(`${API_BASE}/me`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-        .then((res) => res.json())
-        .then((data) => setExtensions(data.extensions || []))
-        .catch(() => setExtensions([]))
+
+      if (res.ok) {
+        const userData: User = await res.json()
+        setUser(userData)
+        setExtensions(userData.extensions || [])
+        localStorage.setItem('user', JSON.stringify(userData))
+      } else {
+        logout()
+      }
+    } catch (error) {
+      console.error('Failed to fetch user info:', error)
+      setError('Failed to fetch user info')
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (token) {
+      refreshUser()
     } else {
-      setExtensions([])
+      setUser(null)
     }
   }, [token])
 
@@ -54,7 +79,11 @@ export function useUsers(): {
       const res = await fetch(`${API_BASE}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password })
+        body: JSON.stringify({
+          username: username,
+          email: email,
+          password: password
+        })
       })
       const data = await res.json()
       setLoading(false)
@@ -65,23 +94,22 @@ export function useUsers(): {
     []
   )
 
-  const login = useCallback(async (usernameOrEmail: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     setLoading(true)
     setError(null)
     const res = await fetch(`${API_BASE}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: usernameOrEmail, password })
+      body: JSON.stringify({
+        email: email,
+        password: password
+      })
     })
     const data = await res.json()
     setLoading(false)
     if (data.token) {
       setToken(data.token)
-      setUsername(data.username)
       localStorage.setItem('jwt', data.token)
-      localStorage.setItem('username', data.username)
-      localStorage.setItem('extensions', JSON.stringify(data.extensions || []))
-      setExtensions(data.extensions || [])
       return true
     }
     setError(data.error || 'Failed to login')
@@ -99,12 +127,9 @@ export function useUsers(): {
         headers: { Authorization: `Bearer ${jwtToken}` }
       })
       if (res.ok) {
-        const data = await res.json()
-        setUsername(data.username || '')
-        setExtensions(data.extensions || [])
-        localStorage.setItem('username', data.username || '')
-        localStorage.setItem('extensions', JSON.stringify(data.extensions || []))
-        setLoading(false)
+        const userData: User = await res.json()
+        setUser(userData)
+        localStorage.setItem('user', JSON.stringify(userData))
         return true
       } else {
         setLoading(false)
@@ -118,16 +143,6 @@ export function useUsers(): {
     }
   }, [])
 
-  const logout = useCallback(() => {
-    setToken('')
-    setUsername('')
-    setExtensions([])
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('username')
-    localStorage.removeItem('extensions')
-  }, [])
-
-  // Update your updateExtensions function to handle non-array inputs:
   const updateExtensions = useCallback(
     async (newExtensions: UserExtensions[] | UserExtensions): Promise<boolean> => {
       try {
@@ -139,7 +154,7 @@ export function useUsers(): {
           typeof ext === 'string' ? ext : ext.url
         )
 
-        const response = await fetch('http://localhost:8080/api/users/extensions', {
+        const response = await fetch('http://localhost:8080/api/users/me/extensions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -152,10 +167,7 @@ export function useUsers(): {
           throw new Error('Failed to update extensions')
         }
 
-        // Update local state after successful API call
         setExtensions(extensionsArray)
-
-        // Update localStorage for persistence
         localStorage.setItem('extensions', JSON.stringify(extensionsArray))
 
         console.log('Extensions updated successfully:', extensionsArray)
@@ -170,7 +182,7 @@ export function useUsers(): {
 
   return {
     token,
-    username,
+    user,
     extensions,
     loading,
     error,

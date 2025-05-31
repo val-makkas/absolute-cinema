@@ -1,13 +1,59 @@
 package users
 
 import (
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 )
 
 type User struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Username   string             `bson:"username" json:"username"`
-	Email      string             `bson:"email" json:"email"`
-	Password   string             `bson:"password" json:"password"`
-	Extensions []string           `bson:"extensions" json:"extensions"`
+	ID                int       `json:"id"`
+	Username          string    `json:"username"`
+	Email             string    `json:"email"`
+	PasswordHash      string    `json:"-"`
+	DisplayName       string    `json:"display_name,omitempty"`
+	ProfilePictureURL string    `json:"profile_picture_url,omitempty"`
+	Bio               string    `json:"bio,omitempty"`
+	Extensions        []string  `json:"extensions"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	LastLoginAt       time.Time `json:"last_login_at,omitempty"`
+}
+
+type WatchHistoryEntry struct {
+	ID                int       `json:"id"`
+	UserID            int       `json:"user_id"`
+	ImdbID            string    `json:"imdb_id"`
+	MediaType         string    `json:"media_type"` // "movie" or "series"
+	SeasonNumber      *int      `json:"season_number,omitempty"`
+	EpisodeNumber     *int      `json:"episode_number,omitempty"`
+	TimestampSeconds  int       `json:"timestamp_seconds"`
+	DurationSeconds   int       `json:"duration_seconds,omitempty"`
+	PercentageWatched float64   `json:"percentage_watched"`
+	LastWatched       time.Time `json:"last_watched"`
+}
+
+type WatchHistoryRequest struct {
+	ImdbID            string  `json:"imdb_id" binding:"required"`
+	MediaType         string  `json:"media_type" binding:"required,oneof=movie series"`
+	SeasonNumber      *int    `json:"season_number,omitempty"`
+	EpisodeNumber     *int    `json:"episode_number,omitempty"`
+	EpisodeTitle      string  `json:"episode_title,omitempty"`
+	TimestampSeconds  int     `json:"timestamp_seconds" binding:"required,min=0"`
+	DurationSeconds   int     `json:"duration_seconds,omitempty"`
+	PercentageWatched float64 `json:"percentage_watched" binding:"required,min=0,max=100"`
+}
+
+type FriendRequestDetails struct {
+	ID         int    `json:"id"`
+	SenderID   int    `json:"sender_id"`
+	ReceiverID int    `json:"receiver_id"`
+	CreatedAt  string `json:"created_at"`
+}
+
+type Friendship struct {
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	FriendID  int       `json:"friend_id"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

@@ -46,15 +46,14 @@ export default function LoginForm({
       // Call parent register (should accept username, email, password)
       const ok = await onRegister(username, email, password)
       if (ok) {
-        // Automatically login after successful registration
-        const loginOk = await onLogin(username, password)
+        const loginOk = await onLogin(email, password)
         if (!loginOk) setError('Registered but failed to login. Please try manually.')
       } else {
         setError('Registration failed. Please try again.')
       }
     } else {
       // Call parent login (should accept username or email, and password)
-      const ok = await onLogin(username || email, password)
+      const ok = await onLogin(email, password)
       if (!ok) setError('Login failed. Please check your credentials.')
     }
     setLoading(false)
@@ -107,13 +106,13 @@ export default function LoginForm({
                     </svg>
                   </div>
                   <div>
-                    <h4 className="text-base font-semibold">Absolute Cinema=Open Source</h4>
+                    <h4 className="text-base font-semibold">zync_is_open_source</h4>
                     <p className="text-xs text-white/60">Looking for Contributors</p>
                   </div>
                 </div>
                 <p className="text-sm text-white/80">
-                  Absolute Cinema is a one-person project seeking help to build the future of
-                  streaming experiences.
+                  Zync is a one-person project seeking help to build the future of streaming
+                  experiences.
                 </p>
                 <div className="flex items-center gap-2 pt-1">
                   <div className="h-1.5 w-1.5 rounded-full bg-blue-400"></div>

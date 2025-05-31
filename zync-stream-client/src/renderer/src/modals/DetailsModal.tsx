@@ -20,7 +20,7 @@ export default function DetailsModal({
   extensionManifests: Record<string, any>
   detailsLoading: boolean
   onClose: () => void
-  onWatchAlone: (src: Source) => void
+  onWatchAlone: (details: any, src: Source) => void
   addExtension: () => void
 }): React.ReactElement {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
@@ -102,10 +102,6 @@ export default function DetailsModal({
     // eslint-disable-next-line
   }, [selectedEpisode, open, details, JSON.stringify(Object.keys(extensionManifests))])
 
-  useEffect(() => {
-    // Effect for any necessary loading state changes
-  }, [detailsLoading, details])
-
   if (detailsLoading && !details) {
     return (
       <Dialog
@@ -131,6 +127,10 @@ export default function DetailsModal({
         onClose()
       }}
     >
+      <DialogPrimitive.Overlay
+        className="fixed inset-0 bg-black/50 backdrop-blur-lg"
+        style={{ zIndex: 65 }}
+      />
       <DialogContent
         className="flex flex-row p-0 max-w-7xl h-900 bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-10 duration-300"
         onClick={(e) => e.stopPropagation()}
@@ -144,7 +144,7 @@ export default function DetailsModal({
         {/* Blurred poster background */}
         {details?.poster && (
           <div
-            className="absolute inset-0 z-0 pointer-events-none"
+            className="absolute inset-0 pointer-events-none"
             style={{
               backgroundImage: `url(${details.poster})`,
               backgroundSize: 'cover',
@@ -155,12 +155,9 @@ export default function DetailsModal({
           />
         )}
 
-        {/* Overlay for readability */}
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/60 via-black/70 to-black/80 pointer-events-none" />
 
-        {/* Main content */}
         <div className="relative z-20 flex flex-col flex-1 p-8">
-          {/* Movie info header - reorganized with larger image */}
           <div className="flex flex-col mb-6">
             {details?.logo && (
               <div className="flex justify-center mb-4">
@@ -204,7 +201,7 @@ export default function DetailsModal({
               {details?.description}
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 mt-2 mb-6 text-center">
+            <div className="flex flex-col items-center gap-4 mt-2 mb-6 text-center">
               {details?.cast && details.cast.length > 0 && (
                 <div className="w-full">
                   <div className="text-white/50 mb-2 text-center">Cast</div>
@@ -220,7 +217,7 @@ export default function DetailsModal({
                   </div>
                 </div>
               )}
-              {details?.director && (
+              {details?.director && details?.director.length > 0 && (
                 <div>
                   <div className="text-white/50 mb-1 text-center">Director</div>
                   <div className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80 w-full">
@@ -228,16 +225,23 @@ export default function DetailsModal({
                   </div>
                 </div>
               )}
+              {details?.awards && (
+                <div>
+                  <div className="text-white/50 mb-1 text-center">Awards</div>
+                  <div className="text-s px-2 py-0.5 rounded-full bg-white/10 text-white/80 w-full">
+                    {details.awards}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex gap-4 mt-auto pt-4">
             {selectedSource ? (
               <>
                 <button
                   className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
-                  onClick={() => onWatchAlone(selectedSource)}
+                  onClick={() => onWatchAlone(details, selectedSource)}
                   disabled={!selectedSource}
                 >
                   <Play className="w-5 h-5" /> Watch Alone
@@ -274,12 +278,10 @@ export default function DetailsModal({
           </div>
         </div>
 
-        {/* Sources sidebar - updated container */}
         <div className="relative z-20 flex flex-col w-[350px] h-full backdrop-blur-sm bg-transparent border-l border-white/10">
           <div className="h-full overflow-visible">
             {isSeries ? (
               selectedEpisode ? (
-                // Show sources for the selected episode
                 <SourcesList
                   sources={sources}
                   loading={loading}
@@ -296,7 +298,6 @@ export default function DetailsModal({
                   addExtension={addExtension}
                 />
               ) : (
-                // Show the series sidebar to pick an episode
                 <SeriesSidebar
                   details={details}
                   onEpisodeSelect={setSelectedEpisode}
@@ -304,7 +305,6 @@ export default function DetailsModal({
                 />
               )
             ) : (
-              // Always show sources for movies
               <SourcesList
                 sources={sources}
                 loading={loading}

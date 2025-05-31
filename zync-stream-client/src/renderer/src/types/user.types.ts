@@ -1,8 +1,33 @@
 import { Extension } from './extensions.types'
 
 export interface User {
+  id: number
   username: string
-  token?: string
+  email: string
+  display_name: string
+  profile_picture?: string
+  bio?: string
+  extensions: UserExtensions[]
+  created_at: string
+  last_login_at: string
+}
+
+export interface Friend {
+  id: number
+  username: string
+  display_name?: string
+  profile_picture_url?: string
+  status: 'online' | 'offline' | 'dnd' | 'watching'
+  activity?: string
+  last_seen?: string
+}
+
+export interface FriendRequest {
+  id: number
+  sender_id: number
+  username: string
+  created_at: string
+  display_name?: string
 }
 
 export interface UserExtensions {
@@ -14,12 +39,6 @@ export interface UserPlayerSource {
   fileIdx: string
   name: string
   poster: string
-}
-
-export interface UserState extends User {
-  extensions: Extension[] | string[]
-  loading: boolean
-  error: string | null
 }
 
 export interface UserCredentials {

@@ -10,6 +10,10 @@ export async function startIdleMpv(
 ): Promise<{ process: any; socket: any }> {
   await waitForPipeToBeDeleted(pipeName, 5000)
 
+  if (process.platform !== 'win32' && fs.existsSync(pipeName)) {
+    fs.unlinkSync(pipeName)
+  }
+
   const args = [
     '--idle',
     '--force-window=no',
@@ -18,15 +22,19 @@ export async function startIdleMpv(
     '--no-terminal',
     '--hwdec=auto',
     '--no-border',
-    '--no-osc', // Disable on-screen controller
-    '--no-osd-bar', // Disable on-screen display bar
-    '--osd-level=0', // Disable on-screen display completely
-    '--cursor-autohide=no', // Keep cursor hidden
+    '--no-osc',
+    '--no-osd-bar',
+    '--osd-level=0',
+    '--cursor-autohide=no',
     `--input-ipc-server=${pipeName}`
   ]
 
+  if (process.platform !== 'win32') {
+    args.push(`--x11-name=${mpvTitle}`, '--no-input-default-bindings', '--input-conf=/dev/null')
+  }
+
   console.log('Starting idle MPV with args:', args)
-  const process = spawn(mpvPath, args, { detached: true })
+  const mpvProcess = spawn(mpvPath, args, { detached: true })
 
   // Connect to the IPC socket
   await waitForPipe(pipeName)
@@ -41,7 +49,7 @@ export async function startIdleMpv(
     console.error('MPV IPC socket error:', err)
   })
 
-  return { process, socket }
+  return { process: mpvProcess, socket }
 }
 
 export function setupMpvIpcListener(mpvIpcSocket, pendingRequests): void {
