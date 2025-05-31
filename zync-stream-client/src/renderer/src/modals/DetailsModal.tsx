@@ -20,7 +20,7 @@ export default function DetailsModal({
   extensionManifests: Record<string, any>
   detailsLoading: boolean
   onClose: () => void
-  onWatchAlone: (src: Source) => void
+  onWatchAlone: (details: any, src: Source) => void
   addExtension: () => void
 }): React.ReactElement {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
@@ -241,7 +241,7 @@ export default function DetailsModal({
               <>
                 <button
                   className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
-                  onClick={() => onWatchAlone(selectedSource)}
+                  onClick={() => onWatchAlone(details, selectedSource)}
                   disabled={!selectedSource}
                 >
                   <Play className="w-5 h-5" /> Watch Alone
@@ -278,12 +278,10 @@ export default function DetailsModal({
           </div>
         </div>
 
-        {/* Sources sidebar - updated container */}
         <div className="relative z-20 flex flex-col w-[350px] h-full backdrop-blur-sm bg-transparent border-l border-white/10">
           <div className="h-full overflow-visible">
             {isSeries ? (
               selectedEpisode ? (
-                // Show sources for the selected episode
                 <SourcesList
                   sources={sources}
                   loading={loading}
@@ -300,7 +298,6 @@ export default function DetailsModal({
                   addExtension={addExtension}
                 />
               ) : (
-                // Show the series sidebar to pick an episode
                 <SeriesSidebar
                   details={details}
                   onEpisodeSelect={setSelectedEpisode}
@@ -308,7 +305,6 @@ export default function DetailsModal({
                 />
               )
             ) : (
-              // Always show sources for movies
               <SourcesList
                 sources={sources}
                 loading={loading}

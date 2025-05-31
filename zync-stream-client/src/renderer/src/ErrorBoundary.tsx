@@ -1,4 +1,5 @@
-import React from 'react'
+/* eslint-disable @typescript-eslint/no-empty-object-type */
+import React, { ReactNode } from 'react'
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -16,13 +17,11 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBo
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('🚨 Error Boundary caught an error:', error)
-    console.error('🚨 Error Info:', errorInfo)
+  componentDidCatch(_: Error, errorInfo: React.ErrorInfo): void {
     this.setState({ errorInfo })
   }
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-black text-white flex items-center justify-center p-8">

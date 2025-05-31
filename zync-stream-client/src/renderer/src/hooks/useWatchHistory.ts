@@ -1,128 +1,110 @@
-import { WatchHistoryEntry } from '@renderer/types'
-import { useCallback, useEffect, useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { entry, WatchHistoryEntry } from '@/types'
 
-const API_BASE = 'http://localhost:8080/api/users'
+const API_CINE = import.meta.env.VITE_API_CINE
+const CACHE_EXPIRY = 30 * 60 * 1000
+
+export interface updatedWatchHistoryEntry extends WatchHistoryEntry {
+  movieDetails: entry | null
+}
 
 export default function useWatchHistory(token: string): {
   watchHistory: WatchHistoryEntry[]
-  watchHistoryItem: WatchHistoryEntry | null
+  updatedWatchHistory: updatedWatchHistoryEntry[]
   loading: boolean
   error: string | null
-  updateWatchHistory: (entry: WatchHistoryEntry) => Promise<void>
-  getWatchHistoryItem: (imdb_id: string, season?: number, episode?: number) => Promise<void>
+  refetch: () => Promise<void>
 } {
   const [watchHistory, setWatchHistory] = useState<WatchHistoryEntry[]>([])
-  const [watchHistoryItem, setWatchHistoryItem] = useState<WatchHistoryEntry | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
+  const [updatedWatchHistory, setUpdatedWatchHistory] = useState<updatedWatchHistoryEntry[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const movieDetailsCache = useRef<Map<string, { data: entry; timestamp: number }>>(new Map())
+
+  const getMovieDetails = useCallback(
+    async (imdbId: string, type: 'movie' | 'series'): Promise<entry | null> => {
+      const cached = movieDetailsCache.current.get(imdbId)
+      if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY) {
+        return cached.data
+      }
+
+      try {
+        const response = await fetch(`${API_CINE}/meta/${type}/${imdbId}.json`)
+        if (!response.ok) {
+          console.warn(`Failed to fetch details for ${imdbId}`)
+          return null
+        }
+
+        const data = await response.json()
+        const movieDetails: entry = data.meta
+
+        movieDetailsCache.current.set(imdbId, {
+          data: movieDetails,
+          timestamp: Date.now()
+        })
+
+        return movieDetails
+      } catch (error) {
+        console.error(`Error fetching movie details for ${imdbId}:`, error)
+        return null
+      }
+    },
+    []
+  )
+
   const fetchWatchHistory = useCallback(async () => {
-    if (!token) return
-
-    setLoading(true)
-    setError(null)
-
     try {
-      const res = await fetch(`${API_BASE}/me/watch-history`, {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch('http://localhost:8080/api/users/me/watch-history', {
         headers: { Authorization: `Bearer ${token}` }
       })
-      if (res.ok) {
-        setLoading(false)
-        const watchHistoryData = await res.json()
-        setWatchHistory(watchHistoryData)
-        localStorage.setItem('watch_history', JSON.stringify(watchHistoryData))
-      } else {
-        setLoading(false)
-        setError('Failed to fetch watch history data.')
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch watch history')
       }
-    } catch (err) {
-      setLoading(false)
-      setError('Possible network error.')
-      console.log(err)
-    }
-  }, [token])
 
-  const updateWatchHistory = useCallback(
-    async (entry: WatchHistoryEntry) => {
-      if (!token) return
+      const data = await response.json()
+      const historyEntries: WatchHistoryEntry[] = data.watchHistory || []
 
-      setLoading(true)
-      setError(null)
+      setWatchHistory(historyEntries)
 
-      try {
-        const res = await fetch(`${API_BASE}/me/watch-history`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            entry
-          })
-        })
-        if (res.ok) {
-          setLoading(false)
-        } else {
-          setLoading(false)
-          setError('Failed to update watch history data.')
-        }
-      } catch (err) {
-        setLoading(false)
-        setError('Possible network error.')
-        console.log(err)
-      }
-    },
-    [token]
-  )
-
-  const getWatchHistoryItem = useCallback(
-    async (imdb_id: string, season?: number, episode?: number) => {
-      if (!token) return
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        let res: Response
-        if (season && episode) {
-          res = await fetch(
-            `${API_BASE}/me/watch-history/${encodeURIComponent(imdb_id)}?season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}`,
-            {
-              headers: { Authorization: `Bearer ${token}` }
-            }
+      const enhancedEntries = await Promise.all(
+        historyEntries.map(async (entry): Promise<updatedWatchHistoryEntry> => {
+          const movieDetails = await getMovieDetails(
+            entry.imdbID,
+            entry.MediaType.toLowerCase() as 'movie' | 'series'
           )
-        } else {
-          res = await fetch(`${API_BASE}/me/watch-history/${imdb_id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        }
-        if (res.ok) {
-          setLoading(false)
-          const watchHistoryItemData = await res.json()
-          setWatchHistoryItem(watchHistoryItemData)
-        } else {
-          setLoading(false)
-          setError('Failed to fetch watch history data.')
-        }
-      } catch (err) {
-        setLoading(false)
-        setError('Possible network error.')
-        console.log(err)
-      }
-    },
-    [token]
-  )
+
+          return {
+            ...entry,
+            movieDetails
+          }
+        })
+      )
+
+      setUpdatedWatchHistory(enhancedEntries)
+    } catch (err) {
+      console.error('Failed to fetch watch history:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load watch history')
+    } finally {
+      setLoading(false)
+    }
+  }, [token, getMovieDetails])
 
   useEffect(() => {
-    fetchWatchHistory()
-  }, [token])
+    if (token) {
+      fetchWatchHistory()
+    }
+  }, [token, fetchWatchHistory])
 
   return {
     watchHistory,
-    watchHistoryItem,
+    updatedWatchHistory,
     loading,
     error,
-    updateWatchHistory,
-    getWatchHistoryItem
+    refetch: fetchWatchHistory
   }
 }

@@ -8,12 +8,10 @@ import ErrorBoundary from './ErrorBoundary'
 export default function App(): React.ReactElement {
   const location = useLocation()
 
-  // Scroll to top on route change
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [location.pathname])
 
-  // Only call the essential hook that determines auth state
   const {
     token,
     user,
@@ -26,14 +24,12 @@ export default function App(): React.ReactElement {
     updateExtensions
   } = useUsers()
 
-  // Show auth page if no token
   if (!token) {
     return (
       <AuthPage onLogin={login} onRegister={register} error={userError} loading={userLoading} />
     )
   }
 
-  // Show authenticated app with all hooks
   return (
     <ErrorBoundary>
       <AuthenticatedApp

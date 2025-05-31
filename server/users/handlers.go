@@ -15,13 +15,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// UserHandlers contains all user HTTP handlers with dependency injection
 type UserHandlers struct {
 	repo  *UserRepo
 	redis *redis.Client
 }
 
-// NewHandlers creates a new UserHandlers instance
 func NewHandlers(repo *UserRepo, redis *redis.Client) *UserHandlers {
 	return &UserHandlers{
 		repo:  repo,
@@ -29,30 +27,26 @@ func NewHandlers(repo *UserRepo, redis *redis.Client) *UserHandlers {
 	}
 }
 
-// Standard error response
 func (h *UserHandlers) respondWithError(c *gin.Context, status int, message string) {
 	c.JSON(status, gin.H{"error": message})
 }
 
 func GenerateJWT(user *User) (string, error) {
-	// Use the same secret key function as middleware
 	key := os.Getenv("JWT_SECRET_KEY")
 	if key == "" {
 		key = "my-development-secret-key-for-jwt-signing"
 	}
 	jwtKey := []byte(key)
 
-	// Create claims
 	claims := jwt.MapClaims{
 		"user_id":      user.ID,
 		"username":     user.Username,
 		"email":        user.Email,
 		"display_name": user.DisplayName,
 		"exp":          time.Now().Add(24 * time.Hour).Unix(),
-		"iat":          time.Now().Unix(), // Add issued at time
+		"iat":          time.Now().Unix(),
 	}
 
-	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(jwtKey)
 
@@ -65,7 +59,6 @@ func GenerateJWT(user *User) (string, error) {
 	return tokenString, nil
 }
 
-// Register handles user registration
 func (h *UserHandlers) Register(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required,min=3,max=30"`
@@ -74,16 +67,14 @@ func (h *UserHandlers) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("Binding Error: %v", err) // Fixed: was "DATABASE ERROR"
+		log.Printf("Binding Error: %v", err)
 		h.respondWithError(c, http.StatusBadRequest, "Invalid input: "+err.Error())
 		return
 	}
 
-	// Create timeout context
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Check if username already exists
 	existingUser, err := h.repo.GetByUsername(ctx, req.Username)
 	if err != nil {
 		log.Printf("DATABASE ERROR: %v", err)
@@ -96,7 +87,6 @@ func (h *UserHandlers) Register(c *gin.Context) {
 		return
 	}
 
-	// Check if email already exists
 	existingUser, err = h.repo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Error checking email")
@@ -108,7 +98,6 @@ func (h *UserHandlers) Register(c *gin.Context) {
 		return
 	}
 
-	// Create password hash
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Error processing password")
@@ -129,7 +118,6 @@ func (h *UserHandlers) Register(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT
 	token, err := GenerateJWT(user)
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Failed to generate token")
@@ -146,7 +134,6 @@ func (h *UserHandlers) Register(c *gin.Context) {
 	})
 }
 
-// Login handles user login
 func (h *UserHandlers) Login(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required"`
@@ -169,7 +156,6 @@ func (h *UserHandlers) Login(c *gin.Context) {
 		return
 	}
 
-	// Check password
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		log.Printf("DATABASE ERROR: %v", err)
@@ -177,10 +163,8 @@ func (h *UserHandlers) Login(c *gin.Context) {
 		return
 	}
 
-	// Update last login
 	h.repo.UpdateLastLogin(ctx, user.ID)
 
-	// Generate JWT
 	token, err := GenerateJWT(user)
 	if err != nil {
 		log.Printf("DATABASE ERROR: %v", err)
@@ -201,7 +185,6 @@ func (h *UserHandlers) Login(c *gin.Context) {
 	})
 }
 
-// GetMe retrieves the current user's info
 func (h *UserHandlers) GetMe(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
@@ -232,7 +215,6 @@ func (h *UserHandlers) GetMe(c *gin.Context) {
 	})
 }
 
-// ChangePassword handles changing a user's password
 func (h *UserHandlers) ChangePassword(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
@@ -255,16 +237,13 @@ func (h *UserHandlers) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	// Verify old password
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)) != nil {
 		h.respondWithError(c, http.StatusUnauthorized, "Current password is incorrect")
 		return
 	}
 
-	// Hash new password
 	hashedNew, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 
-	// Update password
 	err = h.repo.UpdatePassword(ctx, userID.(int), string(hashedNew))
 	if err != nil {
 		h.respondWithError(c, http.StatusInternalServerError, "Failed to update password")
@@ -274,7 +253,6 @@ func (h *UserHandlers) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
 }
 
-// UpdateAvatar handles uploading a new avatar
 func (h *UserHandlers) UpdateAvatar(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
@@ -374,7 +352,6 @@ func (h *UserHandlers) UpdateStatus(c *gin.Context) {
 		"custom_status": req.CustomStatus,
 	})
 
-	// Publish status change to Redis if available
 	if h.redis != nil {
 		statusUpdate := map[string]interface{}{
 			"type":          "status_update",
@@ -383,34 +360,27 @@ func (h *UserHandlers) UpdateStatus(c *gin.Context) {
 			"custom_status": req.CustomStatus,
 		}
 
-		// This could be moved to a notification service
 		username := c.GetString("username")
 		if username != "" {
 			statusUpdate["username"] = username
 		}
-
-		// We could publish this to friends' channels
 	}
 }
 
 func (h *UserHandlers) UpdateWatchHistory(c *gin.Context) {
-	// Get user ID from auth middleware
 	userID, _ := c.Get("user_id")
 
-	// Parse request body
 	var req WatchHistoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondWithError(c, http.StatusBadRequest, "Invalid input: "+err.Error())
 		return
 	}
 
-	// For series, ensure season and episode are provided
 	if req.MediaType == "series" && (req.SeasonNumber == nil || req.EpisodeNumber == nil) {
 		h.respondWithError(c, http.StatusBadRequest, "Season and episode numbers are required for series")
 		return
 	}
 
-	// Calculate percentage watched if not provided
 	if req.PercentageWatched == 0 && req.DurationSeconds > 0 && req.TimestampSeconds > 0 {
 		req.PercentageWatched = float64(req.TimestampSeconds) / float64(req.DurationSeconds) * 100
 		if req.PercentageWatched > 100 {
@@ -487,7 +457,6 @@ func (h *UserHandlers) GetWatchHistoryItem(c *gin.Context) {
 	c.JSON(http.StatusOK, entry)
 }
 
-// SearchUsers handles searching for users
 func (h *UserHandlers) SearchUsers(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
@@ -507,7 +476,6 @@ func (h *UserHandlers) SearchUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"users": users})
 }
 
-// GetFriends handles getting a user's friends list
 func (h *UserHandlers) GetFriends(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
@@ -523,7 +491,6 @@ func (h *UserHandlers) GetFriends(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"friends": friends})
 }
 
-// SendFriendRequest handles sending a friend request
 func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
@@ -539,7 +506,6 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 	log.Printf("Processing friend request from user %d to username: %s",
 		c.GetInt("user_id"), req.Username)
 
-	// Get the current user ID from the JWT token
 	senderID := c.GetInt("user_id")
 	if senderID == 0 {
 		log.Printf("No user_id found in context")
@@ -550,7 +516,6 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Find the user to send request to
 	targetUser, err := h.repo.GetByUsername(ctx, req.Username)
 	if err != nil {
 		log.Printf("Error finding target user '%s': %v", req.Username, err)
@@ -570,10 +535,6 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Sending friend request from user %d to user %d (%s)",
-		senderID, targetUser.ID, targetUser.Username)
-
-	// Check if friendship already exists
 	existingFriend, err := h.repo.GetFriendship(ctx, senderID, targetUser.ID)
 	if err != nil {
 		log.Printf("Error checking existing friendship: %v", err)
@@ -587,7 +548,6 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 		return
 	}
 
-	// Create the friend request
 	err = h.repo.SendFriendRequest(ctx, senderID, targetUser.ID)
 	if err != nil {
 		log.Printf("Error creating friend request: %v", err)
@@ -595,19 +555,15 @@ func (h *UserHandlers) SendFriendRequest(c *gin.Context) {
 		return
 	}
 
-	log.Printf("✅ Friend request created successfully from %d to %d", senderID, targetUser.ID)
-
-	// Send notification via Redis
 	notificationData := map[string]interface{}{
 		"sender_id":    senderID,
-		"username":     h.getCurrentUsername(c),    // You'll need to implement this
-		"display_name": h.getCurrentDisplayName(c), // You'll need to implement this
+		"username":     h.getCurrentUsername(c),
+		"display_name": h.getCurrentDisplayName(c),
 	}
 
 	err = ws.SendNotification(targetUser.ID, "friend_request_received", notificationData)
 	if err != nil {
 		log.Printf("Error sending friend request notification: %v", err)
-		// Don't fail the request, just log the error
 	} else {
 		log.Printf("✅ Friend request notification sent to user %d", targetUser.ID)
 	}
@@ -650,7 +606,6 @@ func (h *UserHandlers) AcceptFriendRequest(c *gin.Context) {
 		return
 	}
 
-	// Verify this request is for the current user
 	if friendRequest.ReceiverID != userID.(int) {
 		h.respondWithError(c, http.StatusForbidden, "Not authorized to accept this request")
 		return
@@ -678,7 +633,6 @@ func (h *UserHandlers) AcceptFriendRequest(c *gin.Context) {
 	}
 }
 
-// RejectFriendRequest handles rejecting a friend request
 func (h *UserHandlers) RejectFriendRequest(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	requestIDStr := c.Param("id")
@@ -724,7 +678,6 @@ func (h *UserHandlers) RejectFriendRequest(c *gin.Context) {
 	}
 }
 
-// RemoveFriend handles removing a friend
 func (h *UserHandlers) RemoveFriend(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
@@ -740,14 +693,12 @@ func (h *UserHandlers) RemoveFriend(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
-	// Find the target user
 	targetUser, err := h.repo.GetByUsername(ctx, req.Username)
 	if err != nil || targetUser == nil {
 		h.respondWithError(c, http.StatusNotFound, "User not found")
 		return
 	}
 
-	// Dont allow sending request to yourself
 	if targetUser.ID == userID.(int) {
 		h.respondWithError(c, http.StatusBadRequest, "Cannot remove friend if it is yourself")
 		return

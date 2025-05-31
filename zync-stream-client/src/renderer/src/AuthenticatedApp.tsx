@@ -1,7 +1,5 @@
-import { useCallback } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import useFriends from '@/hooks/useFriends'
-import useWatchHistory from '@/hooks/useWatchHistory'
 import useExtensions from '@/hooks/useExtensions'
 import useDetailsModal from '@/hooks/useDetailsModal'
 import useNotifications from '@/hooks/useNotifications'
@@ -15,6 +13,7 @@ import VideoPlayer from '@/components/VideoPlayer'
 import HomePage from '@/pages/HomePage'
 import DiscoverPage from '@/pages/DiscoverPage'
 import { User } from '@/types'
+import { useMovies } from './hooks/useMovies'
 
 interface AuthenticatedAppProps {
   token: string
@@ -33,8 +32,12 @@ export default function AuthenticatedApp({
 }: AuthenticatedAppProps): React.ReactElement {
   const navigate = useNavigate()
 
-  // Now all these hooks are safe to call because we know token exists
-  const { connected: wsConnected, connecting } = useWebSocketConnection(token)
+  const { connected: wsConnected } = useWebSocketConnection(token)
+
+
+  const {
+  searchCatalog
+} = useMovies(token)
 
   const {
     friends,
@@ -49,11 +52,12 @@ export default function AuthenticatedApp({
     refreshData
   } = useFriends(token)
 
-  console.log('👤 Friends:', friends)
+  console.log('Friends:', friends)
 
   const { enhancedFriends, setStatus } = usePresence(friends, token)
 
-  console.log('👤 Enhanced Friends:', enhancedFriends)
+  console.log('Enhanced Friends:', enhancedFriends)
+
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, removeNotification } =
     useNotifications(token, refreshData)
 
@@ -70,27 +74,17 @@ export default function AuthenticatedApp({
   } = useExtensions(extensions)
 
   const {
-    watchHistory,
-    watchHistoryItem,
-    loading: watchHistoryLoading,
-    error: watchHistoryError,
-    updateWatchHistory,
-    getWatchHistoryItem
-  } = useWatchHistory(token)
-
-  const {
     playerSource,
-    selectedMovie,
     showDetailsModal,
     details,
     detailsLoading,
     handleMovieClick,
     handleWatchAlone,
     handleCloseDetails,
-    handleAddExtension
+    handleAddExtension,
+    clearPlayerSource
   } = useDetailsModal()
 
-  // Event handlers
   const onFriendAction = (
     action: 'send' | 'accept' | 'reject' | 'remove',
     payload: string
@@ -150,7 +144,7 @@ export default function AuthenticatedApp({
             <div>
               <Sidebar
                 onSelect={handleSidebar}
-                onSearchValue={() => {}}
+                onSearchValue={searchCatalog}
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
@@ -162,7 +156,14 @@ export default function AuthenticatedApp({
                 onClearAll={clearAll}
                 onRemoveNotification={removeNotification}
               />
-              <VideoPlayer source={playerSource} details={null} />
+              <VideoPlayer
+                source={playerSource}
+                details={details}
+                onExit={() => {
+                  clearPlayerSource()
+                  navigate('/')
+                }}
+              />
             </div>
           }
         />
@@ -192,7 +193,7 @@ export default function AuthenticatedApp({
                 onFriendAction={onFriendAction}
                 searchUser={searchUser}
               />
-              <DiscoverPage onMovieClick={handleMovieClick} />
+              <DiscoverPage token={token} onMovieClick={handleMovieClick} />
             </div>
           }
         />
@@ -222,7 +223,7 @@ export default function AuthenticatedApp({
                 onFriendAction={onFriendAction}
                 searchUser={searchUser}
               />
-              <HomePage watchHistory={watchHistory} onMovieClick={handleMovieClick} />
+              <HomePage token={token} onMovieClick={handleMovieClick} />
             </div>
           }
         />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { entry } from '@/types'
+import { entry, WatchHistoryEntry } from '@/types'
+import useWatchHistory from './useWatchHistory'
 
 const API_IMDB = import.meta.env.VITE_API_IMDB
 const API_CINE = import.meta.env.VITE_API_CINE
@@ -9,6 +10,7 @@ const EXPIRY = 15 * 60 * 1000
 const MAX_SIZE = 50
 
 export function useMovies(
+  token: string,
   searchQuery: string,
   type: 'movie' | 'series',
   catalog: 'IMDB' | 'CINE' | 'PDM'
@@ -80,7 +82,6 @@ export function useMovies(
     async (query: string) => {
       if (query !== '' && query.length >= 3) {
         setSearching(true)
-
         const cacheKey = getCacheKey(true, query)
         const cacheData = getFromCache(cacheKey)
 
@@ -91,7 +92,6 @@ export function useMovies(
         }
 
         try {
-          // Respect the selected type when searching
           const endpoints: string[] = []
 
           endpoints.push(`${API_CINE}/catalog/movie/top/search=${query}.json`)
@@ -185,6 +185,8 @@ export function useMovies(
     fetchPopular(nextPage)
   }
 
+  const { watchHistory } = useWatchHistory(token)
+
   useEffect(() => {
     setPage(1)
     if (!searchQuery) fetchPopular(1)
@@ -198,5 +200,11 @@ export function useMovies(
     }
   }, [fetchPopular, searchCatalog, searchQuery])
 
-  return { movies, loading, error, loadMore, searching }
+  return {
+    movies,
+    loading,
+    error,
+    loadMore,
+    searching
+  }
 }

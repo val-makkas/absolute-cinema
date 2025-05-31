@@ -25,11 +25,16 @@ interface TorrentResponse {
 interface VideoPlayerProps {
   source: Source | null
   details: entry | null
+  onExit: () => void
 }
 
 const API_BASE_URL = 'http://localhost:8888'
 
-export default function VideoPlayer({ source, details }: VideoPlayerProps): React.ReactElement {
+export default function VideoPlayer({
+  source,
+  details,
+  onExit
+}: VideoPlayerProps): React.ReactElement {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -151,7 +156,9 @@ export default function VideoPlayer({ source, details }: VideoPlayerProps): Reac
             <p className="mb-6 text-center text-white">{error}</p>
 
             <Button
-              onClick={() => navigate('/')}
+              onClick={() => {
+                onExit()
+              }}
               className="font-medium px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg hover:opacity-90 transition-all duration-200 border-0"
             >
               Return to Home
@@ -187,7 +194,9 @@ export default function VideoPlayer({ source, details }: VideoPlayerProps): Reac
           </div>
 
           <Button
-            onClick={() => navigate('/')}
+            onClick={() => {
+              onExit()
+            }}
             className="font-medium px-5 py-2.5 rounded-xl bg-black/60 text-white/80 border border-white/10 hover:bg-white/5 hover:text-white transition-all duration-200"
           >
             Back to Home
@@ -238,7 +247,9 @@ export default function VideoPlayer({ source, details }: VideoPlayerProps): Reac
         </div>
 
         <Button
-          onClick={() => navigate('/')}
+          onClick={() => {
+            onExit()
+          }}
           className="font-medium px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg hover:opacity-90 transition-all duration-200 border-0"
         >
           Return to Home

@@ -5,10 +5,14 @@ import { useMovies } from '@/hooks/useMovies'
 import MovieList from '@/components/MovieList'
 
 interface DiscoverPageProps {
+  token: string
   onMovieClick: (movie: entry) => void
 }
 
-export default function DiscoverPage({ onMovieClick }: DiscoverPageProps): React.ReactElement {
+export default function DiscoverPage({
+  token,
+  onMovieClick
+}: DiscoverPageProps): React.ReactElement {
   const location = useLocation()
 
   const [search, setSearch] = useState<string>('')
@@ -20,7 +24,7 @@ export default function DiscoverPage({ onMovieClick }: DiscoverPageProps): React
     loading: moviesLoading,
     error: moviesError,
     loadMore
-  } = useMovies(search, type, catalog)
+  } = useMovies(token, search, type, catalog)
 
   useEffect(() => {
     if (location.state?.searchQuery) {

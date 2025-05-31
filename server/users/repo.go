@@ -156,10 +156,6 @@ func (r *UserRepo) UpdateExtensions(ctx context.Context, userID int, extensions 
     WHERE id = $2
     RETURNING extensions
     `
-
-	// Log for debugging
-	log.Printf("Updating extensions for user %d: %v", userID, extensions)
-
 	var updatedExtensions []string
 	err := r.db.QueryRow(ctx, query, extensions, userID).Scan(&updatedExtensions)
 	if err != nil {
@@ -167,7 +163,6 @@ func (r *UserRepo) UpdateExtensions(ctx context.Context, userID int, extensions 
 		return err
 	}
 
-	// Log what was actually stored
 	log.Printf("Extensions after update: %v", updatedExtensions)
 	return nil
 }
@@ -192,7 +187,6 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, userID int, newPasswordHa
 	return err
 }
 
-// UpdateAvatar updates a user's avatar URL
 func (r *UserRepo) UpdateAvatar(ctx context.Context, userID int, avatarURL string) error {
 	_, err := r.db.Exec(ctx, `
         UPDATE users 
@@ -202,7 +196,6 @@ func (r *UserRepo) UpdateAvatar(ctx context.Context, userID int, avatarURL strin
 	return err
 }
 
-// UpdateStatus updates a user's online status
 func (r *UserRepo) UpdateStatus(ctx context.Context, userID int, status, customStatus string) error {
 	_, err := r.db.Exec(ctx, `
         INSERT INTO user_status (user_id, status, custom_status, updated_at)
@@ -315,7 +308,6 @@ func (r *UserRepo) GetWatchHistory(ctx context.Context, userID int) ([]*WatchHis
 	return entries, rows.Err()
 }
 
-// GetWatchHistoryItem retrieves a specific watch history item
 func (r *UserRepo) GetWatchHistoryItem(ctx context.Context, userID int, imdbID string, seasonNum, episodeNum *int) (*WatchHistoryEntry, error) {
 	query := `
     SELECT id, user_id, imdb_id, media_type, season_number, episode_number, 
@@ -342,7 +334,7 @@ func (r *UserRepo) GetWatchHistoryItem(ctx context.Context, userID int, imdbID s
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil // Not found
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -350,7 +342,6 @@ func (r *UserRepo) GetWatchHistoryItem(ctx context.Context, userID int, imdbID s
 	return entry, nil
 }
 
-// SearchUsers searches for users by username
 func (r *UserRepo) SearchUsers(ctx context.Context, query string) ([]map[string]interface{}, error) {
 	rows, err := r.db.Query(ctx, `
         SELECT id, username, display_name, profile_picture_url
@@ -397,7 +388,6 @@ func (r *UserRepo) SearchUsers(ctx context.Context, query string) ([]map[string]
 	return users, nil
 }
 
-// GetFriends gets all confirmed friends for a user
 func (r *UserRepo) GetFriends(ctx context.Context, userID int) ([]map[string]interface{}, error) {
 	query := `
         SELECT 
@@ -479,7 +469,7 @@ func (r *UserRepo) GetFriendship(ctx context.Context, userID1, userID2 int) (*Fr
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil // No friendship exists
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -487,9 +477,7 @@ func (r *UserRepo) GetFriendship(ctx context.Context, userID1, userID2 int) (*Fr
 	return &friendship, nil
 }
 
-// SendFriendRequest creates a new friend request
 func (r *UserRepo) SendFriendRequest(ctx context.Context, senderID, receiverID int) error {
-	// Check if friendship or request already exists
 	var exists bool
 	err := r.db.QueryRow(ctx, `
         SELECT EXISTS (
@@ -508,7 +496,6 @@ func (r *UserRepo) SendFriendRequest(ctx context.Context, senderID, receiverID i
 		return errors.New("friendship or request already exists")
 	}
 
-	// Create friend request
 	_, err = r.db.Exec(ctx, `
         INSERT INTO friendships (user_id, friend_id, status)
         VALUES ($1, $2, 'pending')
@@ -517,7 +504,6 @@ func (r *UserRepo) SendFriendRequest(ctx context.Context, senderID, receiverID i
 	return err
 }
 
-// GetFriendRequests gets pending friend requests for a user
 func (r *UserRepo) GetFriendRequests(ctx context.Context, userID int) ([]map[string]interface{}, error) {
 	query := `
         SELECT 

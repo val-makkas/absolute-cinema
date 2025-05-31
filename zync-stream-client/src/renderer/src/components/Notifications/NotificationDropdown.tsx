@@ -63,7 +63,7 @@ export default function NotificationDropdown({
   }
 
   return (
-    <div className="z-[9999] absolute right-0 top-full mt-2 w-80 bg-[#1a1a1a] rounded-lg border border-white/10 shadow-xl z-50 max-h-96 overflow-hidden">
+    <div className="z-50 absolute right-0 top-full mt-2 w-80 bg-black opacity-96 backdrop-blur-xl border-l border-white/10 rounded-lg borde shadow-xl max-h-96 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <h3 className="font-semibold text-white">Notifications</h3>
