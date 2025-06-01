@@ -33,7 +33,7 @@ export default function DiscoverPage({
   }, [location.state])
 
   return (
-    <div className="flex-auto bg-black font-sans text-white">
+    <div className="flex-autofont-sans text-white">
       <div className="flex">
         <div className="flex-1 min-w-0">
           <main className="px-4 md:px-8 py-4 bg-black min-h-screen">

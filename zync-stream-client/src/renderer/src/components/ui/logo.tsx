@@ -5,7 +5,7 @@ export default function Logo({ w, h, abs}: { w:number, h:number, abs:boolean}): 
   return (
     abs ? (
       // When abs is true
-      <div className="absolute w-14 h-14">
+      <div className="absolute">
           <div className="absolute inset-0 rounded-full flex items-center justify-center">
             {/* This div contains just the gradient on the logo shape */}
             <div

@@ -7,17 +7,13 @@ export default function useNotifications(
   onNotificationReceived?: () => void
 ): {
   notifications: Notification[]
-  connected: boolean
   unreadCount: number
   markAsRead: (notificationId: string) => void
   markAllAsRead: () => void
   clearAll: () => void
   removeNotification: (notificationId: string) => void
-  disconnect: () => void
-  connect: () => void
 } {
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [connected, setConnected] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const onNotificationReceivedRef = useRef(onNotificationReceived)
 
@@ -89,7 +85,6 @@ export default function useNotifications(
     [onNotificationReceived]
   )
 
-  // Connect and subscribe to notification messages
   useEffect(() => {
     if (!token) return
 
@@ -102,7 +97,6 @@ export default function useNotifications(
         )
         console.log('🔔 Notifications: Subscribed to messages')
       } else {
-        // Wait for connection and try again
         const timeoutId = setTimeout(subscribe, 1000)
         return () => clearTimeout(timeoutId)
       }
@@ -112,27 +106,10 @@ export default function useNotifications(
 
     return () => {
       websocketService.unsubscribe('notifications')
-      console.log('🔔 Notifications: Unsubscribed')
+      console.log('Notifications: Unsubscribed')
     }
   }, [token, handleMessage])
 
-  const connect = useCallback(async () => {
-    if (!token) return
-    try {
-      await websocketService.connect(token)
-      setConnected(true)
-    } catch (error) {
-      console.log(error)
-      setConnected(false)
-    }
-  }, [token])
-
-  const disconnect = useCallback(() => {
-    websocketService.disconnect()
-    setConnected(false)
-  }, [])
-
-  // ... rest of your notification management functions stay the same
   const markAsRead = useCallback((notificationId: string) => {
     setNotifications((prev) =>
       prev.map((notification) =>
@@ -160,13 +137,10 @@ export default function useNotifications(
 
   return {
     notifications,
-    connected,
     unreadCount,
     markAsRead,
     markAllAsRead,
     clearAll,
-    removeNotification,
-    disconnect,
-    connect
+    removeNotification
   }
 }

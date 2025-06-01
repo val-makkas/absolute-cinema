@@ -1,5 +1,6 @@
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import useFriends from '@/hooks/useFriends'
+import { useRoom } from './hooks/useRoom'
 import useExtensions from '@/hooks/useExtensions'
 import useDetailsModal from '@/hooks/useDetailsModal'
 import useNotifications from '@/hooks/useNotifications'
@@ -34,10 +35,7 @@ export default function AuthenticatedApp({
 
   const { connected: wsConnected } = useWebSocketConnection(token)
 
-
-  const {
-  searchCatalog
-} = useMovies(token)
+  const { searchCatalog } = useMovies(token)
 
   const {
     friends,
@@ -51,6 +49,21 @@ export default function AuthenticatedApp({
     searchUser,
     refreshData
   } = useFriends(token)
+
+  const {
+    messages,
+    connected,
+    isInRoom,
+    room,
+    roomState,
+    sendMessage,
+    sendPlaybackUpdate,
+    joinRoom,
+    leaveRoom,
+    createRoom,
+    getRoom,
+    deleteRoom
+  } = useRoom(token, user)
 
   console.log('Friends:', friends)
 
@@ -144,7 +157,7 @@ export default function AuthenticatedApp({
             <div>
               <Sidebar
                 onSelect={handleSidebar}
-                onSearchValue={searchCatalog}
+                onSearchValue={() => {}}
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
@@ -155,6 +168,13 @@ export default function AuthenticatedApp({
                 onMarkAllAsRead={markAllAsRead}
                 onClearAll={clearAll}
                 onRemoveNotification={removeNotification}
+                party={room?.members}
+                isHost={room?.userRole === 'owner'}
+                onCreateParty={createRoom}
+                onInviteFriend={() => {}}
+                onKickMember={() => {}}
+                onStartParty={() => {}}
+                onLeaveParty={leaveRoom}
               />
               <VideoPlayer
                 source={playerSource}
@@ -184,6 +204,13 @@ export default function AuthenticatedApp({
                 onMarkAllAsRead={markAllAsRead}
                 onClearAll={clearAll}
                 onRemoveNotification={removeNotification}
+                party={room?.members}
+                isHost={room?.userRole === 'owner'}
+                onCreateParty={createRoom}
+                onInviteFriend={() => {}}
+                onKickMember={() => {}}
+                onStartParty={() => {}}
+                onLeaveParty={leaveRoom}
               />
               <FriendsSidebar
                 friends={enhancedFriends}
@@ -214,6 +241,13 @@ export default function AuthenticatedApp({
                 onMarkAllAsRead={markAllAsRead}
                 onClearAll={clearAll}
                 onRemoveNotification={removeNotification}
+                party={room?.members}
+                isHost={room?.userRole === 'owner'}
+                onCreateParty={createRoom}
+                onInviteFriend={() => {}}
+                onKickMember={() => {}}
+                onStartParty={() => {}}
+                onLeaveParty={leaveRoom}
               />
               <FriendsSidebar
                 friends={enhancedFriends}

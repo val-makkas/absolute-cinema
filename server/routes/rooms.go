@@ -10,7 +10,7 @@ import (
 	"zync-stream/ws"
 )
 
-func SetupRoomRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redis.Client) {
+func SetupRoomRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redis.Client) *rooms.RoomRepository {
 	roomRepo := rooms.NewRoomRepository(dbPool)
 	roomHandlers := rooms.NewRoomHandlers(roomRepo, redisClient)
 
@@ -31,4 +31,6 @@ func SetupRoomRoutes(router *gin.Engine, dbPool *pgxpool.Pool, redisClient *redi
 	}
 
 	router.GET("/api/ws", ws.HandleMasterWebSocket)
+
+	return roomRepo
 }

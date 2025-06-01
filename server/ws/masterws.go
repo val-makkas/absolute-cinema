@@ -242,7 +242,6 @@ func (mc *MasterConn) handleJoinRoom(msg MasterMessage) {
 	}
 	roomID := int(roomIDFloat)
 
-	// 🔧 Validate membership via HTTP system
 	roomRepo := GetRoomRepository()
 	if roomRepo == nil {
 		mc.sendError("Room service unavailable")
@@ -262,16 +261,13 @@ func (mc *MasterConn) handleJoinRoom(msg MasterMessage) {
 		return
 	}
 
-	// Leave current room if any
 	if mc.currentRoom != nil {
 		mc.leaveRoom(*mc.currentRoom)
 	}
 
-	// Join new room for real-time events
 	mc.currentRoom = &roomID
 	mc.joinRoom(roomID)
 
-	// Send confirmation
 	mc.sendSuccess("Joined room successfully", map[string]interface{}{
 		"room_id": roomID,
 		"role":    string(role),
@@ -322,7 +318,7 @@ func (mc *MasterConn) handleInviteToRoom(msg MasterMessage) {
 
 	invitationID, err := roomRepo.InviteToRoom(ctx, roomID, mc.UserID, inviteeID, nil) // Pass nil for redis
 	if err != nil {
-		log.Printf("Failed to create invitation: %v", err)
+		log.Printf("Failed to send invitation: %v", err)
 		mc.sendError("Failed to send invitation")
 		return
 	}

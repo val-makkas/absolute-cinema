@@ -120,10 +120,10 @@ export default function MovieList({
           ? Array.from({ length: 12 }).map((_, i) => (
               <div
                 key={i}
-                className="aspect-[2/3] rounded-2xl animate-pulse shadow-xl bg-black/80 w-full max-w-[260px] ring-1 ring-white/10 relative overflow-hidden"
+                className="aspect-[2/3] rounded-2xl animate-pulse shadow-xl w-full max-w-[260px] ring-1 ring-white/10 relative overflow-hidden"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-transparent to-blue-600/20 opacity-70"></div>
-                <Skeleton className="absolute inset-0 w-full h-full rounded-2xl bg-gradient-to-br from-white/5 to-black/20" />
+                <div className="absolute inset-0 opacity-70"></div>
+                <Skeleton className="absolute inset-0 w-full h-full rounded-2xl" />
               </div>
             ))
           : (Array.isArray(movies) ? movies : []).map((m, i) => (
@@ -134,7 +134,6 @@ export default function MovieList({
                   aspect-[2/3]
                   rounded-2xl
                   overflow-hidden
-                  bg-black/80
                   cursor-pointer
                   relative
                   w-full

@@ -132,7 +132,7 @@ export default function DetailsModal({
         style={{ zIndex: 65 }}
       />
       <DialogContent
-        className="flex flex-row p-0 max-w-7xl h-900 bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-10 duration-300"
+        className="flex flex-row p-0 max-w-7xl h-200 bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-10 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
@@ -196,7 +196,7 @@ export default function DetailsModal({
           </div>
 
           {/* Overview & details */}
-          <div className="overflow-y-auto max-h-600px pr-4 custom-scrollbar">
+          <div className="overflow-y-auto max-h-600px pr-4 custom-scrollbar mb-4">
             <p className="text-s text-white/90 mb-4 leading-relaxed text-center">
               {details?.description}
             </p>
@@ -236,33 +236,33 @@ export default function DetailsModal({
             </div>
           </div>
 
-          <div className="flex gap-4 mt-auto pt-4">
+          <div className="flex gap-5 mt-4">
             {selectedSource ? (
               <>
                 <button
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
+                  className="h-17 flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
                   onClick={() => onWatchAlone(details, selectedSource)}
                   disabled={!selectedSource}
                 >
-                  <Play className="w-5 h-5" /> Watch Alone
+                  <Play className="w-9 h-9" /> Watch Alone
                 </button>
                 <button
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-400 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
+                  className="h-17 flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-400 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
                   disabled={!selectedSource}
                 >
-                  <PartyPopper className="w-5 h-5" /> Create Party
+                  <PartyPopper className="w-9 h-9" /> Create Party
                 </button>
               </>
             ) : (
               <>
                 <button
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl 
+                  className="h-17 flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl 
                   font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 
                 text-white shadow-lg hover:scale-105 transition drop-shadow-xl
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   disabled={!selectedSource}
                 >
-                  <Play className="w-5 h-5" /> Watch Alone
+                  <Play className="w-9 h-9" /> Watch Alone
                 </button>
                 <button
                   className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl 
@@ -271,7 +271,7 @@ export default function DetailsModal({
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   disabled={!selectedSource}
                 >
-                  <PartyPopper className="w-5 h-5" /> Create Party
+                  <PartyPopper className="w-9 h-9" /> Create Party
                 </button>
               </>
             )}

@@ -39,7 +39,6 @@ func (r *RoomRepository) GetUserIDByUsername(ctx context.Context, username strin
 	return userID, nil
 }
 
-// ✅ KEEP: Create - HTTP CRUD operation
 func (r *RoomRepository) Create(ctx context.Context, room *Room) error {
 	query := `
         INSERT INTO watch_rooms (name, description, owner_id, is_private, status)
@@ -69,7 +68,6 @@ func (r *RoomRepository) Create(ctx context.Context, room *Room) error {
 	return nil
 }
 
-// ✅ KEEP: GetByID - HTTP CRUD operation
 func (r *RoomRepository) GetByID(ctx context.Context, id int) (*Room, error) {
 	query := `
         SELECT id, name, description, owner_id, is_private, status, created_at, updated_at

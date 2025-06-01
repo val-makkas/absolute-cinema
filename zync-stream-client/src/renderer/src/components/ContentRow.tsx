@@ -76,7 +76,7 @@ const ContentRow: React.FC<ContentRowProps> = ({
         <h2 className="text-2xl font-bold text-white mb-4 px-4 md:px-6">{title}</h2>
         <div className="flex gap-4 px-4 md:px-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="w-48 h-72 rounded-lg bg-white/10" />
+            <Skeleton key={i} className="w-48 h-72 rounded-2xl bg-white/10" />
           ))}
         </div>
       </section>
@@ -86,41 +86,41 @@ const ContentRow: React.FC<ContentRowProps> = ({
   if (!items.length) return null
 
   return (
-    <section className="mb-8 ml-15 group">
+    <section className="mb-8 ml-10 mr-15 group">
       <h2 className="text-2xl font-bold text-white mb-4 px-4 md:px-6">{title}</h2>
       <div className="relative">
         <button
           onClick={() => scroll('left')}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/60 hover:bg-white/90 text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"
           aria-label="Scroll left"
         >
-          <ChevronLeft size={20} />
+          <ChevronLeft size={30} />
         </button>
 
         <button
           onClick={() => scroll('right')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/70 hover:bg-black/90 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/60 hover:bg-white/90 text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"
           aria-label="Scroll right"
         >
-          <ChevronRight size={20} />
+          <ChevronRight size={30} />
         </button>
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide px-4 md:px-6 pb-4"
+          className="flex gap-4 overflow-x-auto py-4 scrollbar-hide px-4 md:px-6 pb-4"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {processedItems.map((item) => (
             <div
               key={item.id}
-              className="flex-shrink-0 w-48 cursor-pointer group/item"
+              className="flex-shrink-0 w-48 rounded-2xl cursor-pointer group/item"
               onClick={() => handleItemClick(item.originalItem)}
             >
-              <div className="relative w-full h-72 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+              <div className="relative w-full h-72 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
                 <img
                   src={item.poster}
                   alt={item.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full rounded-2xl object-cover"
                   loading="lazy"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
@@ -136,16 +136,16 @@ const ContentRow: React.FC<ContentRowProps> = ({
                         {item.percentageWatched}% watched
                       </span>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-1">
+                    <div className="w-full bg-gray-700 rounded-2xl h-1">
                       <div
-                        className="bg-red-500 h-1 rounded-full transition-all duration-300"
+                        className="bg-red-500 h-1 rounded-2xl transition-all duration-300"
                         style={{ width: `${item.percentageWatched}%` }}
                       />
                     </div>
                   </div>
                 )}
                 {item.rating !== 'N/A' && item.rating !== 'Unknown' && (
-                  <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1">
+                  <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-2xl px-2 py-1 flex items-center gap-1">
                     <Star size={12} className="text-yellow-400" fill="currentColor" />
                     <span className="text-xs text-white font-semibold">
                       {typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating}

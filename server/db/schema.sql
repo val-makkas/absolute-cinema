@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS watch_rooms (
     description TEXT,
     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     is_private BOOLEAN NOT NULL DEFAULT false,
+    status VARCHAR(20) NOT NULL DEFAULT 'idle',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -72,7 +73,7 @@ CREATE TABLE IF NOT EXISTS watch_history (
     imdb_id VARCHAR(20) NOT NULL,
     media_type VARCHAR(10) NOT NULL CHECK (media_type IN ('movie', 'series')),
     season_number INTEGER DEFAULT 0,
-    episode_number INTEGER DEFAULT 0,
+    episode_number INTEGER DEFAULT 0, 
     timestamp_seconds INTEGER NOT NULL DEFAULT 0,
     duration_seconds INTEGER,
     percentage_watched FLOAT NOT NULL DEFAULT 0,

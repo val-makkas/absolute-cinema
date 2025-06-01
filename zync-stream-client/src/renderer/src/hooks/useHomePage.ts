@@ -89,10 +89,11 @@ export default function useHomePage(token: string): UseHomePageReturn {
           setPopularMovies(cacheData.movies)
           setPopularSeries(cacheData.series)
 
-          if (cacheData.movies.length > 0) {
-            setFeaturedMovie(cacheData.movies[0])
-          } else if (cacheData.series.length > 0) {
-            setFeaturedMovie(cacheData.series[0])
+          const random = Math.floor(Math.random() * 10)
+          if (Math.random() > 0.5) {
+            setFeaturedMovie(cacheData.series[random])
+          } else {
+            setFeaturedMovie(cacheData.movies[random])
           }
 
           setLoading(false)
@@ -119,10 +120,11 @@ export default function useHomePage(token: string): UseHomePageReturn {
         setPopularMovies(movies)
         setPopularSeries(series)
 
-        if (movies.length > 0) {
-          setFeaturedMovie(movies[0])
-        } else if (series.length > 0) {
-          setFeaturedMovie(series[0])
+        const random = Math.floor(Math.random() * 10)
+        if (Math.random() > 0.5) {
+          setFeaturedMovie(series[random])
+        } else {
+          setFeaturedMovie(movies[random])
         }
 
         saveToCache(cacheKey, { movies, series })

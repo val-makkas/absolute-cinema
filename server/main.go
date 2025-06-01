@@ -74,8 +74,9 @@ func main() {
 	}))
 
 	userRepo := routes.SetupUserRoutes(router, dbPool, redisClient)
+	roomRepo := routes.SetupRoomRoutes(router, dbPool, redisClient)
 	ws.InitPresenceManager(userRepo)
-	routes.SetupRoomRoutes(router, dbPool, redisClient)
+	ws.SetRoomRepository(roomRepo)
 
 	port := os.Getenv("PORT")
 	if port == "" {

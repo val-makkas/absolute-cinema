@@ -1,6 +1,7 @@
 package rooms
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -44,14 +45,18 @@ func (h *RoomHandlers) CreateRoom(c *gin.Context) {
 		Status:      RoomStatusActive,
 	}
 
+	log.Printf("Creating room: %+v", room)
+
 	if err := h.repo.Create(c.Request.Context(), room); err != nil {
+		log.Printf("Failed to create room: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create room"})
 		return
 	}
 
+	log.Printf("Room created successfully: ID=%d", room.ID)
+
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "Room created successfully",
-		"room":    room,
+		"room": room,
 	})
 }
 
