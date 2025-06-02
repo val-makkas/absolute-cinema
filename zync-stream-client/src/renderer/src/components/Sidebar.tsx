@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { use, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import {
   Home,
   Search,
@@ -9,9 +10,7 @@ import {
   Compass,
   PartyPopper,
   Users,
-  Plus,
   X,
-  Play,
   Crown,
   ChevronDown
 } from 'lucide-react'
@@ -61,13 +60,12 @@ export default function Sidebar({
   party = null,
   isHost = false,
   onCreateParty,
-  onInviteFriend,
   onKickMember,
-  onStartParty,
   onLeaveParty
 }: SidebarProps): React.ReactElement {
   const [searchInputValue, setSearchInputValue] = useState<string>('')
   const [partyExpanded, setPartyExpanded] = useState(false)
+  const [partyJustCreated, setPartyJustCreated] = useState(false)
 
   const partyDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -86,6 +84,22 @@ export default function Sidebar({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [partyExpanded])
+
+  const handlePartyClick = (): void => {
+    if (partyJustCreated) {
+      setPartyJustCreated(false)
+      setPartyExpanded(true)
+      return
+    }
+    setPartyExpanded(!partyExpanded)
+  }
+
+  const handleCreateParty = (): void => {
+    setPartyJustCreated(true)
+    if (onCreateParty) {
+      onCreateParty()
+    }
+  }
 
   return (
     <>
@@ -218,20 +232,20 @@ export default function Sidebar({
         </div>
 
         <div className="flex-1 flex justify-end items-center space-x-3">
-          <div className="relative">
+          <div className="relative mr-20">
             {party && party.length > 0 ? (
-              <div className="relative mr-30" ref={partyDropdownRef}>
+              <div className="relative" ref={partyDropdownRef}>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-9 px-3 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
-                  onClick={() => setPartyExpanded(!partyExpanded)}
+                  onClick={handlePartyClick}
                   title="Party"
                 >
-                  <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-pink-600/40 transition-all duration-300"></span>
+                  <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
 
                   <div className="flex items-center gap-2 relative z-10">
-                    <div className="p-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+                    <div className="p-1 rounded-lg">
                       <Users className="w-4 h-4 text-white" />
                     </div>
                     <span className="text-white font-medium text-sm">{party.length}</span>
@@ -261,26 +275,17 @@ export default function Sidebar({
                     </div>
 
                     <ChevronDown
-                      className={`w-3 h-3 text-gray-400 transition-transform ${partyExpanded ? 'rotate-180' : ''}`}
+                      className={`w-3 h-3 text-gray-400 transition-transform ${partyExpanded && !partyJustCreated ? 'rotate-180' : ''}`}
                     />
                   </div>
                 </Button>
 
-                {partyExpanded && (
+                {partyExpanded && !partyJustCreated && (
                   <div className="absolute top-full right-0 mt-2 w-80 bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-[100]">
                     <div className="p-4">
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-3">
                         <h3 className="text-white font-semibold">Party Members</h3>
                         <div className="flex gap-2">
-                          {isHost && onInviteFriend && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-black/50 border-white/20 hover:bg-white/10"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </Button>
-                          )}
                           {onLeaveParty && (
                             <Button
                               onClick={onLeaveParty}
@@ -293,11 +298,11 @@ export default function Sidebar({
                           )}
                         </div>
                       </div>
-
+                      <Separator className="mb-3" />
                       <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
                         {party.map((member) => (
                           <div
-                            key={member.userID}
+                            key={member.userID + member.username}
                             className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors"
                           >
                             <div className="relative">
@@ -343,16 +348,6 @@ export default function Sidebar({
                           </div>
                         ))}
                       </div>
-
-                      {isHost && onStartParty && (
-                        <Button
-                          onClick={onStartParty}
-                          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                        >
-                          <Play className="w-4 h-4 mr-2" />
-                          Start Watch Party
-                        </Button>
-                      )}
                     </div>
                   </div>
                 )}
@@ -361,21 +356,17 @@ export default function Sidebar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="mr-30 h-9 px-3 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
-                onClick={() => {
-                  console.log('Party button clicked!', { onCreateParty })
-                  if (onCreateParty) {
-                    onCreateParty()
-                  } else {
-                    console.error('onCreateParty function is not provided!')
-                  }
-                }}
+                className="h-9 px-3 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
+                onClick={handleCreateParty}
                 title="Create Party"
               >
-                <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-pink-600/40 transition-all duration-300"></span>
+                <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
+
                 <div className="flex items-center gap-2 relative z-10">
-                  <PartyPopper className="w-4 h-4 text-white" />
-                  <span className="text-white text-sm font-medium">Create Party</span>
+                  <div className="p-1 rounded-lg">
+                    <PartyPopper className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-white font-medium text-sm">Create Party</span>
                 </div>
               </Button>
             )}

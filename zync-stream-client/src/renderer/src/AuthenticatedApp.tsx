@@ -55,14 +55,13 @@ export default function AuthenticatedApp({
     connected,
     isInRoom,
     room,
-    roomState,
     sendMessage,
     sendPlaybackUpdate,
-    joinRoom,
     leaveRoom,
     createRoom,
-    getRoom,
-    deleteRoom
+    inviteToRoom,
+    roomInvitations,
+    respondToInvitation
   } = useRoom(token, user)
 
   console.log('Friends:', friends)
@@ -219,6 +218,10 @@ export default function AuthenticatedApp({
                 friendsError={friendsError}
                 onFriendAction={onFriendAction}
                 searchUser={searchUser}
+                isInRoom={isInRoom}
+                sendInvite={inviteToRoom}
+                roomInvitations={roomInvitations}
+                respondToInvitation={respondToInvitation}
               />
               <DiscoverPage token={token} onMovieClick={handleMovieClick} />
             </div>
@@ -256,6 +259,10 @@ export default function AuthenticatedApp({
                 friendsError={friendsError}
                 onFriendAction={onFriendAction}
                 searchUser={searchUser}
+                isInRoom={isInRoom}
+                sendInvite={inviteToRoom}
+                roomInvitations={roomInvitations}
+                respondToInvitation={respondToInvitation}
               />
               <HomePage token={token} onMovieClick={handleMovieClick} />
             </div>

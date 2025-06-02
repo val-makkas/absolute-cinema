@@ -36,6 +36,15 @@ export interface RoomMessage {
   data: any
 }
 
+export interface RoomInvitation {
+  invitation_id: number
+  inviter_id: number
+  inviter_name: string
+  room_id: number
+  room_name: string
+  timestamp: number
+}
+
 export interface useRoomReturn {
   messages: RoomMessage[]
   connected: boolean
@@ -43,11 +52,12 @@ export interface useRoomReturn {
   room: Room | null
   sendMessage: (message: string) => void
   sendPlaybackUpdate: (timestamp: number, playing: boolean) => void
-  joinRoom: (roomId: number) => void
   leaveRoom: () => void
   createRoom: () => void
-  getRoom: (id: string) => void
   deleteRoom: (id: string) => void
+  inviteToRoom: (username: string) => void
+  roomInvitations: RoomInvitation[]
+  respondToInvitation: (invitationId: number, accept: boolean) => void
 }
 
 export function useRoom(token: string, user: User | null, roomId?: number): useRoomReturn {
@@ -56,6 +66,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
   const [room, setRoom] = useState<Room | null>(null)
   const [role, setRole] = useState<'owner' | 'member' | null>(null)
   const [currentRoom, setCurrentRoom] = useState<number | null>(null)
+  const [roomInvitations, setRoomInvitations] = useState<RoomInvitation[]>([])
 
   const isInRoom = room !== null
 
@@ -106,7 +117,14 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
         })
         if (res.ok) {
           const roomData = await res.json()
-          setRoom(roomData)
+
+          const extractedRoom = {
+            ...roomData.room,
+            members: roomData.members,
+            isMember: roomData.is_member,
+            userRole: roomData.user_role
+          }
+          setRoom(extractedRoom)
         } else {
           console.log('Error getting room')
         }
@@ -141,12 +159,41 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
     (data: any) => {
       console.log('Room: Received message:', data.type)
 
+      if (data.type === 'room_invitation') {
+        const invitation: RoomInvitation = {
+          invitation_id: data.data.invitation_id,
+          inviter_id: data.data.inviter_id,
+          inviter_name: data.data.inviter_name,
+          room_id: data.data.room_id,
+          room_name: data.data.room_name,
+          timestamp: data.timestamp
+        }
+
+        setRoomInvitations((prev) => [...prev, invitation])
+        return
+      }
+
+      if (data.type === 'member_list_update') {
+        console.log('Member list updated:', data.data)
+
+        if (data.data.members && room) {
+          setRoom((prev) => {
+            if (!prev) return null
+            return {
+              ...prev,
+              members: data.data.members
+            }
+          })
+        }
+        return
+      }
+
       if (['chat_message', 'playback_update', 'user_joined', 'user_left'].includes(data.type)) {
         setMessages((prev) => [...prev, data])
       }
 
       if (data.type === 'success') {
-        console.log('✅ Room success:', data.message)
+        console.log('Room success:', data.message)
 
         if (data.message === 'Joined room successfully') {
           if (data.data?.role) {
@@ -161,7 +208,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       }
 
       if (data.type === 'error') {
-        console.error('❌ Room error:', data.message)
+        console.error('Room error:', data.message)
       }
       if (data.type === 'error') {
         console.log(data.message)
@@ -175,8 +222,9 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       type: 'leave_room',
       data: {}
     })
-    if (role === 'owner' && room?.room?.id) {
-      deleteRoom(room?.room?.id)
+    if (role === 'owner' && room?.id) {
+      console.log(room?.id)
+      deleteRoom(room?.id)
     }
     setCurrentRoom(null)
     setRoom(null)
@@ -189,6 +237,54 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       data: { message }
     })
   }, [])
+
+  const inviteToRoom = useCallback(
+    (username: string) => {
+      console.log('🔍 Full room object:', room)
+      console.log('🔍 Room ID:', room?.id, 'Type:', typeof room?.id)
+      console.log('🔍 Room keys:', room ? Object.keys(room) : 'no room')
+
+      if (room?.id) {
+        console.log('✅ Sending invitation with room ID:', room.id)
+        websocketService.send({
+          type: 'invite_to_room',
+          data: {
+            room_id: parseInt(room.id),
+            username: username
+          }
+        })
+      } else {
+        console.error('❌ No room ID available for invitation')
+      }
+    },
+    [room?.id]
+  )
+
+  const removeRoomInvitation = useCallback((invitationId: number) => {
+    setRoomInvitations((prev) => prev.filter((inv) => inv.invitation_id !== invitationId))
+  }, [])
+
+  const respondToInvitation = useCallback(
+    (invitationId: number, accept: boolean) => {
+      websocketService.send({
+        type: 'respond_to_invitation',
+        data: {
+          invitation_id: invitationId,
+          accept: accept
+        }
+      })
+
+      if (accept) {
+        const invitation = roomInvitations.find((inv) => inv.invitation_id === invitationId)
+        if (invitation) {
+          joinRoom(invitation.room_id)
+        }
+      }
+
+      removeRoomInvitation(invitationId)
+    },
+    [roomInvitations, joinRoom, removeRoomInvitation]
+  )
 
   const sendPlaybackUpdate = useCallback((timestamp: number, playing: boolean) => {
     websocketService.send({
@@ -204,7 +300,16 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       if (websocketService.getConnectionStatus()) {
         websocketService.subscribe(
           'room',
-          ['chat_message', 'playback_update', 'user_joined', 'user_left', 'success', 'error'],
+          [
+            'room_invitation',
+            'member_list_update',
+            'chat_message',
+            'playback_update',
+            'user_joined',
+            'user_left',
+            'success',
+            'error'
+          ],
           handleRoomMessage
         )
         setConnected(true)
@@ -215,7 +320,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
         }
       } else {
         setConnected(false)
-        setTimeout(subscribe, 1000)
+        setTimeout(subscribe, 2000)
       }
     }
 
@@ -227,9 +332,9 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       }
       websocketService.unsubscribe('room')
       setConnected(false)
-      console.log('🎮 Room: Unsubscribed')
+      console.log('Room: Unsubscribed')
     }
-  }, [token, roomId, handleRoomMessage])
+  }, [token, roomId])
 
   return {
     messages,
@@ -238,10 +343,11 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
     room,
     sendMessage,
     sendPlaybackUpdate,
-    joinRoom,
     leaveRoom,
     createRoom,
-    getRoom,
-    deleteRoom
+    deleteRoom,
+    inviteToRoom,
+    roomInvitations,
+    respondToInvitation
   }
 }

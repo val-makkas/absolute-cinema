@@ -56,15 +56,14 @@ type Viewer struct {
 }
 
 type RoomInvitation struct {
-	ID                 int        `json:"id"`
-	RoomID             int        `json:"room_id"`
-	InviterID          int        `json:"inviter_id"`
-	InviteeID          int        `json:"invitee_id"`
-	Status             string     `json:"status"`
-	CreatedAt          time.Time  `json:"created_at"`
-	RespondedAt        *time.Time `json:"responded_at"`
-	RoomName           string     `json:"room_name"`
-	RoomDescription    string     `json:"room_description"`
-	InviterDisplayName string     `json:"inviter_display_name"`
-	InviterUsername    string     `json:"inviter_username"`
+	ID                 int       `json:"id"`
+	RoomID             int       `json:"room_id"`
+	InviterID          int       `json:"inviter_id"`
+	InviteeID          int       `json:"invitee_id"`
+	Status             string    `json:"status"`
+	CreatedAt          time.Time `json:"created_at"`
+	RoomName           string    `json:"room_name"`
+	RoomDescription    string    `json:"room_description"`
+	InviterDisplayName string    `json:"inviter_display_name"`
+	InviterUsername    string    `json:"inviter_username"`
 }

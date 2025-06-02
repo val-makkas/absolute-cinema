@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { Users, UserPlus, Search, ArrowLeft } from 'lucide-react'
+import { Users, UserPlus, Search, ArrowLeft, PartyPopper } from 'lucide-react'
 import { Friend, FriendRequest } from '@/types'
 import FriendItem from './FriendItem'
+import { RoomInvitation } from '@renderer/hooks/useRoom'
+import RoomInvitationCard from './RoomInvitationCard'
+import { is } from '@electron-toolkit/utils'
 
 interface FriendsSidebarProps {
   friends: Friend[]
@@ -10,6 +13,10 @@ interface FriendsSidebarProps {
   friendsError: string | null
   onFriendAction: (action: 'send' | 'accept' | 'reject' | 'invite', payload: string) => void
   searchUser: (query: string) => Promise<SearchUser[]>
+  isInRoom: boolean
+  roomInvitations: RoomInvitation[]
+  sendInvite: (username: string) => void
+  respondToInvitation: (invitationId: number, accept: boolean) => void
 }
 
 interface SearchUser {
@@ -25,7 +32,11 @@ export default function FriendsSidebar({
   friendsLoading,
   friendsError,
   onFriendAction,
-  searchUser
+  searchUser,
+  isInRoom,
+  roomInvitations,
+  sendInvite,
+  respondToInvitation
 }: FriendsSidebarProps): React.ReactElement {
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -145,6 +156,31 @@ export default function FriendsSidebar({
           </div>
         )}
 
+        {!showSearch && roomInvitations.length > 0 && (
+          <div className="px-4 py-2 space-y-2 border-b border-white/10">
+            <h3 className="text-xs text-white/60 uppercase flex items-center gap-2">
+              <PartyPopper className="w-3 h-3" />
+              Room Invitations ({roomInvitations.length})
+            </h3>
+            <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
+              {roomInvitations.map((invitation) => (
+                <RoomInvitationCard
+                  key={invitation.invitation_id}
+                  invitation={invitation}
+                  onAccept={() => {
+                    console.log(`Accepting room invitation ${invitation.invitation_id}`)
+                    respondToInvitation(invitation.invitation_id, true)
+                  }}
+                  onDecline={() => {
+                    console.log(`Declining room invitation ${invitation.invitation_id}`)
+                    respondToInvitation(invitation.invitation_id, false)
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1 scrollbar-thin scrollbar-thumb-white/20">
           <div className="relative min-h-full">
             {!showSearch && (
@@ -162,7 +198,8 @@ export default function FriendsSidebar({
                     <FriendItem
                       key={f.id}
                       friend={f}
-                      onInvite={() => onFriendAction('invite', f.username)}
+                      isInRoom={isInRoom}
+                      onInvite={sendInvite}
                       onMessage={() => console.log(`DM ${f.username}`)}
                     />
                   ))

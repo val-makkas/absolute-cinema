@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -136,7 +135,6 @@ func (r *RoomRepository) GetRoomMembers(ctx context.Context, roomID int) ([]Room
 	return members, nil
 }
 
-// ✅ KEEP: Update - HTTP CRUD operation
 func (r *RoomRepository) Update(ctx context.Context, room *Room) error {
 	query := `
         UPDATE watch_rooms 
@@ -152,9 +150,7 @@ func (r *RoomRepository) Update(ctx context.Context, room *Room) error {
 	return nil
 }
 
-// ✅ KEEP: Delete - HTTP CRUD operation
 func (r *RoomRepository) Delete(ctx context.Context, roomID int) error {
-	// Soft delete by setting status to inactive
 	query := `
         UPDATE watch_rooms 
         SET status = 'inactive', updated_at = NOW()
@@ -169,18 +165,16 @@ func (r *RoomRepository) Delete(ctx context.Context, roomID int) error {
 	return nil
 }
 
-// ✅ KEEP: GetInvitations - HTTP state query only
 func (r *RoomRepository) GetInvitations(ctx context.Context, userID int) ([]RoomInvitation, error) {
 	query := `
         SELECT 
-            i.id, i.room_id, i.inviter_id, i.invitee_id, i.status, i.created_at,
-            COALESCE(i.responded_at, '1970-01-01'::timestamp) as responded_at,
+            i.id, i.room_id, i.invited_by, i.invited_user, i.status, i.created_at,
             r.name as room_name, r.description as room_description,
             u.username as inviter_username, COALESCE(u.display_name, u.username) as inviter_display_name
         FROM room_invitations i
         JOIN watch_rooms r ON i.room_id = r.id
-        JOIN users u ON i.inviter_id = u.id
-        WHERE i.invitee_id = $1 AND i.status = 'pending'
+        JOIN users u ON i.invited_by = u.id
+        WHERE i.invited_user = $1 AND i.status = 'pending'
         ORDER BY i.created_at DESC
     `
 
@@ -193,21 +187,15 @@ func (r *RoomRepository) GetInvitations(ctx context.Context, userID int) ([]Room
 	var invitations []RoomInvitation
 	for rows.Next() {
 		var invitation RoomInvitation
-		var respondedAt time.Time
 
 		err := rows.Scan(
 			&invitation.ID, &invitation.RoomID, &invitation.InviterID, &invitation.InviteeID,
-			&invitation.Status, &invitation.CreatedAt, &respondedAt,
+			&invitation.Status, &invitation.CreatedAt,
 			&invitation.RoomName, &invitation.RoomDescription,
 			&invitation.InviterUsername, &invitation.InviterDisplayName)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan invitation: %w", err)
-		}
-
-		// Only set RespondedAt if it's not the default timestamp
-		if respondedAt.Year() > 1970 {
-			invitation.RespondedAt = &respondedAt
 		}
 
 		invitations = append(invitations, invitation)
@@ -216,9 +204,6 @@ func (r *RoomRepository) GetInvitations(ctx context.Context, userID int) ([]Room
 	return invitations, nil
 }
 
-// 🔧 UTILITY METHODS for WebSocket operations (these support WebSocket but don't replace it)
-
-// IsRoomMember - needed for WebSocket validation
 func (r *RoomRepository) IsRoomMember(ctx context.Context, roomID, userID int) (bool, string, error) {
 	query := `
         SELECT role FROM room_members
@@ -238,9 +223,7 @@ func (r *RoomRepository) IsRoomMember(ctx context.Context, roomID, userID int) (
 	return true, role, nil
 }
 
-// InviteToRoom - needed for WebSocket invite handling
 func (r *RoomRepository) InviteToRoom(ctx context.Context, roomID, inviterID, inviteeID int, redisClient interface{}) (int, error) {
-	// Validate inviter permissions
 	isMember, role, err := r.IsRoomMember(ctx, roomID, inviterID)
 	if err != nil {
 		return 0, err
@@ -250,12 +233,11 @@ func (r *RoomRepository) InviteToRoom(ctx context.Context, roomID, inviterID, in
 		return 0, errors.New("you don't have permission to invite users to this room")
 	}
 
-	// Check if already has pending invitation
 	var existingInvitation bool
 	existQuery := `
         SELECT EXISTS(
             SELECT 1 FROM room_invitations
-            WHERE room_id = $1 AND invitee_id = $2 AND status = 'pending'
+            WHERE room_id = $1 AND invited_user = $2 AND status = 'pending'
         )
     `
 
@@ -281,7 +263,7 @@ func (r *RoomRepository) InviteToRoom(ctx context.Context, roomID, inviterID, in
 	// Create invitation
 	var invitationID int
 	query := `
-        INSERT INTO room_invitations (room_id, inviter_id, invitee_id, status, created_at)
+        INSERT INTO room_invitations (room_id, invited_by, invited_user, status, created_at)
         VALUES ($1, $2, $3, 'pending', NOW())
         RETURNING id
     `
@@ -306,9 +288,9 @@ func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, 
 	var roomID, inviterID, inviteeID int
 	var status string
 	inviteQuery := `
-        SELECT room_id, inviter_id, invitee_id, status
+        SELECT room_id, invited_by, invited_user, status
         FROM room_invitations
-        WHERE id = $1 AND invitee_id = $2 AND status = 'pending'
+        WHERE id = $1 AND invited_user = $2 AND status = 'pending'
     `
 
 	err = tx.QueryRow(ctx, inviteQuery, invitationID, userID).
@@ -321,7 +303,6 @@ func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, 
 		return fmt.Errorf("failed to get invitation: %w", err)
 	}
 
-	// Update invitation status
 	newStatus := "declined"
 	if accept {
 		newStatus = "accepted"
@@ -329,7 +310,7 @@ func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, 
 
 	updateQuery := `
         UPDATE room_invitations
-        SET status = $1, responded_at = NOW()
+        SET status = $1, updated_at= NOW()
         WHERE id = $2
     `
 
@@ -338,11 +319,11 @@ func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, 
 		return fmt.Errorf("failed to update invitation: %w", err)
 	}
 
-	// If accepted, add user to room
 	if accept {
 		memberQuery := `
             INSERT INTO room_members (room_id, user_id, role, joined_at)
             VALUES ($1, $2, 'member', NOW())
+            ON CONFLICT (room_id, user_id) DO NOTHING
         `
 
 		_, err = tx.Exec(ctx, memberQuery, roomID, userID)
@@ -352,4 +333,31 @@ func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, 
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (r *RoomRepository) GetInvitationByID(ctx context.Context, invitationID int) (*RoomInvitation, error) {
+	query := `
+        SELECT 
+            i.id, i.room_id, i.invited_by, i.invited_user, i.status, i.created_at,
+            r.name as room_name, r.description as room_description,
+            u.username as inviter_username, COALESCE(u.display_name, u.username) as inviter_display_name
+        FROM room_invitations i
+        JOIN watch_rooms r ON i.room_id = r.id
+        JOIN users u ON i.invited_by = u.id
+        WHERE i.id = $1
+    `
+
+	var invitation RoomInvitation
+	err := r.db.QueryRow(ctx, query, invitationID).Scan(
+		&invitation.ID, &invitation.RoomID, &invitation.InviterID, &invitation.InviteeID,
+		&invitation.Status, &invitation.CreatedAt,
+		&invitation.RoomName, &invitation.RoomDescription,
+		&invitation.InviterUsername, &invitation.InviterDisplayName,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get invitation: %w", err)
+	}
+
+	return &invitation, nil
 }

@@ -74,7 +74,7 @@ export default function useFriends(token: string): {
         const data = await res.json()
         const friendRequestsData: FriendRequest[] = data.requests || []
         setFriendRequests(friendRequestsData)
-        console.log('🔔 Friend requests data:', friendRequestsData)
+        console.log('Friend requests data:', friendRequestsData)
         localStorage.setItem('friendRequests', JSON.stringify(friendRequestsData))
         setLoading(false)
       } else {
@@ -221,12 +221,10 @@ export default function useFriends(token: string): {
 
   const searchUser = useCallback(
     async (query: string): Promise<SearchUser[]> => {
-      // 🔧 Clear previous timeout
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current)
       }
 
-      // 🔧 Don't search if query is too short
       if (query.length < 2) {
         return []
       }
@@ -247,7 +245,7 @@ export default function useFriends(token: string): {
               const response = await res.json()
               const searchResults: SearchUser[] = response.users || response || []
               const mappedResults = searchResults.map((user: any) => ({
-                id: user.id.toString(), // Convert to string
+                id: user.id.toString(),
                 username: user.username,
                 display_name: user.display_name || user.username,
                 avatar: user.profile_picture_url

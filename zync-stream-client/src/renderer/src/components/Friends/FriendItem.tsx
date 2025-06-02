@@ -1,19 +1,22 @@
 import { Friend } from '@/types'
+import { Plus, MessageCircle } from 'lucide-react'
 
 interface FriendItemProps {
   friend: Friend
-  onInvite: () => void
+  isInRoom: boolean
+  onInvite: (username: string) => void
   onMessage: () => void
 }
 
 // FriendItem.tsx - Add status indicators
 export default function FriendItem({
   friend,
+  isInRoom,
   onInvite,
   onMessage
 }: FriendItemProps): React.ReactElement {
   // Status color mapping
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case 'online':
         return 'bg-green-500'
@@ -30,15 +33,13 @@ export default function FriendItem({
   return (
     <div className="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors">
       <div className="flex items-center gap-3">
-        {/* Avatar with status indicator */}
         <div className="relative">
-          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
             <span className="text-white text-sm font-medium">
               {friend.display_name?.charAt(0).toUpperCase() ||
                 friend.username.charAt(0).toUpperCase()}
             </span>
           </div>
-          {/* 🆕 Status indicator dot */}
           <div
             className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 ${getStatusColor(friend.status)} border-2 border-gray-900 rounded-full`}
           />
@@ -49,19 +50,34 @@ export default function FriendItem({
             {friend.display_name || friend.username}
           </div>
           <div className="text-white/60 text-xs">@{friend.username}</div>
-          {/* 🆕 Activity status */}
           {friend.activity && <div className="text-white/50 text-xs mt-0.5">{friend.activity}</div>}
         </div>
       </div>
 
-      {/* Action buttons */}
       <div className="flex gap-2">
         <button onClick={onMessage} className="text-white/60 hover:text-white">
-          💬
+          <MessageCircle className="w-5 h-5" />
         </button>
-        <button onClick={onInvite} className="text-white/60 hover:text-white">
-          🎬
-        </button>
+        {isInRoom ? (
+          <button
+            onClick={() => {
+              onInvite(friend.username)
+            }}
+            className="text-white/60 hover:text-white"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              onInvite(friend.username)
+            }}
+            className="text-white/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 hover:text-white"
+            disabled={true}
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
       </div>
     </div>
   )
