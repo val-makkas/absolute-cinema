@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import useFriends from '@/hooks/useFriends'
 import { useRoom } from './hooks/useRoom'
@@ -14,7 +15,6 @@ import VideoPlayer from '@/components/VideoPlayer'
 import HomePage from '@/pages/HomePage'
 import DiscoverPage from '@/pages/DiscoverPage'
 import { User } from '@/types'
-import { useMovies } from './hooks/useMovies'
 
 interface AuthenticatedAppProps {
   token: string
@@ -31,11 +31,12 @@ export default function AuthenticatedApp({
   logout,
   updateExtensions
 }: AuthenticatedAppProps): React.ReactElement {
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [searching, setSearching] = useState<boolean>(false)
+
   const navigate = useNavigate()
 
   const { connected: wsConnected } = useWebSocketConnection(token)
-
-  const { searchCatalog } = useMovies(token)
 
   const {
     friends,
@@ -124,6 +125,11 @@ export default function AuthenticatedApp({
     else if (key === 'extensions') setExtensionsOpen(true)
   }
 
+  const handleSearch = (query: string): void => {
+    setSearchQuery(query)
+    setSearching(query.length > 3)
+  }
+
   return (
     <>
       <DetailsModal
@@ -156,7 +162,7 @@ export default function AuthenticatedApp({
             <div>
               <Sidebar
                 onSelect={handleSidebar}
-                onSearchValue={() => {}}
+                onSearchValue={handleSearch}
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
@@ -170,7 +176,6 @@ export default function AuthenticatedApp({
                 party={room?.members}
                 isHost={room?.userRole === 'owner'}
                 onCreateParty={createRoom}
-                onInviteFriend={() => {}}
                 onKickMember={() => {}}
                 onStartParty={() => {}}
                 onLeaveParty={leaveRoom}
@@ -192,7 +197,7 @@ export default function AuthenticatedApp({
             <div>
               <Sidebar
                 onSelect={handleSidebar}
-                onSearchValue={() => {}}
+                onSearchValue={handleSearch}
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
@@ -206,7 +211,6 @@ export default function AuthenticatedApp({
                 party={room?.members}
                 isHost={room?.userRole === 'owner'}
                 onCreateParty={createRoom}
-                onInviteFriend={() => {}}
                 onKickMember={() => {}}
                 onStartParty={() => {}}
                 onLeaveParty={leaveRoom}
@@ -223,7 +227,11 @@ export default function AuthenticatedApp({
                 roomInvitations={roomInvitations}
                 respondToInvitation={respondToInvitation}
               />
-              <DiscoverPage token={token} onMovieClick={handleMovieClick} />
+              <DiscoverPage
+                token={token}
+                onMovieClick={handleMovieClick}
+                searchQuery={searchQuery}
+              />
             </div>
           }
         />
@@ -233,7 +241,7 @@ export default function AuthenticatedApp({
             <div>
               <Sidebar
                 onSelect={handleSidebar}
-                onSearchValue={() => {}}
+                onSearchValue={handleSearch}
                 onLogout={logout}
                 username={user?.display_name || null}
                 searching={false}
@@ -247,7 +255,6 @@ export default function AuthenticatedApp({
                 party={room?.members}
                 isHost={room?.userRole === 'owner'}
                 onCreateParty={createRoom}
-                onInviteFriend={() => {}}
                 onKickMember={() => {}}
                 onStartParty={() => {}}
                 onLeaveParty={leaveRoom}

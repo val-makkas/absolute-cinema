@@ -63,9 +63,15 @@ export interface useRoomReturn {
 export function useRoom(token: string, user: User | null, roomId?: number): useRoomReturn {
   const [messages, setMessages] = useState<RoomMessage[]>([])
   const [connected, setConnected] = useState(false)
-  const [room, setRoom] = useState<Room | null>(null)
   const [role, setRole] = useState<'owner' | 'member' | null>(null)
-  const [currentRoom, setCurrentRoom] = useState<number | null>(null)
+  const [room, setRoom] = useState<Room | null>(() => {
+    const savedRoom = localStorage.getItem('current_room')
+    return savedRoom ? JSON.parse(savedRoom) : null
+  })
+  const [currentRoom, setCurrentRoom] = useState<number | null>(() => {
+    const savedRoomId = localStorage.getItem('current_room_id')
+    return savedRoomId ? parseInt(savedRoomId) : null
+  })
   const [roomInvitations, setRoomInvitations] = useState<RoomInvitation[]>([])
 
   const isInRoom = room !== null
@@ -96,15 +102,12 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       if (res.ok) {
         const roomData = await res.json()
         setRoom(roomData.room)
-        console.log(roomData.room)
         if (roomData.room?.id) {
           joinRoom(parseInt(roomData.room?.id))
         }
-      } else {
-        console.log('Error creating room')
       }
     } catch {
-      console.log('Possible network error.')
+      //
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, joinRoom])
@@ -125,11 +128,10 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
             userRole: roomData.user_role
           }
           setRoom(extractedRoom)
-        } else {
-          console.log('Error getting room')
+          localStorage.setItem('current_room', JSON.stringify(extractedRoom))
         }
       } catch {
-        console.log('Possible network error.')
+        //
       }
     },
     [token]
@@ -143,13 +145,10 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
           headers: { Authorization: `Bearer ${token}` }
         })
         if (res.ok) {
-          console.log('Successfully deleted room.')
           setRoom(null)
-        } else {
-          console.log('You dont have permission to delete this party')
         }
       } catch {
-        console.log('Possible network error.')
+        //
       }
     },
     [token]
@@ -157,8 +156,6 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
 
   const handleRoomMessage = useCallback(
     (data: any) => {
-      console.log('Room: Received message:', data.type)
-
       if (data.type === 'room_invitation') {
         const invitation: RoomInvitation = {
           invitation_id: data.data.invitation_id,
@@ -174,9 +171,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       }
 
       if (data.type === 'member_list_update') {
-        console.log('Member list updated:', data.data)
-
-        if (data.data.members && room) {
+        if (data.data.members) {
           setRoom((prev) => {
             if (!prev) return null
             return {
@@ -193,25 +188,17 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       }
 
       if (data.type === 'success') {
-        console.log('Room success:', data.message)
 
         if (data.message === 'Joined room successfully') {
           if (data.data?.role) {
             setRole(data.data.role === 'owner' ? 'owner' : 'member')
-            console.log(data.data.role)
           }
 
           if (data.data?.room_id) {
-            getRoom(data.data.room_id.toString())
+            localStorage.setItem('current_room_id', data.data?.room_id)
+            getRoom(data.data.room_id)
           }
         }
-      }
-
-      if (data.type === 'error') {
-        console.error('Room error:', data.message)
-      }
-      if (data.type === 'error') {
-        console.log(data.message)
       }
     },
     [getRoom]
@@ -223,9 +210,10 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       data: {}
     })
     if (role === 'owner' && room?.id) {
-      console.log(room?.id)
       deleteRoom(room?.id)
     }
+    localStorage.removeItem('current_room')
+    localStorage.removeItem('current_room_id')
     setCurrentRoom(null)
     setRoom(null)
     setMessages([])
@@ -240,12 +228,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
 
   const inviteToRoom = useCallback(
     (username: string) => {
-      console.log('🔍 Full room object:', room)
-      console.log('🔍 Room ID:', room?.id, 'Type:', typeof room?.id)
-      console.log('🔍 Room keys:', room ? Object.keys(room) : 'no room')
-
       if (room?.id) {
-        console.log('✅ Sending invitation with room ID:', room.id)
         websocketService.send({
           type: 'invite_to_room',
           data: {
@@ -253,8 +236,6 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
             username: username
           }
         })
-      } else {
-        console.error('❌ No room ID available for invitation')
       }
     },
     [room?.id]
@@ -313,7 +294,6 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
           handleRoomMessage
         )
         setConnected(true)
-        console.log('Room: Subscribed to messages')
 
         if (roomId) {
           joinRoom(roomId)
@@ -332,7 +312,6 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
       }
       websocketService.unsubscribe('room')
       setConnected(false)
-      console.log('Room: Unsubscribed')
     }
   }, [token, roomId])
 

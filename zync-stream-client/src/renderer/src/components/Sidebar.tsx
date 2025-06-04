@@ -1,4 +1,4 @@
-import { use, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -120,7 +120,6 @@ export default function Sidebar({
             className="rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
             onClick={() => onSelect('home')}
             title="Home"
-            style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
           >
             <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <Home className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
@@ -131,7 +130,6 @@ export default function Sidebar({
             className="rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
             onClick={() => onSelect('discover')}
             title="Discover"
-            style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
           >
             <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <Compass className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
@@ -142,7 +140,6 @@ export default function Sidebar({
             className="rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
             onClick={() => onSelect('extensions')}
             title="Extensions"
-            style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
           >
             <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
             <Puzzle className="w-10 h-10 text-white relative z-10 group-hover:text-white" />
@@ -154,7 +151,6 @@ export default function Sidebar({
           className="mt-auto mb-4 rounded-xl relative group focus-visible:ring-2 focus-visible:ring-white/30 border border-transparent transition-all hover:scale-105"
           onClick={onLogout}
           title="Logout"
-          style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
         >
           <span className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
           <LogOut className="w-6 h-6 text-white relative z-10 group-hover:text-white" />
@@ -200,7 +196,9 @@ export default function Sidebar({
             onChange={(e) => setSearchInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                onSearchValue && onSearchValue(e.currentTarget.value.trim())
+                const query = e.currentTarget.value.trim()
+                onSearchValue && onSearchValue(query)
+                onSelect('discover')
               } else if (e.key === 'Escape') {
                 setSearchInputValue('')
                 onSearchValue && onSearchValue('')

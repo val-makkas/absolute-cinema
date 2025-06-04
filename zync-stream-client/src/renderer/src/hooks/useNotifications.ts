@@ -21,7 +21,7 @@ export default function useNotifications(
 
   const handleMessage = useCallback(
     (data: any) => {
-      console.log('🔔 Notifications: Received message:', data.type)
+      console.log('Notifications: Received message:', data.type)
 
       if (data.type === 'notification') {
         if (onNotificationReceived) {

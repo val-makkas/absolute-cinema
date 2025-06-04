@@ -175,11 +175,11 @@ export function useMovies(
         setLoading(false)
       }
     },
-    [type, catalog, movies, getCacheKey]
+    [type, catalog, getCacheKey]
   )
 
   const loadMore = (): void => {
-    if (loading) return
+    if (loading || searchQuery) return
     const nextPage = page + 1
     setPage(nextPage)
     fetchPopular(nextPage)
@@ -189,16 +189,14 @@ export function useMovies(
 
   useEffect(() => {
     setPage(1)
-    if (!searchQuery) fetchPopular(1)
-  }, [fetchPopular, searchQuery])
-
-  useEffect(() => {
+    setMovies([])
+    setError(null)
     if (searchQuery && searchQuery.length >= 3) {
       searchCatalog(searchQuery)
-    } else if (searchQuery === '') {
+    } else {
       fetchPopular(1)
     }
-  }, [fetchPopular, searchCatalog, searchQuery])
+  }, [searchQuery, type, catalog])
 
   return {
     movies,

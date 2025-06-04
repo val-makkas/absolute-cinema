@@ -1,4 +1,4 @@
-/client/node_modules
+/zync-stream-client/node_modules
 .DS_Store
 /dist
 /build
@@ -6,8 +6,8 @@
 *.log
 *.key
 *.cert
-/client/service/downloads
-/client/dist
+/zync-stream-client/service/downloads
+/zync-stream-client/build
 /zync-stream-torrentstream
 
 tools/window-merger/*

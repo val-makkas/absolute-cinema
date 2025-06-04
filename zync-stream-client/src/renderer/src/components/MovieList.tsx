@@ -17,6 +17,7 @@ interface MovieListProps {
   moviesError?: string | null
   onMovieClick: (movie: Movie) => void
   type: 'movie' | 'series'
+  search?: string
   catalog: 'IMDB' | 'CINE' | 'PDM'
   onCatalogChange: (catalog: 'IMDB' | 'CINE' | 'PDM') => void
   onTypeChange: (type: 'movie' | 'series') => void
@@ -29,6 +30,7 @@ export default function MovieList({
   moviesError,
   onMovieClick,
   type,
+  search = '',
   catalog,
   onCatalogChange,
   onTypeChange,
@@ -36,10 +38,12 @@ export default function MovieList({
 }: MovieListProps): React.ReactElement {
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false)
 
+  console.log('MovieList search prop:', search, 'length:', search?.length)
+
   useEffect(() => {
     let scrollTimeout: NodeJS.Timeout
     let lastFetchTime = 0
-    const minTimeBetweenFetches = 2000 // 2 seconds minimum between fetches
+    const minTimeBetweenFetches = 2000
 
     function handleScroll(): void {
       if (scrollTimeout) clearTimeout(scrollTimeout)
@@ -73,29 +77,37 @@ export default function MovieList({
     <main className="w-full min-h-screen flex flex-col justify-start pl-2 mt-15 pr-80 pb-12 pt-8 animate-fade-in relative">
       <div className="w-full relative z-10 mb-6">
         <div className="flex ml-20 flex-row gap-4 items-center">
-          <div className="relative z-10">
-            <Select value={catalog} onValueChange={onCatalogChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select Catalog" />
-              </SelectTrigger>
-              <SelectContent position="popper" className="z-10">
-                <SelectItem value="CINE">Cinemeta</SelectItem>
-                <SelectItem value="IMDB">IMDB</SelectItem>
-                <SelectItem value="PDM">Public Domain Movies</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="relative z-15">
-            <Select value={type} onValueChange={onTypeChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent position="popper" className="z-10">
-                <SelectItem value="movie">Movies</SelectItem>
-                <SelectItem value="series">Series</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {search && search.length >= 3 ? (
+            <h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+              Search Results for &quot;{search}&quot;
+            </h2>
+          ) : (
+            <>
+              <div className="relative z-10">
+                <Select value={catalog} onValueChange={onCatalogChange}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Catalog" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="z-10">
+                    <SelectItem value="CINE">Cinemeta</SelectItem>
+                    <SelectItem value="IMDB">IMDB</SelectItem>
+                    <SelectItem value="PDM">Public Domain Movies</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative z-15">
+                <Select value={type} onValueChange={onTypeChange}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" className="z-10">
+                    <SelectItem value="movie">Movies</SelectItem>
+                    <SelectItem value="series">Series</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
