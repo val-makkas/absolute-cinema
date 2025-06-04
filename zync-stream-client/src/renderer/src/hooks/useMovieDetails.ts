@@ -7,7 +7,6 @@ type MovieDetails = entry | null
 type DetailsCache = Record<string, MovieDetails | undefined>
 const detailsCache: DetailsCache = {}
 
-// Helper: Only cache valid details (adjust fields as needed)
 const isValidDetails = (data: any): data is MovieDetails => {
   return data && typeof data === 'object' && data.name
 }

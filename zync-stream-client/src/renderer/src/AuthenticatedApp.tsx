@@ -222,6 +222,7 @@ export default function AuthenticatedApp({
                 friendsError={friendsError}
                 onFriendAction={onFriendAction}
                 searchUser={searchUser}
+                room={room}
                 isInRoom={isInRoom}
                 sendInvite={inviteToRoom}
                 roomInvitations={roomInvitations}
@@ -266,6 +267,7 @@ export default function AuthenticatedApp({
                 friendsError={friendsError}
                 onFriendAction={onFriendAction}
                 searchUser={searchUser}
+                room={room}
                 isInRoom={isInRoom}
                 sendInvite={inviteToRoom}
                 roomInvitations={roomInvitations}

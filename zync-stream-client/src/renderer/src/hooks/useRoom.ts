@@ -1,14 +1,15 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { websocketService } from '../services/websocketService'
 import { User } from '@/types'
+import sound from '@/assets/sounds/mixkit-message-pop-alert-2354.mp3'
 
 const API_BASE = 'http://localhost:8080/api/rooms'
 
 export interface RoomMember {
-  roomID: number
-  userID: number
+  room_od: number
+  user_id: number
   role: string
-  joinedAt: string
+  joined_at: string
   username: string
   display_name: string
   avatar_url?: string
@@ -74,7 +75,34 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
   })
   const [roomInvitations, setRoomInvitations] = useState<RoomInvitation[]>([])
 
+  const memberUpdateAudioRef = useRef<HTMLAudioElement | null>(null)
+
   const isInRoom = room !== null
+
+  useEffect(() => {
+    memberUpdateAudioRef.current = new Audio(sound)
+    memberUpdateAudioRef.current.volume = 1
+    memberUpdateAudioRef.current.play().catch((error) => {
+      console.log('audio ERROR', error)
+    })
+
+    memberUpdateAudioRef.current.load()
+
+    return () => {
+      if (memberUpdateAudioRef.current) {
+        memberUpdateAudioRef.current = null
+      }
+    }
+  }, [])
+
+  const playMemberUpdateSound = useCallback(() => {
+    if (memberUpdateAudioRef.current) {
+      memberUpdateAudioRef.current.currentTime = 0
+      memberUpdateAudioRef.current.play().catch((error) => {
+        console.log('audio error', error)
+      })
+    }
+  }, [])
 
   const joinRoom = useCallback((roomId: number) => {
     websocketService.send({
@@ -157,6 +185,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
   const handleRoomMessage = useCallback(
     (data: any) => {
       if (data.type === 'room_invitation') {
+        playMemberUpdateSound()
         const invitation: RoomInvitation = {
           invitation_id: data.data.invitation_id,
           inviter_id: data.data.inviter_id,
@@ -183,12 +212,55 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
         return
       }
 
+      if (data.type === 'user_left') {
+        setRoom((prev) => {
+          if (!prev) return null
+          const filteredMembers = prev.members?.filter((member) => {
+            return member.user_id !== data.data.user_id
+          })
+          return {
+            ...prev,
+            members: filteredMembers
+          }
+        })
+      }
+
+      if (data.type === 'ownership_transfer') {
+        console.log('Ownership transferred to:', data.data.new_owner_username)
+        setRoom((prev) => {
+          if (!prev) return null
+          const changedOwnerMembers = prev.members?.map((member) => {
+            if (member.user_id === data.data.new_owner_id) return { ...member, role: 'owner' }
+            if (member.role === 'owner') {
+              return { ...member, role: 'member' }
+            }
+            return member
+          })
+          return {
+            ...prev,
+            members: changedOwnerMembers,
+            ownerId: data.data.new_owner_id
+          }
+        })
+
+        if (user && data.data.new_owner_id === user.id) {
+          setRole('owner')
+          console.log('🎉 You are now the room owner!')
+        } else if (role === 'owner') {
+          setRole('member')
+        }
+      }
+
+      if (data.type === 'room_deleted') {
+        setRoom(null)
+        setCurrentRoom(null)
+      }
+
       if (['chat_message', 'playback_update', 'user_joined', 'user_left'].includes(data.type)) {
         setMessages((prev) => [...prev, data])
       }
 
       if (data.type === 'success') {
-
         if (data.message === 'Joined room successfully') {
           if (data.data?.role) {
             setRole(data.data.role === 'owner' ? 'owner' : 'member')
@@ -201,7 +273,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
         }
       }
     },
-    [getRoom]
+    [getRoom, playMemberUpdateSound]
   )
 
   const leaveRoom = useCallback(() => {
@@ -284,6 +356,8 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
           [
             'room_invitation',
             'member_list_update',
+            'ownership_transfer',
+            'room_deleted',
             'chat_message',
             'playback_update',
             'user_joined',

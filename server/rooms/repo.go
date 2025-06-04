@@ -10,22 +10,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// RoomRepository handles database operations for rooms
 type RoomRepository struct {
 	db *pgxpool.Pool
 }
 
-// NewRoomRepository creates a new RoomRepository
 func NewRoomRepository(db *pgxpool.Pool) *RoomRepository {
 	return &RoomRepository{db: db}
 }
 
-// 🔧 Add GetDB for WebSocket compatibility
 func (r *RoomRepository) GetDB() *pgxpool.Pool {
 	return r.db
 }
 
-// 🔧 Add GetUserIDByUsername for WebSocket invitation handling
 func (r *RoomRepository) GetUserIDByUsername(ctx context.Context, username string) (int, error) {
 	var userID int
 	err := r.db.QueryRow(ctx, "SELECT id FROM users WHERE username = $1", username).Scan(&userID)
@@ -53,7 +49,6 @@ func (r *RoomRepository) Create(ctx context.Context, room *Room) error {
 		return fmt.Errorf("failed to create room: %w", err)
 	}
 
-	// Add owner as a member
 	memberQuery := `
         INSERT INTO room_members (room_id, user_id, role)
         VALUES ($1, $2, $3)
@@ -150,14 +145,36 @@ func (r *RoomRepository) Update(ctx context.Context, room *Room) error {
 	return nil
 }
 
-func (r *RoomRepository) Delete(ctx context.Context, roomID int) error {
-	query := `
-        UPDATE watch_rooms 
-        SET status = 'inactive', updated_at = NOW()
-        WHERE id = $1
-    `
+func (r *RoomRepository) UpdateMemberRole(ctx context.Context, roomID, userID int, role string) error {
+	query := `UPDATE room_members SET role = $1 WHERE room_id = $2 AND user_id = $3`
+	_, err := r.db.Exec(ctx, query, role, roomID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update member role: %w", err)
+	}
+	return nil
+}
 
-	_, err := r.db.Exec(ctx, query, roomID)
+func (r *RoomRepository) UpdateRoomOwner(ctx context.Context, roomID, newOwnerID int) error {
+	query := `UPDATE watch_rooms SET owner_id = $1 WHERE id = $2`
+	_, err := r.db.Exec(ctx, query, newOwnerID, roomID)
+	if err != nil {
+		return fmt.Errorf("failed to update room owner: %w", err)
+	}
+	return nil
+}
+
+func (r *RoomRepository) Delete(ctx context.Context, roomID int) error {
+	_, err := r.db.Exec(ctx, "DELETE FROM room_members WHERE room_id = $1", roomID)
+	if err != nil {
+		return fmt.Errorf("failed to delete room members: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, "DELETE FROM room_invitations WHERE room_id = $1", roomID)
+	if err != nil {
+		return fmt.Errorf("failed to delete room invitations: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, "DELETE FROM watch_rooms WHERE id = $1", roomID)
 	if err != nil {
 		return fmt.Errorf("failed to delete room: %w", err)
 	}
@@ -224,12 +241,12 @@ func (r *RoomRepository) IsRoomMember(ctx context.Context, roomID, userID int) (
 }
 
 func (r *RoomRepository) InviteToRoom(ctx context.Context, roomID, inviterID, inviteeID int, redisClient interface{}) (int, error) {
-	isMember, role, err := r.IsRoomMember(ctx, roomID, inviterID)
+	isMember, _, err := r.IsRoomMember(ctx, roomID, inviterID)
 	if err != nil {
 		return 0, err
 	}
 
-	if !isMember || (role != RoleOwner && role != RoleAdmin) {
+	if !isMember {
 		return 0, errors.New("you don't have permission to invite users to this room")
 	}
 
@@ -276,7 +293,6 @@ func (r *RoomRepository) InviteToRoom(ctx context.Context, roomID, inviterID, in
 	return invitationID, nil
 }
 
-// RespondToInvitation - needed for WebSocket invitation response
 func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, userID int, accept bool, redisClient interface{}) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -284,7 +300,6 @@ func (r *RoomRepository) RespondToInvitation(ctx context.Context, invitationID, 
 	}
 	defer tx.Rollback(ctx)
 
-	// Get invitation details
 	var roomID, inviterID, inviteeID int
 	var status string
 	inviteQuery := `
@@ -360,4 +375,23 @@ func (r *RoomRepository) GetInvitationByID(ctx context.Context, invitationID int
 	}
 
 	return &invitation, nil
+}
+
+func (r *RoomRepository) RemoveUserFromRoom(ctx context.Context, roomID, userID int) error {
+	query := `DELETE FROM room_members WHERE room_id = $1 AND user_id = $2`
+	_, err := r.db.Exec(ctx, query, roomID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to remove user from room: %w", err)
+	}
+	return nil
+}
+
+func (r *RoomRepository) CleanupUserInvitations(ctx context.Context, roomID, userID int) error {
+	query := `DELETE FROM room_invitations WHERE room_id = $1 AND invited_user = $2 AND status IN ('pending', 'accepted')`
+	_, err := r.db.Exec(ctx, query, roomID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to cleanup user invitations: %w", err)
+	}
+
+	return nil
 }

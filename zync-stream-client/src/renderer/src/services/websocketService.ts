@@ -10,7 +10,7 @@ class WebSocketService {
   private socket: WebSocket | null = null
   private subscriptions: Map<string, WebSocketSubscription> = new Map()
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
+  private maxReconnectAttempts = 1
   private token: string | null = null
   private isConnected = false
   private isConnecting = false
@@ -117,10 +117,8 @@ class WebSocketService {
   }
 
   subscribe(id: string, messageTypes: string[], handler: MessageHandler) {
-    // 🔧 Check if already subscribed
     if (this.subscriptions.has(id)) {
       console.log(`WebSocket: ${id} already subscribed, updating handler`)
-      // Update existing subscription
       this.subscriptions.set(id, { id, handler, messageTypes })
       return
     }
@@ -143,18 +141,17 @@ class WebSocketService {
 
     for (const subscription of this.subscriptions.values()) {
       if (subscription.messageTypes.includes(data.type)) {
-        console.log(`📬 WebSocket: Delivering to ${subscription.id}`)
         try {
           subscription.handler(data)
-        } catch (error) {
-          console.error(`❌ WebSocket: Error in handler for ${subscription.id}:`, error)
+        } catch {
+          //
         }
       }
     }
   }
 
   private handleReconnect(event: CloseEvent) {
-    if (event.code === 1000) return // Normal closure
+    if (event.code === 1000) return
 
     if (this.reconnectAttempts < this.maxReconnectAttempts && this.token) {
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
@@ -168,7 +165,7 @@ class WebSocketService {
         if (this.token) {
           console.log('WebSocket: Attempting to reconnect...')
           this.connect(this.token).catch((error) => {
-            console.error('❌ WebSocket: Reconnection failed:', error)
+            console.error('WebSocket: Reconnection failed:', error)
           })
         }
       }, delay)
@@ -194,12 +191,10 @@ class WebSocketService {
     return this.isConnected && this.socket?.readyState === WebSocket.OPEN
   }
 
-  // 🆕 Add method to check if specific subscription exists
   hasSubscription(id: string): boolean {
     return this.subscriptions.has(id)
   }
 
-  // 🆕 Add method to get current token
   getCurrentToken(): string | null {
     return this.token
   }

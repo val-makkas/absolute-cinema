@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Users, UserPlus, Search, ArrowLeft, PartyPopper } from 'lucide-react'
 import { Friend, FriendRequest } from '@/types'
 import FriendItem from './FriendItem'
-import { RoomInvitation } from '@renderer/hooks/useRoom'
+import { Room, RoomInvitation } from '@/hooks/useRoom'
 import RoomInvitationCard from './RoomInvitationCard'
-import { is } from '@electron-toolkit/utils'
 
 interface FriendsSidebarProps {
   friends: Friend[]
@@ -13,6 +12,7 @@ interface FriendsSidebarProps {
   friendsError: string | null
   onFriendAction: (action: 'send' | 'accept' | 'reject' | 'invite', payload: string) => void
   searchUser: (query: string) => Promise<SearchUser[]>
+  room?: Room
   isInRoom: boolean
   roomInvitations: RoomInvitation[]
   sendInvite: (username: string) => void
@@ -33,6 +33,7 @@ export default function FriendsSidebar({
   friendsError,
   onFriendAction,
   searchUser,
+  room,
   isInRoom,
   roomInvitations,
   sendInvite,
@@ -198,6 +199,7 @@ export default function FriendsSidebar({
                     <FriendItem
                       key={f.id}
                       friend={f}
+                      room={room}
                       isInRoom={isInRoom}
                       onInvite={sendInvite}
                       onMessage={() => console.log(`DM ${f.username}`)}

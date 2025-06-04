@@ -63,6 +63,8 @@ func (rh *RoomHandler) HandleJoinRoom(data map[string]interface{}) error {
 	rh.currentRoom = &roomID
 	rh.joinRoom(roomID)
 
+	rh.broadcastMemberListUpdate(roomID)
+
 	log.Printf("User %d joined room %d as %s", rh.userID, roomID, role)
 	return nil
 }
@@ -157,9 +159,87 @@ func (rh *RoomHandler) HandleRespondToInvitation(data map[string]interface{}) er
 
 func (rh *RoomHandler) HandleLeaveRoom() {
 	if rh.currentRoom != nil {
-		rh.leaveRoom(*rh.currentRoom)
+		roomID := *rh.currentRoom
+
+		roomRepo := GetRoomRepository()
+		if roomRepo != nil {
+			ctx := context.Background()
+			_, role, err := roomRepo.IsRoomMember(ctx, roomID, rh.userID)
+			if err != nil {
+				log.Printf("Failed to check membership: %v", err)
+				return
+			}
+
+			if role == "owner" {
+				err := rh.handleOwnerLeaving(ctx, roomRepo, roomID)
+				if err != nil {
+					log.Printf("Failed to handle owner leaving: %v", err)
+					return
+				}
+			} else {
+				if err := roomRepo.RemoveUserFromRoom(ctx, roomID, rh.userID); err != nil {
+					log.Printf("Failed to remove user %d from room %d: %v", rh.userID, roomID, err)
+				} else {
+					log.Printf("User %d removed from room %d database", rh.userID, roomID)
+				}
+			}
+
+			if err := roomRepo.CleanupUserInvitations(ctx, roomID, rh.userID); err != nil {
+				log.Printf("Failed to cleanup invitations for user %d in room %d: %v", rh.userID, roomID, err)
+			}
+		}
+
+		rh.leaveRoom(roomID)
 		rh.currentRoom = nil
 	}
+}
+
+func (rh *RoomHandler) handleOwnerLeaving(ctx context.Context, roomRepo *rooms.RoomRepository, roomID int) error {
+	members, err := roomRepo.GetRoomMembers(ctx, roomID)
+	if err != nil {
+		return fmt.Errorf("failed to get room members: %w", err)
+	}
+
+	remainingMembers := make([]rooms.RoomMember, 0)
+	for _, member := range members {
+		if member.UserID != rh.userID {
+			remainingMembers = append(remainingMembers, member)
+		}
+	}
+
+	if len(remainingMembers) == 0 {
+		log.Printf("Owner %d leaving empty room %d - deleting room", rh.userID, roomID)
+
+		if err := roomRepo.Delete(ctx, roomID); err != nil {
+			return fmt.Errorf("failed to delete empty room: %w", err)
+		}
+
+	} else {
+		newOwner := remainingMembers[0]
+
+		log.Printf("Transferring ownership of room %d from user %d to user %d",
+			roomID, rh.userID, newOwner.UserID)
+
+		if err := roomRepo.UpdateRoomOwner(ctx, roomID, newOwner.UserID); err != nil {
+			return fmt.Errorf("failed to update room owner: %w", err)
+		}
+
+		if err := roomRepo.RemoveUserFromRoom(ctx, roomID, rh.userID); err != nil {
+			return fmt.Errorf("failed to remove owner: %w", err)
+		}
+
+		if err := roomRepo.UpdateMemberRole(ctx, roomID, newOwner.UserID, "owner"); err != nil {
+			return fmt.Errorf("failed to update new owner role: %w", err)
+		}
+
+		if err := roomRepo.CleanupUserInvitations(ctx, roomID, rh.userID); err != nil {
+			log.Printf("Failed to cleanup owner invitations: %v", err)
+		}
+
+		rh.broadcastOwnershipTransfer(roomID, newOwner.UserID, newOwner.Username)
+	}
+
+	return nil
 }
 
 func (rh *RoomHandler) HandleRoomMessage(data map[string]interface{}) error {
@@ -189,6 +269,25 @@ func (rh *RoomHandler) HandleRoomMessage(data map[string]interface{}) error {
 
 	rh.publishRoomEvent(*rh.currentRoom, event)
 	return nil
+}
+
+func (rh *RoomHandler) broadcastOwnershipTransfer(roomID, newOwnerID int, newOwnerUsername string) {
+	event := RoomEvent{
+		Type:      "ownership_transfer",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data: map[string]interface{}{
+			"old_owner_id":       rh.userID,
+			"old_owner_username": rh.username,
+			"new_owner_id":       newOwnerID,
+			"new_owner_username": newOwnerUsername,
+			"message":            fmt.Sprintf("%s left the room. %s is now the owner.", rh.username, newOwnerUsername),
+		},
+	}
+
+	rh.publishRoomEvent(roomID, event)
+	log.Printf("Ownership of room %d transferred from %s to %s", roomID, rh.username, newOwnerUsername)
 }
 
 func (rh *RoomHandler) HandlePlaybackSync(data map[string]interface{}) error {

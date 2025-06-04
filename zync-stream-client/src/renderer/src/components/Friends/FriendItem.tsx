@@ -1,9 +1,11 @@
 import { Friend } from '@/types'
+import { Room } from '@/hooks/useRoom'
 import { Plus, MessageCircle } from 'lucide-react'
 
 interface FriendItemProps {
   friend: Friend
   isInRoom: boolean
+  room?: Room
   onInvite: (username: string) => void
   onMessage: () => void
 }
@@ -12,10 +14,13 @@ interface FriendItemProps {
 export default function FriendItem({
   friend,
   isInRoom,
+  room,
   onInvite,
   onMessage
 }: FriendItemProps): React.ReactElement {
-  // Status color mapping
+  const isAlreadyInRoom =
+    room?.members?.some((member) => member.username === friend.username) || false
+
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'online':
@@ -58,7 +63,7 @@ export default function FriendItem({
         <button onClick={onMessage} className="text-white/60 hover:text-white">
           <MessageCircle className="w-5 h-5" />
         </button>
-        {isInRoom ? (
+        {isInRoom && !isAlreadyInRoom ? (
           <button
             onClick={() => {
               onInvite(friend.username)
@@ -67,6 +72,8 @@ export default function FriendItem({
           >
             <Plus className="w-5 h-5" />
           </button>
+        ) : isInRoom && isAlreadyInRoom ? (
+          <></>
         ) : (
           <button
             onClick={() => {
