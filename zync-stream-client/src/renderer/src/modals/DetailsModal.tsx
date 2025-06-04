@@ -33,7 +33,6 @@ export default function DetailsModal({
 
   const isSeries = details?.type === 'series'
   console.log(isSeries)
-  // Get unique providers from extensions
   const providers = [
     'All',
     ...Array.from(
@@ -41,7 +40,6 @@ export default function DetailsModal({
     )
   ]
 
-  // Fetch sources - using logic from Sources.tsx
   useEffect(() => {
     const fetchStreamingSources = async (): Promise<void> => {
       const imdbID = details.imdb_id
@@ -84,7 +82,7 @@ export default function DetailsModal({
               })
             )
           } catch {
-            // Ignore individual extension errors
+            //
           }
         }
         setSources(allSources)
@@ -195,7 +193,6 @@ export default function DetailsModal({
             </div>
           </div>
 
-          {/* Overview & details */}
           <div className="overflow-y-auto max-h-600px pr-4 custom-scrollbar mb-4">
             <p className="text-s text-white/90 mb-4 leading-relaxed text-center">
               {details?.description}

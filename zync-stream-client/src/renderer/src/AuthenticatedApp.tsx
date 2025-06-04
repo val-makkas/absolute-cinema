@@ -15,13 +15,14 @@ import VideoPlayer from '@/components/VideoPlayer'
 import HomePage from '@/pages/HomePage'
 import DiscoverPage from '@/pages/DiscoverPage'
 import { User } from '@/types'
+import { Extension } from '@/types'
 
 interface AuthenticatedAppProps {
   token: string
   user: User | null
-  extensions: any[]
+  extensions: Extension[]
   logout: () => void
-  updateExtensions: (extensions: any[]) => void
+  updateExtensions: (extensions: Extension[]) => Promise<void>
 }
 
 export default function AuthenticatedApp({
@@ -99,7 +100,7 @@ export default function AuthenticatedApp({
   } = useDetailsModal()
 
   const onFriendAction = (
-    action: 'send' | 'accept' | 'reject' | 'remove',
+    action: 'send' | 'accept' | 'reject' | 'remove' | 'invite',
     payload: string
   ): void => {
     switch (action) {

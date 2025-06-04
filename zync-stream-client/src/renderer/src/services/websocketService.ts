@@ -1,4 +1,4 @@
-type MessageHandler = (data: any) => void
+type MessageHandler = (data) => void
 
 interface WebSocketSubscription {
   id: string
@@ -18,13 +18,11 @@ class WebSocketService {
   connect(token: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
       if (this.socket?.readyState === WebSocket.OPEN && this.isConnected) {
-        console.log('WebSocket: Already connected')
         resolve(true)
         return
       }
 
       if (this.isConnecting) {
-        console.log('WebSocket: Connection already in progress')
         resolve(true)
         return
       }
@@ -33,12 +31,10 @@ class WebSocketService {
       this.isConnecting = true
 
       try {
-        console.log('🔌 WebSocket: Connecting to master endpoint...')
         this.socket = new WebSocket('ws://localhost:8080/api/ws')
 
         const authTimeout = setTimeout(() => {
           if (!this.isConnected) {
-            console.error('WebSocket: Authentication timeout')
             this.isConnecting = false
             this.socket?.close()
             reject(new Error('Authentication timeout'))
@@ -46,12 +42,7 @@ class WebSocketService {
         }, 5000)
 
         this.socket.onopen = () => {
-          console.log('WebSocket: Connected, sending auth...')
           const authMessage = { type: 'auth', token }
-          console.log('WebSocket: Sending auth message:', {
-            type: 'auth',
-            token: token.substring(0, 20) + '...'
-          })
           this.socket?.send(JSON.stringify(authMessage))
         }
 
@@ -77,13 +68,12 @@ class WebSocketService {
             }
 
             this.routeMessage(data)
-          } catch (error) {
-            console.error('WebSocket: Parse error:', error)
+          } catch {
+            //
           }
         }
 
         this.socket.onclose = (event) => {
-          console.log(`WebSocket: Disconnected (code: ${event.code})`)
           clearTimeout(authTimeout)
           this.isConnected = false
           this.isConnecting = false
@@ -94,51 +84,38 @@ class WebSocketService {
         }
 
         this.socket.onerror = (error) => {
-          console.error('WebSocket: Connection error:', error)
           clearTimeout(authTimeout)
-          this.isConnecting = false 
+          this.isConnecting = false
           reject(error)
         }
       } catch (error) {
-        console.error('WebSocket: Failed to create connection:', error)
         this.isConnecting = false
         reject(error)
       }
     })
   }
 
-  send(message: any) {
+  send(message): void {
     if (this.socket?.readyState === WebSocket.OPEN && this.isConnected) {
       this.socket.send(JSON.stringify(message))
-      console.log('WebSocket: Sent message:', message.type)
-    } else {
-      console.error('WebSocket: Cannot send message, not connected or not authenticated')
     }
   }
 
-  subscribe(id: string, messageTypes: string[], handler: MessageHandler) {
+  subscribe(id: string, messageTypes: string[], handler: MessageHandler): void {
     if (this.subscriptions.has(id)) {
-      console.log(`WebSocket: ${id} already subscribed, updating handler`)
       this.subscriptions.set(id, { id, handler, messageTypes })
       return
     }
-
-    console.log(`📡 WebSocket: Subscribing ${id} to:`, messageTypes)
     this.subscriptions.set(id, { id, handler, messageTypes })
   }
 
-  unsubscribe(id: string) {
+  unsubscribe(id: string): void {
     if (this.subscriptions.has(id)) {
-      console.log(`WebSocket: Unsubscribing ${id}`)
       this.subscriptions.delete(id)
-    } else {
-      console.log(`📡 WebSocket: ${id} not found, skipping unsubscribe`)
     }
   }
 
-  private routeMessage(data: any) {
-    console.log('WebSocket: Routing message:', data.type)
-
+  private routeMessage(data): void {
     for (const subscription of this.subscriptions.values()) {
       if (subscription.messageTypes.includes(data.type)) {
         try {
@@ -150,32 +127,24 @@ class WebSocketService {
     }
   }
 
-  private handleReconnect(event: CloseEvent) {
+  private handleReconnect(event: CloseEvent): void {
     if (event.code === 1000) return
 
     if (this.reconnectAttempts < this.maxReconnectAttempts && this.token) {
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
       this.reconnectAttempts++
 
-      console.log(
-        `WebSocket: Reconnecting in ${delay}ms (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
-      )
-
       setTimeout(() => {
         if (this.token) {
-          console.log('WebSocket: Attempting to reconnect...')
-          this.connect(this.token).catch((error) => {
-            console.error('WebSocket: Reconnection failed:', error)
+          this.connect(this.token).catch(() => {
+            //
           })
         }
       }, delay)
-    } else {
-      console.error('WebSocket: Max reconnection attempts reached or no token available')
     }
   }
 
-  disconnect() {
-    console.log('WebSocket: Disconnecting...')
+  disconnect(): void {
     if (this.socket) {
       this.socket.close(1000, 'User disconnected')
       this.socket = null

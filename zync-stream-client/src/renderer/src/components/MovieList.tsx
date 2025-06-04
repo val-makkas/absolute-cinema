@@ -41,6 +41,12 @@ export default function MovieList({
   console.log('MovieList search prop:', search, 'length:', search?.length)
 
   useEffect(() => {
+    if (!moviesLoading) {
+      setIsLoadingMore(false)
+    }
+  }, [moviesLoading])
+
+  useEffect(() => {
     let scrollTimeout: NodeJS.Timeout
     let lastFetchTime = 0
     const minTimeBetweenFetches = 2000
@@ -49,7 +55,7 @@ export default function MovieList({
       if (scrollTimeout) clearTimeout(scrollTimeout)
 
       scrollTimeout = setTimeout(() => {
-        if (moviesLoading || isLoadingMore) return
+        if (moviesLoading || isLoadingMore || (search && search.length >= 3)) return
 
         const now = Date.now()
         if (now - lastFetchTime < minTimeBetweenFetches) return
@@ -71,7 +77,7 @@ export default function MovieList({
       window.removeEventListener('scroll', handleScroll)
       if (scrollTimeout) clearTimeout(scrollTimeout)
     }
-  }, [moviesLoading, onLoadMore, isLoadingMore])
+  }, [moviesLoading, onLoadMore, isLoadingMore, search])
 
   return (
     <main className="w-full min-h-screen flex flex-col justify-start pl-2 mt-15 pr-80 pb-12 pt-8 animate-fade-in relative">

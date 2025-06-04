@@ -40,59 +40,40 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
     }
   })
 
-  // Make the overlay window interactive but allow click-through for non-control areas
   overlayWindow.setIgnoreMouseEvents(false)
 
-  // Load the overlay HTML
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     overlayWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/overlay.html`)
   } else {
     overlayWindow.loadFile(join(__dirname, '../renderer/overlay.html'))
   }
 
-  // Open DevTools in development mode (commented out to disable dev tools)
   if (is.dev) {
     console.log('Open dev tool...')
     overlayWindow.webContents.openDevTools({ mode: 'detach' })
   }
 
-  // Setup position synchronization with main window
   setupOverlayPositionSync(overlayWindow, mainWindow)
-
-  // Make sure the overlay is shown
-  overlayWindow.show()
-
-  if (mainWindow && (mainWindow.isMinimized() || !mainWindow.isFocused())) {
-    overlayWindow.hide()
-    // When main window is restored or focused, show overlay and sync bounds
-    const showOverlay = (): void => {
-      if (overlayWindow) {
-        overlayWindow.show()
-        const bounds = mainWindow.getContentBounds()
-        overlayWindow.setBounds({
-          x: bounds.x,
-          y: bounds.y,
-          width: bounds.width,
-          height: bounds.height
-        })
-      }
-      mainWindow.off('focus', showOverlay)
-      mainWindow.off('restore', showOverlay)
-    }
-    mainWindow.on('focus', showOverlay)
-    mainWindow.on('restore', showOverlay)
-  }
 
   overlayWindow.on('ready-to-show', () => {
     console.log('[Overlay] Overlay window ready to show')
-    if (mainWindow && mainWindow.isMinimized() && overlayWindow) {
-      console.log('ok')
-      overlayWindow.minimize()
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      if (mainWindow.isMinimized() || !mainWindow.isVisible()) {
+        console.log('[Overlay] Main window not visible, hiding overlay')
+        overlayWindow.hide()
+      } else {
+        console.log('[Overlay] Showing overlay')
+        overlayWindow.show()
+        overlayWindow.focus()
+        mainWindow.moveTop()
+        mainWindow.focus()
+      }
     }
-    console.log('error')
   })
+
   overlayWindow.on('closed', () => {
     console.log('[Overlay] Overlay window closed')
+    overlayWindow = null
   })
 
   return overlayWindow
@@ -101,27 +82,42 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
 function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): void {
   console.log('[Overlay] Setting up position sync between overlay and main window')
 
-  // Track window state
   let isMainMinimized = false
+  let isDestroyed = false
 
-  // Create a function that properly passes parameters to syncOverlayToMain with a small delay
+  overlay.on('closed', () => {
+    console.log('[Overlay] Overlay closed, cleaning up event listeners')
+    overlayWindow = null
+    isDestroyed = true
+
+    main.removeAllListeners('minimize')
+    main.removeAllListeners('maximize')
+    main.removeAllListeners('restore')
+    main.removeAllListeners('move')
+    main.removeAllListeners('resize')
+    main.removeAllListeners('unmaximize')
+    main.removeAllListeners('enter-full-screen')
+    main.removeAllListeners('leave-full-screen')
+    main.removeAllListeners('show')
+    main.removeAllListeners('hide')
+    main.removeAllListeners('blur')
+    main.removeAllListeners('focus')
+  })
+
   const syncPosition = (): void => {
-    // Small delay to let window operations complete
     setTimeout(() => {
       syncOverlayToMain(overlay, main)
     }, 10)
   }
 
-  // Create a direct sync without delay for some events
   const syncPositionImmediate = (): void => {
     syncOverlayToMain(overlay, main)
   }
 
-  // Handle minimize event - hide overlay when main window is minimized
   main.on('minimize', () => {
     console.log('[Overlay] Main window minimized')
     isMainMinimized = true
-    if (overlay && !overlay.isDestroyed()) {
+    if (overlay && !isDestroyed && !overlay.isDestroyed()) {
       overlay.hide()
     }
   })
@@ -129,7 +125,7 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
   main.on('maximize', () => {
     console.log('[Overlay] Main window maximized')
     isMainMinimized = false
-    if (overlay && !overlay.isDestroyed()) {
+    if (!isDestroyed && overlay && !overlay.isDestroyed()) {
       overlay.show()
       syncOverlayToMain(overlay, main)
     }
@@ -138,14 +134,17 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
   main.on('restore', () => {
     console.log('[Overlay] Main window restored')
     isMainMinimized = false
-    if (overlay && !overlay.isDestroyed()) {
+    if (!isDestroyed && overlay && !overlay.isDestroyed()) {
       overlay.show()
       overlay.restore()
-      setTimeout(() => syncOverlayToMain(overlay, main), 50)
+      setTimeout(() => {
+        if (!isDestroyed && overlay && !overlay.isDestroyed()) {
+          syncOverlayToMain(overlay, main)
+        }
+      }, 50)
     }
   })
 
-  // Keep existing event handlers
   main.on('move', syncPositionImmediate)
   main.on('resize', syncPositionImmediate)
   main.on('unmaximize', syncPosition)
@@ -160,8 +159,7 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
   })
 
   main.on('hide', () => {
-    console.log('[Overlay] Main window hidden')
-    if (overlay && !overlay.isDestroyed()) {
+    if (!isDestroyed && overlay && !overlay.isDestroyed()) {
       overlay.hide()
     }
   })
@@ -187,40 +185,64 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
 
   main.on('blur', () => {
     setTimeout(() => {
+      if (isDestroyed) return
       const focusedWindow = BrowserWindow.getFocusedWindow()
       const isAppFocused = !!focusedWindow && (focusedWindow === main || focusedWindow === overlay)
 
-      if (!isAppFocused) {
-        console.log('[Overlay] App lost focus, hiding overlay')
-        if (overlay && !overlay.isDestroyed()) {
-          overlay.hide()
-        }
+      if (!isAppFocused && !main.isMinimized() && overlay && !overlay.isDestroyed()) {
+        console.log('[Overlay] App lost focus - hiding overlay')
+        overlay.hide()
       } else {
         console.log('[Overlay] Focus switched between app windows, keeping overlay visible')
       }
-    }, 25)
+    }, 100)
   })
 
   overlay.on('blur', () => {
     setTimeout(() => {
+      if (isDestroyed) return
+
       const focusedWindow = BrowserWindow.getFocusedWindow()
       const isAppFocused = !!focusedWindow && (focusedWindow === main || focusedWindow === overlay)
 
-      if (!isAppFocused) {
-        console.log('[Overlay] App lost focus, hiding overlay')
-        if (overlay && !overlay.isDestroyed()) {
-          overlay.hide()
-        }
-      } else {
-        console.log('[Overlay] Focus switched between app windows, keeping overlay visible')
+      if (
+        !isAppFocused &&
+        !main.isFocused() &&
+        !main.isMinimized() &&
+        overlay &&
+        !overlay.isDestroyed()
+      ) {
+        console.log('[Overlay] Overlay lost focus to external app - hiding overlay')
+        overlay.hide()
       }
-    }, 25)
+    }, 50)
   })
-
   main.on('focus', () => {
-    if (overlay && !overlay.isDestroyed() && !isMainMinimized) {
+    console.log('[Overlay] Main window focused')
+    if (
+      !isDestroyed &&
+      overlay &&
+      !overlay.isDestroyed() &&
+      !isMainMinimized &&
+      !main.isMinimized()
+    ) {
       overlay.show()
       syncOverlayToMain(overlay, main)
+    }
+  })
+
+  overlay.on('focus', () => {
+    console.log('[Overlay] Overlay focused')
+    if (
+      !isDestroyed &&
+      overlay &&
+      !overlay.isDestroyed() &&
+      !isMainMinimized &&
+      !main.isMinimized()
+    ) {
+      overlay.show()
+    } else if (main.isMinimized()) {
+      overlay.hide()
     }
   })
 }
@@ -237,14 +259,13 @@ export function syncOverlayToMain(overlayWindow: BrowserWindow, mainWindow: Brow
         width: bounds.width,
         height: bounds.height
       })
-      overlayWindow.setAlwaysOnTop(true, 'screen-saver')
     } catch (err) {
       console.error('[Overlay] Error syncing overlay position:', err)
     }
   }
 }
 
-export function removeMpvOverlayWindow(overlayWindow: BrowserWindow): void {
+export function removeMpvOverlayWindow(overlayWindow: BrowserWindow | null): void {
   console.log('[Overlay] Removing overlay window...')
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.close()

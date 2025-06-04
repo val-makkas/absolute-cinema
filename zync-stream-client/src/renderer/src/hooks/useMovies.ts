@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { entry, WatchHistoryEntry } from '@/types'
+import { entry } from '@/types'
 import useWatchHistory from './useWatchHistory'
 
 const API_IMDB = import.meta.env.VITE_API_IMDB
@@ -141,7 +141,7 @@ export function useMovies(
       const cacheData = getFromCache(cacheKey)
 
       if (cacheData) {
-        setMovies(page === 1 ? cacheData : [...movies, ...cacheData])
+        setMovies((prevMovies) => (page === 1 ? cacheData : [...prevMovies, ...cacheData]))
         setLoading(false)
         return
       }
@@ -163,14 +163,15 @@ export function useMovies(
 
         const newMetas: entry[] = data.metas
 
-        const updatedMovies = page === 1 ? newMetas : [...movies, ...newMetas]
+        setMovies((prevMovies) => {
+          const updatedMovies = page === 1 ? newMetas : [...prevMovies, ...newMetas]
+          return updatedMovies
+        })
 
         saveToCache(cacheKey, newMetas)
-
-        setMovies(updatedMovies)
         setError(null)
       } catch (err) {
-        console.log(err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch movies')
       } finally {
         setLoading(false)
       }

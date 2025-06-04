@@ -146,10 +146,8 @@ export function useUsers(): {
   const updateExtensions = useCallback(
     async (newExtensions: UserExtensions[] | UserExtensions): Promise<boolean> => {
       try {
-        // Ensure newExtensions is an array
         const extensionsArray = Array.isArray(newExtensions) ? newExtensions : [newExtensions]
 
-        // Extract URLs from UserExtensions objects for the API
         const extensionUrls = extensionsArray.map((ext) =>
           typeof ext === 'string' ? ext : ext.url
         )

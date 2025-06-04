@@ -7,10 +7,10 @@ interface UseDetailsModalReturn {
   playerSource: Source | null
   selectedMovie: entry | null
   showDetailsModal: boolean
-  details: any
+  details
   detailsLoading: boolean
   handleMovieClick: (movie: entry) => void
-  handleWatchAlone: (details: any, selectedSource: Source) => void
+  handleWatchAlone: (details, selectedSource: Source) => void
   handleCloseDetails: () => void
   handleAddExtension: (setExtensionsOpen: (open: boolean) => void) => void
   clearPlayerSource: () => void
@@ -35,24 +35,27 @@ export default function useDetailsModal(): UseDetailsModalReturn {
     if (selectedMovie && !detailsLoading && details && !showDetailsModal) {
       setShowDetailsModal(true)
     }
-  }, [detailsLoading, details, selectedMovie, showDetailsModal])
+  }, [detailsLoading, details, selectedMovie])
 
-  const handleMovieClick = useCallback((movie: entry): void => {
-    setSelectedMovie(movie)
-    const id = movie.id || movie.imdb_id
-    if (id && isCached(id)) {
-      setDetailsFromCache(id)
-      setShowDetailsModal(true)
-    } else if (id) {
-      setShowDetailsModal(false)
-      fetchDetails(id, movie.type as 'movie' | 'series')
-    } else {
-      alert('Movie identifiers are missing.')
-    }
-  }, [])
+  const handleMovieClick = useCallback(
+    (movie: entry): void => {
+      setSelectedMovie(movie)
+      const id = movie.id || movie.imdb_id
+      if (id && isCached(id)) {
+        setDetailsFromCache(id)
+        setShowDetailsModal(true)
+      } else if (id) {
+        setShowDetailsModal(false)
+        fetchDetails(id, movie.type as 'movie' | 'series')
+      } else {
+        alert('Movie identifiers are missing.')
+      }
+    },
+    [isCached, setDetailsFromCache, fetchDetails]
+  )
 
   const handleWatchAlone = useCallback(
-    (details: any, selectedSource: Source): void => {
+    (details, selectedSource: Source): void => {
       if (details?.id && selectedSource?.infoHash) {
         setShowDetailsModal(false)
         setPlayerSource(selectedSource)
@@ -80,14 +83,12 @@ export default function useDetailsModal(): UseDetailsModalReturn {
   }, [])
 
   return {
-    // State
     playerSource,
     selectedMovie,
     showDetailsModal,
     details,
     detailsLoading,
 
-    // Handlers
     handleMovieClick,
     handleWatchAlone,
     handleCloseDetails,

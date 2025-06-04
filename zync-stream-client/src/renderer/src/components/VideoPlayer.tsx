@@ -35,14 +35,13 @@ export default function VideoPlayer({
   details,
   onExit
 }: VideoPlayerProps): React.ReactElement {
-  const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [streamUrl, setStreamUrl] = useState<string | null>(null)
   const [isMpvActive, setIsMpvActive] = useState(false)
 
   const infoHash = source!.infoHash
-  const fileIdx = source!.fileIdx
+  const fileIdx = source!.fileIdx ?? 0
 
   const magnetUri = `magnet:?xt=urn:btih:${infoHash}`
 
@@ -50,7 +49,11 @@ export default function VideoPlayer({
   const movieYear = 'year' in details! ? details!.year : details!.releaseInfo
 
   useEffect(() => {
-    if (!magnetUri || magnetUri.includes('undefined')) {
+    if (!source || !details || !magnetUri || magnetUri.includes('undefined')) {
+      if (!source || !details) {
+        setIsLoading(false)
+        return
+      }
       setError('No valid magnet URI or infoHash provided.')
       setIsLoading(false)
       return
@@ -62,6 +65,7 @@ export default function VideoPlayer({
 
     const addTorrent = async (): Promise<void> => {
       try {
+        console.log('HERE MOVIE MAGNET', magnetUri, fileIdx)
         const response = await fetch(`${API_BASE_URL}/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -122,6 +126,30 @@ export default function VideoPlayer({
     }
     // eslint-disable-next-line
   }, [streamUrl])
+
+  if (!source) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg">
+        <div className="text-center">
+          <h3 className="text-lg font-bold text-white mb-4">No Source Selected</h3>
+          <p className="text-white/70 mb-6">No streaming source was provided.</p>
+          <Button onClick={onExit}>Return to Home</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!details) {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/95 backdrop-blur-lg">
+        <div className="text-center">
+          <h3 className="text-lg font-bold text-white mb-4">No Details Available</h3>
+          <p className="text-white/70 mb-6">Movie details are not available.</p>
+          <Button onClick={onExit}>Return to Home</Button>
+        </div>
+      </div>
+    )
+  }
 
   if (error) {
     return (

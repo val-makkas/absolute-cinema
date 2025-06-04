@@ -33,14 +33,11 @@ export default function ExtensionsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {' '}
       <DialogContent className="bg-black/80 backdrop-blur-xl p-0 border-6 border-white/5 shadow-2xl max-w-xl animate-in fade-in-50 slide-in-from-bottom-10 duration-300">
         <div
           className="relative w-full max-h-[90vh] overflow-hidden flex flex-col"
           style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
         >
-          {' '}
-          {/* Subtle gradient border */}
           <div className="absolute inset-0 rounded-xl p-[1px] [mask:linear-gradient(#fff_0px,#fff_100%)_content-box,linear-gradient(#fff_0px,#fff_100%)]">
             <div className="absolute inset-0 rounded-x1"></div>
           </div>
@@ -76,9 +73,7 @@ export default function ExtensionsModal({
               </p>
             </DialogHeader>
           </div>{' '}
-          {/* Content area with scrolling */}
           <div className="px-8 py-4 flex-1 overflow-y-auto">
-            {/* Add new extension */}
             <div className="mb-6">
               <div className="text-sm text-white/60 mb-2 flex items-center">
                 <svg
@@ -118,7 +113,6 @@ export default function ExtensionsModal({
                 </Button>
               </div>
             </div>{' '}
-            {/* Installed extensions section */}
             <div>
               {' '}
               <div className="flex items-center justify-between mb-4">
@@ -165,9 +159,7 @@ export default function ExtensionsModal({
               ) : (
                 <div className="space-y-4">
                   {extensions.map((extension) => {
-                    // Extract the URL consistently
                     const url = typeof extension === 'string' ? extension : extension.url
-                    console.log('Rendering extension:', url) // Debug log
 
                     const manifest = extensionManifests[url]
                     const isDetailsOpen = showExtensionDetails === url

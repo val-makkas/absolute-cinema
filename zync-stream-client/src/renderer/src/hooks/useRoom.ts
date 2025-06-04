@@ -34,7 +34,7 @@ export interface RoomMessage {
   user_id: number
   username: string
   timestamp: number
-  data: any
+  data
 }
 
 export interface RoomInvitation {
@@ -183,7 +183,7 @@ export function useRoom(token: string, user: User | null, roomId?: number): useR
   )
 
   const handleRoomMessage = useCallback(
-    (data: any) => {
+    (data) => {
       if (data.type === 'room_invitation') {
         playMemberUpdateSound()
         const invitation: RoomInvitation = {

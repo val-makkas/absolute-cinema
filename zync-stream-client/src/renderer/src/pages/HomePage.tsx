@@ -173,7 +173,7 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
             loading={loading}
           />
 
-          <section className="px-4 md:px-6 ml-15 mr-10py-8">
+          <section className="px-4 md:px-6 ml-15 mr-10 py-8">
             <h2 className="text-2xl font-bold text-white mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-6 rounded-xl cursor-pointer hover:scale-105 transition-transform duration-200 group">

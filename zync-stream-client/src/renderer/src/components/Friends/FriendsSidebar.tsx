@@ -12,7 +12,7 @@ interface FriendsSidebarProps {
   friendsError: string | null
   onFriendAction: (action: 'send' | 'accept' | 'reject' | 'invite', payload: string) => void
   searchUser: (query: string) => Promise<SearchUser[]>
-  room?: Room
+  room: Room | null
   isInRoom: boolean
   roomInvitations: RoomInvitation[]
   sendInvite: (username: string) => void

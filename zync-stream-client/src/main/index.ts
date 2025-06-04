@@ -15,7 +15,7 @@ let command: { command: string[] } | null = null
 
 let currentTorrentInfo = { infoHash: null, fileIdx: null }
 
-let overlayWindow!: BrowserWindow
+let overlayWindow: BrowserWindow | null = null
 let isFull: boolean | null
 
 const mpvTitle = 'MPV-EMBED-' + Date.now()
@@ -35,7 +35,6 @@ let request_id = 0
 const pendingRequests = new Map()
 
 function createWindow(): void {
-  // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 1700,
     height: 900,
@@ -266,10 +265,28 @@ ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
             console.log(
               '[Overlay] Valid duration received, merging MPV window and creating overlay window.'
             )
-            windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
-              detached: true
-            })
-            overlayWindow = createMpvOverlayWindow(mainWindow)
+            if (mainWindow.isMinimized()) {
+              console.log('[Main] Restoring minimized main window')
+              mainWindow.restore()
+            }
+            mainWindow.setAlwaysOnTop(true, 'screen-saver')
+            setTimeout(() => {
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.setAlwaysOnTop(false)
+              }
+            }, 1000)
+            setTimeout(() => {
+              overlayWindow = createMpvOverlayWindow(mainWindow)
+              windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
+                detached: true
+              })
+
+              setTimeout(() => {
+                mainWindow.moveTop()
+                mainWindow.focus()
+                console.log('[Main] Main window brought to front after overlay creation')
+              }, 100)
+            }, 200)
             return
           }
         } catch (e) {

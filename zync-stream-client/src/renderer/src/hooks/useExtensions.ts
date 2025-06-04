@@ -4,15 +4,25 @@ interface Extension {
   url: string
 }
 
-export default function useExtensions(extensions: Extension[] | null) {
+export default function useExtensions(extensions: Extension[] | null): {
+  extensionManifests
+  extensionsOpen
+  setExtensionsOpen
+  newManifestUrl
+  setNewManifestUrl
+  showExtensionDetails
+  setShowExtensionDetails
+  addExtension
+  removeExtension
+} {
   const [extensionManifests, setExtensionManifests] = useState<Record<string, unknown>>({})
   const [extensionsOpen, setExtensionsOpen] = useState(false)
   const [newManifestUrl, setNewManifestUrl] = useState('')
   const [showExtensionDetails, setShowExtensionDetails] = useState<string | null>(null)
 
-  // Fetch manifests when extensions change
   useEffect(() => {
     async function fetchManifests(): Promise<void> {
+      if (!extensions) return
       const manifests = {}
       await Promise.all(
         extensions.map(async (ext) => {
@@ -38,11 +48,12 @@ export default function useExtensions(extensions: Extension[] | null) {
     }
   }, [extensions])
 
-  const addExtension = async (updateExtensions: (exts: Extension[]) => Promise<void>) => {
+  const addExtension = async (
+    updateExtensions: (exts: Extension[]) => Promise<void>
+  ): Promise<void> => {
     if (!newManifestUrl) return
     if (!/^https?:\/\//.test(newManifestUrl)) return alert('Please enter a valid URL')
 
-    // Check for duplicates
     if (
       extensions?.some(
         (ext) =>
@@ -53,7 +64,6 @@ export default function useExtensions(extensions: Extension[] | null) {
     }
 
     try {
-      // Fetch the manifest data first
       const manifestResponse = await fetch(newManifestUrl, {
         headers: {
           Accept: 'application/json',
@@ -67,44 +77,44 @@ export default function useExtensions(extensions: Extension[] | null) {
 
       const manifestData = await manifestResponse.json()
 
-      // Validate the manifest has the required fields
       if (!manifestData.name) {
         throw new Error('Invalid manifest: missing name property')
       }
 
-      // Store the manifest data
       setExtensionManifests((prevManifests) => ({
         ...prevManifests,
         [newManifestUrl]: manifestData
       }))
 
-      // Update extensions list
-      await updateExtensions([...extensions, { url: newManifestUrl }])
+      await updateExtensions([...(extensions || []), { url: newManifestUrl }])
 
-      console.log('Extension added successfully:', manifestData.name)
       setNewManifestUrl('')
-    } catch (error) {
-      console.error('Failed to add extension:', error)
-      alert(`Failed to add extension: ${(error as Error).message}`)
+    } catch {
+      //
     }
   }
 
   const removeExtension = async (
     url: string,
     updateExtensions: (exts: Extension[]) => Promise<void>
-  ) => {
+  ): Promise<void> => {
     try {
-      await updateExtensions(extensions.filter((ext) => ext.url !== url))
+      if (!extensions) return
 
-      // Remove the manifest data for this URL
+      const filteredExtensions = extensions.filter((ext) => {
+        const extUrl = typeof ext === 'string' ? ext : ext.url
+        return extUrl !== url
+      })
+
+      await updateExtensions(filteredExtensions)
+
       setExtensionManifests((prevManifests) => {
         const newManifests = { ...prevManifests }
         delete newManifests[url]
         return newManifests
       })
-    } catch (error) {
-      console.error('Failed to remove extension:', error)
-      alert('Failed to remove extension.')
+    } catch {
+      //
     }
   }
 

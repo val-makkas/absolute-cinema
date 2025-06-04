@@ -60,7 +60,6 @@ export function setupMpvIpcListener(mpvIpcSocket, pendingRequests): void {
 
   console.log('[MPV] Setting up MPV IPC listener')
 
-  // Test the socket with a ping command
   try {
     const pingId = Date.now()
     console.log('[MPV] Sending ping command with id:', pingId)

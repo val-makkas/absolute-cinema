@@ -6,7 +6,6 @@ interface ChatMessage {
   username?: string
   roomId?: string
   timestamp?: number
-  [key: string]: any
 }
 
 type Status = 'disconnected' | 'connecting' | 'connected'
