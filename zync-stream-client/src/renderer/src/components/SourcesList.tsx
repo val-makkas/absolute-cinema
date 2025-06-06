@@ -36,9 +36,6 @@ export default function SourcesList({
   // Filter sources based on active provider
   const filteredSources =
     activeProvider === 'All' ? sources : sources.filter((s) => s.extensionName === activeProvider)
-
-  console.log('Sources received:', sources)
-  console.log('Filtered sources:', filteredSources)
   // Sort sources based on sortBy
   const sortedSources = [...filteredSources].sort((a, b) => {
     return 0

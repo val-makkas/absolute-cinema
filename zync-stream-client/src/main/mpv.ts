@@ -32,17 +32,13 @@ export async function startIdleMpv(
   if (process.platform !== 'win32') {
     args.push(`--x11-name=${mpvTitle}`, '--no-input-default-bindings', '--input-conf=/dev/null')
   }
-
-  console.log('Starting idle MPV with args:', args)
   const mpvProcess = spawn(mpvPath, args, { detached: true })
 
-  // Connect to the IPC socket
   await waitForPipe(pipeName)
   const socket = net.connect(pipeName)
   setupMpvIpcListener(socket, pendingRequests)
 
   socket.on('connect', () => {
-    console.log('Connected to MPV IPC socket!')
   })
 
   socket.on('error', (err) => {
@@ -58,11 +54,8 @@ export function setupMpvIpcListener(mpvIpcSocket, pendingRequests): void {
     return
   }
 
-  console.log('[MPV] Setting up MPV IPC listener')
-
   try {
     const pingId = Date.now()
-    console.log('[MPV] Sending ping command with id:', pingId)
 
     mpvIpcSocket.write(
       JSON.stringify({
@@ -72,7 +65,6 @@ export function setupMpvIpcListener(mpvIpcSocket, pendingRequests): void {
     )
 
     pendingRequests.set(pingId, (msg) => {
-      console.log('[MPV] Received ping response:', msg)
       pendingRequests.delete(pingId)
     })
   } catch (err) {
@@ -80,7 +72,6 @@ export function setupMpvIpcListener(mpvIpcSocket, pendingRequests): void {
   }
 
   mpvIpcSocket.on('data', (data) => {
-    console.log('[MPV] Received data from MPV socket')
     data
       .toString()
       .split('\n')
@@ -103,11 +94,9 @@ export function setupMpvIpcListener(mpvIpcSocket, pendingRequests): void {
   })
 
   mpvIpcSocket.on('end', () => {
-    console.log('[MPV] Socket ended')
   })
 
   mpvIpcSocket.on('close', () => {
-    console.log('[MPV] Socket closed')
   })
 }
 
@@ -141,8 +130,8 @@ export function waitForPipeToBeDeleted(pipePath: string, timeout = 5000): Promis
 }
 
 export function closeAll(
-  mpvProcess: any,
-  windowMergerProcess: any,
+  mpvProcess,
+  windowMergerProcess,
   removeMpvOverlayWindow: () => void
 ): void {
   if (process.platform === 'win32') {

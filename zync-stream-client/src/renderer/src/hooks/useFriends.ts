@@ -52,7 +52,6 @@ export default function useFriends(token: string): {
     } catch (err) {
       setError('Network error')
       setLoading(false)
-      console.log(err)
     }
   }, [token])
 
@@ -74,7 +73,6 @@ export default function useFriends(token: string): {
         const data = await res.json()
         const friendRequestsData: FriendRequest[] = data.requests || []
         setFriendRequests(friendRequestsData)
-        console.log('Friend requests data:', friendRequestsData)
         localStorage.setItem('friendRequests', JSON.stringify(friendRequestsData))
         setLoading(false)
       } else {
@@ -83,7 +81,6 @@ export default function useFriends(token: string): {
       }
     } catch (err) {
       setError('Possible network error.')
-      console.log(err)
     }
   }, [token])
 
@@ -114,7 +111,6 @@ export default function useFriends(token: string): {
       } catch (err) {
         setLoading(false)
         setError('Possible network error')
-        console.log(err)
       }
     },
     [token]
@@ -142,7 +138,6 @@ export default function useFriends(token: string): {
       } catch (err) {
         setLoading(false)
         setError('Possible network error.')
-        console.log(err)
       }
     },
     [token]
@@ -170,7 +165,6 @@ export default function useFriends(token: string): {
       } catch (err) {
         setLoading(false)
         setError('Possible network error.')
-        console.log(err)
       }
     },
     [token]
@@ -200,7 +194,6 @@ export default function useFriends(token: string): {
       } catch (err) {
         setLoading(false)
         setError('Possible network error')
-        console.log(err)
       }
     },
     [token]
@@ -213,7 +206,6 @@ export default function useFriends(token: string): {
       setLoading(true)
       await Promise.all([fetchFriends(), getFriendRequests()])
     } catch (err) {
-      console.log(err)
     } finally {
       setLoading(false)
     }
@@ -250,8 +242,6 @@ export default function useFriends(token: string): {
                 display_name: user.display_name || user.username,
                 avatar: user.profile_picture_url
               }))
-
-              console.log('Search results:', mappedResults)
               resolve(mappedResults)
             } else {
               console.error('Search failed:', res.status, res.statusText)

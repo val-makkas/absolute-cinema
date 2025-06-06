@@ -38,7 +38,6 @@ export function useMovieDetails(): {
 
   const setDetailsFromCache = useCallback((imdbId: string) => {
     if (!imdbId) {
-      // Clear details if no IDs provided
       setDetails(null)
       return false
     }

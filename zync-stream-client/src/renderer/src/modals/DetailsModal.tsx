@@ -13,6 +13,7 @@ export default function DetailsModal({
   detailsLoading,
   onClose,
   onWatchAlone,
+  onWatchParty,
   addExtension
 }: {
   open: boolean
@@ -20,7 +21,8 @@ export default function DetailsModal({
   extensionManifests: Record<string, any>
   detailsLoading: boolean
   onClose: () => void
-  onWatchAlone: (details: any, src: Source) => void
+  onWatchAlone: (details: any, src: Source, episode?: any) => void
+  onWatchParty: (details: any, selectedSource: Source, episode?: any) => void
   addExtension: () => void
 }): React.ReactElement {
   const [selectedSource, setSelectedSource] = useState<Source | null>(null)
@@ -32,7 +34,6 @@ export default function DetailsModal({
   const [selectedEpisode, setSelectedEpisode] = useState<episode | null>(null)
 
   const isSeries = details?.type === 'series'
-  console.log(isSeries)
   const providers = [
     'All',
     ...Array.from(
@@ -169,8 +170,8 @@ export default function DetailsModal({
 
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 text-sm text-white/80 mb-2">
-                {details?.release_date && <span>{details.release_date}</span>}
-                {details?.rating && (
+                {details?.releaseInfo && <span>{details.releaseInfo}</span>}
+                {details?.imdbRating && (
                   <span className="flex items-center gap-1">
                     • <span className="text-yellow-300 text-base">★</span> {details.imdbRating}
                   </span>
@@ -238,13 +239,14 @@ export default function DetailsModal({
               <>
                 <button
                   className="h-17 flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-orange-400 via-pink-500 to-pink-500 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
-                  onClick={() => onWatchAlone(details, selectedSource)}
+                  onClick={() => onWatchAlone(details, selectedSource, selectedEpisode)}
                   disabled={!selectedSource}
                 >
                   <Play className="w-9 h-9" /> Watch Alone
                 </button>
                 <button
                   className="h-17 flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-base bg-gradient-to-r from-cyan-400 via-blue-400 to-pink-400 text-white shadow-lg hover:scale-105 transition drop-shadow-xl"
+                  onClick={() => onWatchParty(details, selectedSource, selectedEpisode)}
                   disabled={!selectedSource}
                 >
                   <PartyPopper className="w-9 h-9" /> Create Party

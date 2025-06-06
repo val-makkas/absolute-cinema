@@ -26,14 +26,7 @@ export default function NotificationBell({
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-   useEffect(() => {
-    console.log('🔔 NotificationBell Props:', {
-      notificationsCount: notifications.length,
-      notifications: notifications,
-      unreadCount,
-      connected,
-      isOpen
-    })
+  useEffect(() => {
   }, [notifications, unreadCount, connected, isOpen])
 
   // Close dropdown when clicking outside
@@ -51,7 +44,7 @@ export default function NotificationBell({
     return undefined
   }, [isOpen])
 
-  const handleToggle = (e: React.MouseEvent) => {
+  const handleToggle = (e: React.MouseEvent): void => {
     e.preventDefault()
     e.stopPropagation()
     setIsOpen(!isOpen)
@@ -78,12 +71,6 @@ export default function NotificationBell({
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
-
-        <div
-          className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${
-            connected ? 'bg-green-400' : 'bg-red-400'
-          }`}
-        />
       </Button>
 
       {isOpen && (

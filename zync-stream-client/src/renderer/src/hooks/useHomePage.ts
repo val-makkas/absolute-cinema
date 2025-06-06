@@ -122,9 +122,21 @@ export default function useHomePage(token: string): UseHomePageReturn {
 
         const random = Math.floor(Math.random() * 10)
         if (Math.random() > 0.5) {
-          setFeaturedMovie(series[random])
+          const res = await fetch(`${API_CINE}/meta/movie/${movies[random].imdb_id}.json`)
+          if (!res.ok) {
+            setFeaturedMovie(movies[random])
+          } else {
+            const data = await res.json()
+            setFeaturedMovie(data.meta)
+          }
         } else {
-          setFeaturedMovie(movies[random])
+          const res = await fetch(`${API_CINE}/meta/series/${series[random].imdb_id}.json`)
+          if (!res.ok) {
+            setFeaturedMovie(series[random])
+          } else {
+            const data = await res.json()
+            setFeaturedMovie(data.meta)
+          }
         }
 
         saveToCache(cacheKey, { movies, series })

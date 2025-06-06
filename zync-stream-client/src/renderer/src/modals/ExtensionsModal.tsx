@@ -28,8 +28,6 @@ export default function ExtensionsModal({
   showExtensionDetails,
   setShowExtensionDetails
 }: ExtensionsModalProps): React.ReactElement {
-  console.log('Received extensions:', extensions)
-  console.log('Extension manifests:', extensionManifests)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -98,7 +96,7 @@ export default function ExtensionsModal({
                 <Input
                   value={newManifestUrl}
                   onChange={(e) => setNewManifestUrl(e.target.value)}
-                  placeholder="Enter a manifest.json URL..."
+                  placeholder="https://my-addon.com/manifest.json"
                   className="flex-1 px-4 py-3 h-11 rounded-xl bg-black/50 backdrop-blur-md border border-white/10 text-white placeholder:text-white/40 focus:border-purple-500/30 focus:ring-2 focus:ring-purple-500/20 transition-all"
                 />{' '}
                 <Button

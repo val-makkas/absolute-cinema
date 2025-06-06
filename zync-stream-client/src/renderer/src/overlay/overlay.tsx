@@ -1,10 +1,24 @@
-// Simple, elegant MPV player overlay with modern UI
 import React, { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react'
 
 interface MpvOverlayProps {}
 
+interface SubtitleTrack {
+  id: number
+  type: string
+  lang?: string
+  title?: string
+  selected?: boolean
+}
+
+interface ExternalSubtitle {
+  id: string
+  url: string
+  lang: string
+  SubEncoding: string
+  g?: string
+}
+
 const Overlay: React.FC<MpvOverlayProps> = () => {
-  // State
   const [isPaused, setIsPaused] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -13,7 +27,12 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const [mediaTitle, setMediaTitle] = useState('Loading...')
   const [showPlayAnimation, setShowPlayAnimation] = useState(false)
   const [isCursorVisible, setIsCursorVisible] = useState(true)
-  const [activeHint, setActiveHint] = useState<string | null>(null) // Define keyframe animations
+  const [activeHint, setActiveHint] = useState<string | null>(null)
+  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([])
+  const [currentSubtitle, setCurrentSubtitle] = useState<number | null>(null)
+  const [showSubtitleMenu, setShowSubtitleMenu] = useState(false)
+  const [availableSubtitles, setAvailableSubtitles] = useState<ExternalSubtitle[]>([])
+  const [isLoadingSubtitles, setIsLoadingSubtitles] = useState(false)
   const keyframes = `
     @keyframes scaleIn {
       0% { transform: scale(0); opacity: 0; }
@@ -40,7 +59,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }
   `
 
-  // Refs
   const seekBarRef = useRef<HTMLInputElement>(null)
   const updateIntervalRef = useRef<number | null>(null)
   const previousVolumeRef = useRef<number>(100)
@@ -48,7 +66,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Format time to MM:SS or HH:MM:SS
   const formatTime = (seconds: number): string => {
     seconds = Math.floor(seconds)
     const hours = Math.floor(seconds / 3600)
@@ -62,7 +79,70 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   }
 
-  // Initialize player state
+  const loadSubtitleTracks = useCallback(async () => {
+    try {
+      const tracks = await window.overlayControls.getSubtitleTracks()
+      if (tracks && Array.isArray(tracks)) {
+        const subsTracks = tracks.filter((track) => track.type === 'sub')
+        setSubtitleTracks(subsTracks)
+      }
+      const currentSub = await window.overlayControls.getCurrentSubtitle()
+      setCurrentSubtitle(currentSub)
+    } catch (err) {
+      console.log(err as Error)
+    }
+  }, [])
+
+  const handleSearchSubtitles = useCallback(async () => {
+    setIsLoadingSubtitles(true)
+    try {
+      const res = await window.overlayControls.searchSubtitles()
+      if (res.success && res.subtitles.length > 0) {
+        setAvailableSubtitles(res.subtitles)
+      } else {
+        setAvailableSubtitles([])
+      }
+    } catch (err) {
+      console.log(err as Error)
+    } finally {
+      setIsLoadingSubtitles(false)
+    }
+  }, [])
+
+  const handleSubtitleSelect = useCallback(async (trackId: number | null) => {
+    try {
+      await window.overlayControls.setSubtitle(trackId)
+      setShowSubtitleMenu(false)
+    } catch (err) {
+      console.log(err as Error)
+    }
+  }, [])
+
+  const handleDownloadSubtitle = useCallback(
+    async (subtitle: ExternalSubtitle) => {
+      try {
+        const res = await window.overlayControls.downloadSubtitle(subtitle)
+        if (res.success) {
+          await window.overlayControls.addExternalSubtitle(res.filepath)
+          await loadSubtitleTracks()
+          setShowSubtitleMenu(false)
+          setTimeout(async () => {
+            const tracks = await window.overlayControls.getSubtitleTracks()
+            if (tracks && Array.isArray(tracks)) {
+              const newSubTrack = tracks.filter((track) => track.type === 'sub').pop()
+              if (newSubTrack) {
+                await handleSubtitleSelect(newSubTrack.id)
+              }
+            }
+          }, 500)
+        }
+      } catch (err) {
+        console.error(err as Error)
+      }
+    },
+    [loadSubtitleTracks, handleSubtitleSelect]
+  )
+
   useEffect(() => {
     const initPlayerState = async (): Promise<void> => {
       try {
@@ -80,6 +160,8 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         }
 
         startProgressUpdates()
+        loadSubtitleTracks()
+        handleSearchSubtitles()
       } catch (err) {
         console.error(err)
       }
@@ -94,7 +176,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }
   }, [])
 
-  // Show controls initially for a few seconds
   useEffect(() => {
     setIsHovering(true)
     const timer = setTimeout(() => {
@@ -103,7 +184,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     return () => clearTimeout(timer)
   }, [])
 
-  // Update progress and duration at regular intervals
   const startProgressUpdates = (): void => {
     updateIntervalRef.current = window.setInterval(async () => {
       try {
@@ -117,7 +197,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       }
     }, 1000)
   }
-  // Show/hide controls on mouse movement
   const handleMouseMove = useCallback((): void => {
     setIsHovering(true)
     setIsCursorVisible(true)
@@ -143,7 +222,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }, 3500)
   }, [isPaused, isHovering])
 
-  // Center of screen play/pause animation
   const showPlayPauseAnimation = useCallback((): void => {
     setShowPlayAnimation(true)
 
@@ -156,7 +234,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }, 800)
   }, [])
 
-  // Play/pause toggle - wrapped in useCallback to prevent dependency array issues
   const handlePlayPause = useCallback(async (): Promise<void> => {
     try {
       await window.overlayControls.togglePlay()
@@ -168,7 +245,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }
   }, [showPlayPauseAnimation])
 
-  // Seek functionality
   const handleSeek = useCallback(async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const seekTime = parseFloat(e.target.value)
     try {
@@ -179,7 +255,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }
   }, [])
 
-  // Volume change
   const handleVolumeChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
       const volumeValue = parseInt(e.target.value, 10)
@@ -196,7 +271,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     []
   )
 
-  // Mute toggle
   const handleMuteToggle = useCallback(async (): Promise<void> => {
     try {
       if (volume > 0) {
@@ -212,20 +286,16 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }
   }, [volume])
 
-  // Fullscreen toggle
   const handleFullscreen = useCallback(async (): Promise<void> => {
     try {
       await window.overlayControls.toggleFullscreenMainWindow()
-      await window.overlayControls.toggleFullscreen()
     } catch (err) {
       console.error(err)
     }
   }, [])
 
-  // Handle keyboard shortcuts with visual hints
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent): Promise<void> => {
-      // Prevent default behaviors for player controls
       if (
         ['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyF', 'KeyM'].includes(
           e.code
@@ -236,19 +306,16 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
 
       switch (e.code) {
         case 'Space':
-          // Play/pause toggle with space
           setActiveHint('space')
           await handlePlayPause()
           setTimeout(() => setActiveHint(null), 800)
           break
         case 'ArrowLeft':
-          // Seek backward 10 seconds
           setActiveHint('left')
           try {
             const newTime = Math.max(0, currentTime - 10)
             await window.overlayControls.seek(newTime)
             setCurrentTime(newTime)
-            // Show controls briefly when seeking
             setIsHovering(true)
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = setTimeout(() => setIsHovering(false), 3000)
@@ -258,13 +325,11 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           setTimeout(() => setActiveHint(null), 800)
           break
         case 'ArrowRight':
-          // Seek forward 10 seconds
           setActiveHint('right')
           try {
             const newTime = Math.min(duration, currentTime + 10)
             await window.overlayControls.seek(newTime)
             setCurrentTime(newTime)
-            // Show controls briefly when seeking
             setIsHovering(true)
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = setTimeout(() => setIsHovering(false), 3000)
@@ -274,13 +339,11 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           setTimeout(() => setActiveHint(null), 800)
           break
         case 'ArrowUp':
-          // Volume up
           setActiveHint('up')
           try {
             const newVolume = Math.min(100, volume + 5)
             await window.overlayControls.setVolume(newVolume)
             setVolume(newVolume)
-            // Show controls briefly when changing volume
             setIsHovering(true)
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
@@ -290,13 +353,11 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           setTimeout(() => setActiveHint(null), 800)
           break
         case 'ArrowDown':
-          // Volume down
           setActiveHint('down')
           try {
             const newVolume = Math.max(0, volume - 5)
             await window.overlayControls.setVolume(newVolume)
             setVolume(newVolume)
-            // Show controls briefly when changing volume
             setIsHovering(true)
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
@@ -306,11 +367,9 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           setTimeout(() => setActiveHint(null), 800)
           break
         case 'KeyF':
-          // Fullscreen toggle
           setActiveHint('f')
           try {
             await handleFullscreen()
-            // Show controls briefly
             setIsHovering(true)
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
@@ -320,11 +379,9 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           setTimeout(() => setActiveHint(null), 800)
           break
         case 'KeyM':
-          // Mute toggle
           setActiveHint('m')
           try {
             await handleMuteToggle()
-            // Show controls briefly
             setIsHovering(true)
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
@@ -336,10 +393,8 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       }
     }
 
-    // Add event listener
     window.addEventListener('keydown', handleKeyDown)
 
-    // Cleanup
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
@@ -351,7 +406,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       style={{ pointerEvents: 'auto' }}
     >
       <style>{keyframes}</style>
-      {/* Play/Pause animation overlay */}
       {showPlayAnimation && (
         <div className="fixed inset-0 flex items-center justify-center z-[1000] pointer-events-none">
           {' '}
@@ -398,7 +452,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           </div>
         </div>
       )}
-      {/* Main overlay container - transparent background */}
       <div
         className={`fixed inset-0 flex flex-col justify-between z-[100] pointer-events-none ${
           isHovering
@@ -406,7 +459,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
             : 'opacity-0 transform translate-y-2 backdrop-blur-0'
         } transition-[opacity,transform,backdrop-filter] duration-300 ease-[cubic-bezier(0.33,1,0.68,1)]`}
       >
-        {/* Close button - top right */}
         <div
           className={`absolute top-4 right-4 z-[1000] pointer-events-auto ${
             isHovering
@@ -483,16 +535,13 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
               }}
             />
           </div>
-          {/* Main controls bar */}
           <div
             className="w-[100%] mx-auto flex items-center justify-between px-8 py-2 rounded-2xl backdrop-blur-md bg-gradient-to-r from-black/80 via-black/40 to-black/80 shadow-xl shadow-black/30 pointer-events-auto hover:border-[#785aeb]/20 transition-all duration-300"
             style={{
               boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.5)'
             }}
           >
-            {/* Left controls group */}
             <div className="flex items-center gap-7">
-              {/* Play/Pause button */}{' '}
               <button
                 onClick={handlePlayPause}
                 className="flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 text-white shadow-lg shadow-purple-900/20 transform hover:scale-105"
@@ -554,12 +603,8 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
               </div>
             </div>
 
-            {/* Right controls group - Stremio modern style */}
             <div className="flex items-center gap-4">
-              {' '}
-              {/* Subtitle button - modern style */}
               <div className="flex justify-between text-white/90 text-xs px-1">
-                {' '}
                 <div
                   className="flex items-center gap-2 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/5"
                   style={{
@@ -578,15 +623,107 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                   </span>
                 </div>
               </div>
-              <button
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-all duration-200 text-white hover:shadow-md hover:shadow-[#785aeb]/10 hover:scale-105 transform"
-                title="Subtitles (Coming Soon)"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6v-2zm0 4h8v2H6v-2zm10 0h2v2h-2v-2zm-6-4h8v2h-8v-2z" />
-                </svg>
-              </button>
-              {/* Fullscreen button - modern style */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSubtitleMenu(!showSubtitleMenu)}
+                  className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 text-white hover:shadow-md hover:shadow-[#785aeb]/10 hover:scale-105 transform ${
+                    currentSubtitle ? 'bg-purple-600/50' : 'bg-black/30 hover:bg-black/50'
+                  }`}
+                  title="Subtitles"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6v-2zm0 4h8v2H6v-2zm10 0h2v2h-2v-2zm-6-4h8v2h-8v-2z" />
+                  </svg>
+                </button>
+
+                {showSubtitleMenu && (
+                  <div className="absolute right-0 bottom-full mb-2 w-80 max-h-96 overflow-y-auto bg-black/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-[1000] pointer-events-auto">
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-white font-semibold text-sm">Subtitles</h3>
+                        <button
+                          onClick={() => setShowSubtitleMenu(false)}
+                          className="text-white/60 hover:text-white"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <button
+                          onClick={() => handleSubtitleSelect(null)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                            currentSubtitle === null
+                              ? 'bg-purple-500 text-white'
+                              : 'text-gray-300 hover:bg-white/10'
+                          }`}
+                        >
+                          Off
+                        </button>
+
+                        {subtitleTracks.map((track) => (
+                          <button
+                            key={track.id}
+                            onClick={() => handleSubtitleSelect(track.id)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                              currentSubtitle === track.id
+                                ? 'bg-purple-500 text-white'
+                                : 'text-gray-300 hover:bg-white/10'
+                            }`}
+                          >
+                            {track.title || track.lang || `Track ${track.id}`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-white/20 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-white text-sm font-medium">External</span>
+                          <button
+                            onClick={handleSearchSubtitles}
+                            disabled={isLoadingSubtitles}
+                            className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded-lg transition-all disabled:opacity-50"
+                          >
+                            {isLoadingSubtitles ? 'Searching...' : 'Refresh'}
+                          </button>
+                        </div>
+
+                        {availableSubtitles.length > 0 ? (
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {availableSubtitles.slice(0, 8).map((subtitle, index) => (
+                              <div
+                                key={subtitle.id || index}
+                                className="flex items-center justify-between p-2 bg-white/5 rounded-lg"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white text-xs font-medium">
+                                    {subtitle.lang.toUpperCase()}
+                                  </p>
+                                  <p className="text-gray-400 text-xs">
+                                    {subtitle.SubEncoding} • Quality: {subtitle.g || '?'}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleDownloadSubtitle(subtitle)}
+                                  className="ml-2 px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-all"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-400 text-xs text-center py-2">
+                            {isLoadingSubtitles ? 'Searching...' : 'No external subtitles found'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleFullscreen}
                 className="flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-all duration-200 text-white hover:shadow-md hover:shadow-[#785aeb]/10 hover:scale-105 transform"
@@ -600,7 +737,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           </div>
         </div>
       </div>
-      {/* Keyboard shortcuts indicators */}{' '}
       <div
         className={`fixed top-1/2 left-16 transform -translate-y-1/2 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'left' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{

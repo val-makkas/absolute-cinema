@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Users, UserPlus, Search, ArrowLeft, PartyPopper } from 'lucide-react'
+import { Users, UserPlus, Search, ArrowLeft, PartyPopper, X } from 'lucide-react'
 import { Friend, FriendRequest } from '@/types'
 import FriendItem from './FriendItem'
-import { Room, RoomInvitation } from '@/hooks/useRoom'
+import { Room, RoomInvitation, RoomMemberStatus, RoomMovie, RoomSource } from '@/hooks/useRoom'
 import RoomInvitationCard from './RoomInvitationCard'
 
 interface FriendsSidebarProps {
@@ -17,6 +17,14 @@ interface FriendsSidebarProps {
   roomInvitations: RoomInvitation[]
   sendInvite: (username: string) => void
   respondToInvitation: (invitationId: number, accept: boolean) => void
+
+  roomMovie: RoomMovie | null
+  roomSource: RoomSource | null
+  memberStatuses?: Map<number, RoomMemberStatus>
+  canStartParty?: boolean
+  onStartParty?: () => void
+  onRecheckExtensions?: () => void
+  onClearPartyMovie?: () => void
 }
 
 interface SearchUser {
@@ -37,7 +45,17 @@ export default function FriendsSidebar({
   isInRoom,
   roomInvitations,
   sendInvite,
-  respondToInvitation
+  respondToInvitation,
+
+  //
+
+  roomMovie,
+  roomSource,
+  memberStatuses,
+  canStartParty,
+  onStartParty,
+  onRecheckExtensions,
+  onClearPartyMovie
 }: FriendsSidebarProps): React.ReactElement {
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -157,6 +175,86 @@ export default function FriendsSidebar({
           </div>
         )}
 
+        {!showSearch && roomMovie && roomSource && room && isInRoom && (
+          <div className="px-4 py-2 border-b border-white/10">
+            <h3 className="text-xs text-white/60 uppercase flex items-center gap-2 mb-2">
+              <PartyPopper className="w-3 h-3" />
+              HOST HAS SELECTED
+              {room?.userRole === 'owner' && onClearPartyMovie && (
+                <button
+                  onClick={onClearPartyMovie}
+                  className="p-1 hover:bg-red-500/20 rounded transition-colors"
+                  title="Clear party movie"
+                >
+                  <X className="w-3 h-3 text-red-400 hover:text-red-300" />
+                </button>
+              )}
+            </h3>
+            <div className="bg-indigo-950/60 backdrop-blur-sm border border-white/10 rounded-lg p-3">
+              <div className="flex space-x-3 mb-3">
+                {roomMovie.poster && (
+                  <img
+                    src={roomMovie.poster}
+                    alt={roomMovie.title}
+                    className="w-12 h-16 object-cover rounded"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-white font-medium text-sm leading-tight mb-1">
+                    {roomMovie.title}
+                  </h4>
+                  <p className="text-white/60 text-xs">
+                    {roomMovie.year}
+                    {roomMovie.type === 'series' && roomMovie.season && roomMovie.episode && (
+                      <span className="ml-2">
+                        S{roomMovie.season}E{roomMovie.episode}
+                        {roomMovie.episodeTitle && (
+                          <span className="text-white/50"> • {roomMovie.episodeTitle}</span>
+                        )}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              {memberStatuses && memberStatuses.size > 0 && (
+                <div className="space-y-1 mb-3">
+                  {Array.from(memberStatuses.entries()).map(([userId, status]) => (
+                    <div key={userId} className="flex items-center justify-between text-xs">
+                      <span className="text-white/70">{status.username}</span>
+                      <span
+                        className={status.hasCompatibleSource ? 'text-green-400' : 'text-red-400'}
+                      >
+                        {status.hasCompatibleSource ? '✓ Ready' : '✗ No source'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {room?.userRole === 'owner' && (
+                <button
+                  onClick={onStartParty}
+                  disabled={!canStartParty}
+                  className={`w-full text-xs py-2 rounded transition-all ${
+                    canStartParty
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {canStartParty ? 'Start Party' : 'Waiting...'}
+                </button>
+              )}
+
+              <button
+                onClick={onRecheckExtensions}
+                className="w-full mt-2 text-xs py-1 text-white/60 hover:text-white transition-colors"
+              >
+                Recheck Extensions
+              </button>
+            </div>
+          </div>
+        )}
+
         {!showSearch && roomInvitations.length > 0 && (
           <div className="px-4 py-2 space-y-2 border-b border-white/10">
             <h3 className="text-xs text-white/60 uppercase flex items-center gap-2">
@@ -169,11 +267,9 @@ export default function FriendsSidebar({
                   key={invitation.invitation_id}
                   invitation={invitation}
                   onAccept={() => {
-                    console.log(`Accepting room invitation ${invitation.invitation_id}`)
                     respondToInvitation(invitation.invitation_id, true)
                   }}
                   onDecline={() => {
-                    console.log(`Declining room invitation ${invitation.invitation_id}`)
                     respondToInvitation(invitation.invitation_id, false)
                   }}
                 />
@@ -202,7 +298,7 @@ export default function FriendsSidebar({
                       room={room}
                       isInRoom={isInRoom}
                       onInvite={sendInvite}
-                      onMessage={() => console.log(`DM ${f.username}`)}
+                      onMessage={() => {}}
                     />
                   ))
                 )}

@@ -211,6 +211,30 @@ func (mc *MasterConn) handleMessage(msg MasterMessage) {
 		}
 	case "set_status":
 		mc.handleSetStatus(data)
+	case "party_movie_selected":
+		if err := mc.roomHandler.HandlePartyMovieSelected(data); err != nil {
+			mc.sendError(err.Error())
+		} else {
+			mc.sendSuccess("Party movie selected successfully", data)
+		}
+	case "party_source_status":
+		if err := mc.roomHandler.HandlePartySourceStatus(data); err != nil {
+			mc.sendError(err.Error())
+		} else {
+			mc.sendSuccess("Party source status updated", data)
+		}
+	case "party_start":
+		if err := mc.roomHandler.HandlePartyStart(data); err != nil {
+			mc.sendError(err.Error())
+		} else {
+			mc.sendSuccess("Party started successfully", data)
+		}
+	case "party_movie_cleared":
+		if err := mc.roomHandler.HandlePartyMovieCleared(data); err != nil {
+			mc.sendError(err.Error())
+		} else {
+			mc.sendSuccess("Party movie cleared successfully", data)
+		}
 	case "ping":
 		mc.Send <- []byte(`{"type":"pong","timestamp":` + fmt.Sprintf("%d", time.Now().Unix()) + `}`)
 	default:

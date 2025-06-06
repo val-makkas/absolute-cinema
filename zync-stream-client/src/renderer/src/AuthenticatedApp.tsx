@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import useFriends from '@/hooks/useFriends'
 import { useRoom } from './hooks/useRoom'
@@ -11,11 +11,12 @@ import Sidebar from '@/components/Sidebar'
 import FriendsSidebar from '@/components/Friends/FriendsSidebar'
 import ExtensionsModal from '@/modals/ExtensionsModal'
 import DetailsModal from '@/modals/DetailsModal'
-import VideoPlayer from '@/components/VideoPlayer'
+import PartyPage from './pages/PartyPage'
 import HomePage from '@/pages/HomePage'
 import DiscoverPage from '@/pages/DiscoverPage'
 import { User } from '@/types'
 import { Extension } from '@/types'
+import StartSoloPage from './pages/StartSoloPage'
 
 interface AuthenticatedAppProps {
   token: string
@@ -53,29 +54,6 @@ export default function AuthenticatedApp({
   } = useFriends(token)
 
   const {
-    messages,
-    connected,
-    isInRoom,
-    room,
-    sendMessage,
-    sendPlaybackUpdate,
-    leaveRoom,
-    createRoom,
-    inviteToRoom,
-    roomInvitations,
-    respondToInvitation
-  } = useRoom(token, user)
-
-  console.log('Friends:', friends)
-
-  const { enhancedFriends, setStatus } = usePresence(friends, token)
-
-  console.log('Enhanced Friends:', enhancedFriends)
-
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, removeNotification } =
-    useNotifications(token, refreshData)
-
-  const {
     extensionManifests,
     extensionsOpen,
     setExtensionsOpen,
@@ -88,16 +66,69 @@ export default function AuthenticatedApp({
   } = useExtensions(extensions)
 
   const {
+    messages,
+    connected,
+    isInRoom,
+    room,
+    sendMessage,
+    sendPlaybackUpdate,
+    selectMovieForParty,
+    leaveRoom,
+    createRoom,
+    inviteToRoom,
+    roomInvitations,
+    respondToInvitation,
+
+    roomMovie,
+    roomSource,
+    memberStatuses,
+    allMembersReady,
+    canStartParty,
+    myCompatibleSource,
+    checkExtensionsForParty,
+    startWatchParty,
+    clearPartyMovie
+  } = useRoom(token, user, extensionManifests)
+
+  const { enhancedFriends, setStatus } = usePresence(friends, token)
+
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, removeNotification } =
+    useNotifications(token, refreshData)
+
+  const {
     playerSource,
     showDetailsModal,
     details,
     detailsLoading,
     handleMovieClick,
     handleWatchAlone,
+    handleWatchParty,
     handleCloseDetails,
     handleAddExtension,
-    clearPlayerSource
-  } = useDetailsModal()
+    clearPlayerSource,
+    selectedEpisode,
+    setSelectedEpisode,
+    restorePreviousModal
+  } = useDetailsModal(selectMovieForParty)
+
+  useEffect(() => {
+    const handleNavigateToDiscover = (): void => {
+      navigate('/discover')
+      setTimeout(() => {
+        restorePreviousModal()
+      }, 100)
+    }
+
+    if (window.electronAPI) {
+      window.electronAPI.on('navigate-to-discover', handleNavigateToDiscover)
+    }
+
+    return () => {
+      if (window.electronAPI) {
+        window.electronAPI.removeListener('navigate-to-discover', handleNavigateToDiscover)
+      }
+    }
+  }, [navigate, restorePreviousModal])
 
   const onFriendAction = (
     action: 'send' | 'accept' | 'reject' | 'remove' | 'invite',
@@ -122,8 +153,10 @@ export default function AuthenticatedApp({
 
   const handleSidebar = (key: string): void => {
     if (key === 'home') navigate('/')
-    else if (key === 'discover') navigate('/discover')
-    else if (key === 'extensions') setExtensionsOpen(true)
+    else if (key === 'discover') {
+      navigate('/discover')
+      setSearchQuery('')
+    } else if (key === 'extensions') setExtensionsOpen(true)
   }
 
   const handleSearch = (query: string): void => {
@@ -140,6 +173,7 @@ export default function AuthenticatedApp({
         detailsLoading={detailsLoading}
         onClose={handleCloseDetails}
         onWatchAlone={handleWatchAlone}
+        onWatchParty={(details, source, episode) => handleWatchParty(details, source, episode)}
         addExtension={() => handleAddExtension(setExtensionsOpen)}
       />
 
@@ -181,13 +215,51 @@ export default function AuthenticatedApp({
                 onStartParty={() => {}}
                 onLeaveParty={leaveRoom}
               />
-              <VideoPlayer
-                source={playerSource}
-                details={details}
+              <StartSoloPage
                 onExit={() => {
                   clearPlayerSource()
                   navigate('/')
                 }}
+              />
+            </div>
+          }
+        />
+        <Route
+          path="/watch-party"
+          element={
+            <div>
+              <Sidebar
+                onSelect={handleSidebar}
+                onSearchValue={handleSearch}
+                onLogout={logout}
+                username={user?.display_name || null}
+                searching={false}
+                notifications={notifications}
+                unreadCount={unreadCount}
+                connected={wsConnected}
+                onMarkAsRead={markAsRead}
+                onMarkAllAsRead={markAllAsRead}
+                onClearAll={clearAll}
+                onRemoveNotification={removeNotification}
+                party={room?.members}
+                isHost={room?.userRole === 'owner'}
+                onCreateParty={createRoom}
+                onKickMember={() => {}}
+                onStartParty={() => {}}
+                onLeaveParty={leaveRoom}
+              />
+              <PartyPage
+                source={myCompatibleSource}
+                details={roomMovie}
+                onExit={() => navigate('/')}
+                user={user}
+                room={room}
+                memberStatuses={memberStatuses}
+                startWatchParty={startWatchParty}
+                leaveRoom={leaveRoom}
+                sendMessage={sendMessage}
+                messages={messages}
+                token={token}
               />
             </div>
           }
@@ -228,6 +300,13 @@ export default function AuthenticatedApp({
                 sendInvite={inviteToRoom}
                 roomInvitations={roomInvitations}
                 respondToInvitation={respondToInvitation}
+                roomMovie={roomMovie}
+                roomSource={roomSource}
+                memberStatuses={memberStatuses}
+                canStartParty={canStartParty}
+                onStartParty={startWatchParty}
+                onRecheckExtensions={checkExtensionsForParty}
+                onClearPartyMovie={clearPartyMovie}
               />
               <DiscoverPage
                 token={token}
@@ -273,6 +352,13 @@ export default function AuthenticatedApp({
                 sendInvite={inviteToRoom}
                 roomInvitations={roomInvitations}
                 respondToInvitation={respondToInvitation}
+                roomMovie={roomMovie}
+                roomSource={roomSource}
+                memberStatuses={memberStatuses}
+                canStartParty={canStartParty}
+                onStartParty={startWatchParty}
+                onRecheckExtensions={checkExtensionsForParty}
+                onClearPartyMovie={clearPartyMovie}
               />
               <HomePage token={token} onMovieClick={handleMovieClick} />
             </div>

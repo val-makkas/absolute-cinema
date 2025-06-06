@@ -18,15 +18,7 @@ export default function DiscoverPage({
   const [type, setType] = useState<'movie' | 'series'>('movie')
   const [catalog, setCatalog] = useState<'IMDB' | 'CINE' | 'PDM'>('CINE')
 
-  console.log('DiscoverPage received searchQuery:', searchQuery)
-  console.log('DiscoverPage search state:', search)
-
-  const {
-    movies,
-    loading: moviesLoading,
-    error: moviesError,
-    loadMore
-  } = useMovies(token, search, type, catalog)
+  const { movies, loading, error: moviesError, loadMore } = useMovies(token, search, type, catalog)
 
   useEffect(() => {
     if (searchQuery) {
@@ -43,7 +35,7 @@ export default function DiscoverPage({
           <main className="px-4 md:px-8 py-4 bg-black min-h-screen">
             <MovieList
               movies={movies}
-              moviesLoading={moviesLoading}
+              moviesLoading={loading}
               moviesError={moviesError}
               onMovieClick={onMovieClick}
               type={type}

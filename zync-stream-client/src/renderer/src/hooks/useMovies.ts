@@ -19,13 +19,11 @@ export function useMovies(
   loading: boolean
   error: string | null
   loadMore: () => void
-  searching: boolean
 } {
   const [movies, setMovies] = useState<entry[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  const [searching, setSearching] = useState<boolean>(false)
 
   const browseCache = useRef<Map<string, { data: entry[]; timestamp: number }>>(new Map())
   const searchCache = useRef<Map<string, { data: entry[]; timestamp: number }>>(new Map())
@@ -78,59 +76,45 @@ export function useMovies(
     }
   }
 
-  const searchCatalog = useCallback(
-    async (query: string) => {
-      if (query !== '' && query.length >= 3) {
-        setSearching(true)
-        const cacheKey = getCacheKey(true, query)
-        const cacheData = getFromCache(cacheKey)
+  const searchCatalog = useCallback(async (query: string) => {
+    if (query !== '' && query.length >= 3) {
+      setLoading(true)
+      try {
+        const endpoints: string[] = []
 
-        if (cacheData) {
-          setMovies(cacheData)
-          setSearching(false)
-          return
-        }
+        endpoints.push(`${API_CINE}/catalog/movie/top/search=${query}.json`)
 
-        try {
-          const endpoints: string[] = []
+        endpoints.push(`${API_CINE}/catalog/series/top/search=${query}.json`)
 
-          endpoints.push(`${API_CINE}/catalog/movie/top/search=${query}.json`)
-
-          endpoints.push(`${API_CINE}/catalog/series/top/search=${query}.json`)
-
-          const results = await Promise.all(
-            endpoints.map(async (endpoint) => {
-              const res = await fetch(endpoint)
-              if (!res.ok) throw new Error(`Failed to search: ${res.status}`)
-              return res.json()
-            })
-          )
-
-          let allMetas: entry[] = []
-          results.forEach((data) => {
-            if (data.metas && Array.isArray(data.metas)) {
-              allMetas = [...allMetas, ...data.metas]
-            }
+        const results = await Promise.all(
+          endpoints.map(async (endpoint) => {
+            const res = await fetch(endpoint)
+            if (!res.ok) throw new Error(`Failed to search: ${res.status}`)
+            return res.json()
           })
+        )
 
-          const uniqueMetas = allMetas.filter(
-            (meta, index, self) => index === self.findIndex((m) => m.id === meta.id)
-          )
+        let allMetas: entry[] = []
+        results.forEach((data) => {
+          if (data.metas && Array.isArray(data.metas)) {
+            allMetas = [...allMetas, ...data.metas]
+          }
+        })
 
-          saveToCache(cacheKey, uniqueMetas)
+        const uniqueMetas = allMetas.filter(
+          (meta, index, self) => index === self.findIndex((m) => m.id === meta.id)
+        )
 
-          setMovies(uniqueMetas)
-          setError(null)
-        } catch (err) {
-          console.error('Search error:', err)
-          setError(err instanceof Error ? err.message : 'Search failed')
-        } finally {
-          setSearching(false)
-        }
+        setMovies(uniqueMetas)
+        setError(null)
+      } catch (err) {
+        console.error('Search error:', err)
+        setError(err instanceof Error ? err.message : 'Search failed')
+      } finally {
+        setLoading(false)
       }
-    },
-    [getCacheKey]
-  )
+    }
+  }, [])
 
   const fetchPopular = useCallback(
     async (page: number) => {
@@ -203,7 +187,6 @@ export function useMovies(
     movies,
     loading,
     error,
-    loadMore,
-    searching
+    loadMore
   }
 }

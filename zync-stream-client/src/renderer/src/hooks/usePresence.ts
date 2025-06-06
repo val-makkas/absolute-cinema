@@ -25,40 +25,27 @@ export function usePresence(friends: Friend[], token: string): UsePresenceReturn
   const [isTracking, setIsTracking] = useState(false)
 
   const debugHandler = useCallback((data: any) => {
-    console.log('👤 Presence: DEBUG - Received message:', data)
-    console.log('👤 Presence: DEBUG - Message type:', data.type)
-    console.log('👤 Presence: DEBUG - Full data:', JSON.stringify(data, null, 2))
   }, [])
 
   // Handle status updates
   const handleStatusUpdate = useCallback((data: any) => {
-    console.log('👤 Presence: handleStatusUpdate called with:', data)
 
     if (data.type === 'status_update') {
-      console.log('👤 Presence: Status update received:', data.data)
       const statusData = data.data
-
-      console.log('🔍 statusData.user_id:', statusData.user_id, 'type:', typeof statusData.user_id)
-      console.log('🔍 statusData.status:', statusData.status)
-      console.log('🔍 statusData.activity:', statusData.activity)
 
       setStatusOverrides((prev) => {
         const newMap = new Map(prev)
         const userId = parseInt(statusData.user_id.toString())
-        console.log('🔍 Setting override for userId:', userId)
 
         newMap.set(userId, {
           status: statusData.status,
           activity: statusData.activity
         })
-
-        console.log('🔍 Updated statusOverrides:', Array.from(newMap.entries()))
         return newMap
       })
 
       setIsTracking(true)
     } else {
-      console.log('👤 Presence: Received non-status message:', data.type)
     }
   }, [])
 
@@ -75,9 +62,7 @@ export function usePresence(friends: Friend[], token: string): UsePresenceReturn
           debugHandler
         )
         websocketService.subscribe('presence', ['status_update'], handleStatusUpdate)
-        console.log('👤 Presence: Subscribed to status updates')
       } else {
-        console.log('👤 Presence: WebSocket not connected, retrying...')
         const timeoutId = setTimeout(subscribe, 1000)
         return () => clearTimeout(timeoutId)
       }
@@ -88,7 +73,6 @@ export function usePresence(friends: Friend[], token: string): UsePresenceReturn
     return () => {
       websocketService.unsubscribe('presence_debug')
       websocketService.unsubscribe('presence')
-      console.log('👤 Presence: Unsubscribed')
     }
   }, [token, handleStatusUpdate, debugHandler])
 
@@ -104,7 +88,6 @@ export function usePresence(friends: Friend[], token: string): UsePresenceReturn
   const enhancedFriends = useMemo(() => {
     // 🔧 Add null/undefined check and ensure it's an array
     if (!friends || !Array.isArray(friends)) {
-      console.log('👤 Presence: Friends is null/undefined or not an array:', friends)
       return []
     }
 
@@ -117,7 +100,6 @@ export function usePresence(friends: Friend[], token: string): UsePresenceReturn
           activity: override.activity
         }
       }
-      console.log(friends)
       return friend
     })
   }, [friends, statusOverrides])

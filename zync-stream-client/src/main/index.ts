@@ -6,6 +6,9 @@ import { spawn, ChildProcess } from 'child_process'
 import { createMpvOverlayWindow, removeMpvOverlayWindow } from './overlay'
 import path from 'path'
 import { Socket } from 'net'
+import { writeFileSync, existsSync, mkdirSync } from 'fs'
+
+const API_SUBS = import.meta.env.VITE_API_SUBS
 
 let mpvProcess: ChildProcess | null = null
 let windowMergerProcess: ChildProcess | null = null
@@ -13,12 +16,24 @@ let mpvIpcSocket!: Socket
 let mainWindow!: BrowserWindow
 let command: { command: string[] } | null = null
 
-let currentTorrentInfo = { infoHash: null, fileIdx: null }
+let currentTorrentInfo = {
+  infoHash: null,
+  fileIdx: null,
+  imdbId: null,
+  title: null,
+  year: null,
+  type: null,
+  season: null,
+  episode: null,
+  episodeTitle: null
+}
 
 let overlayWindow: BrowserWindow | null = null
 let isFull: boolean | null
 
-const mpvTitle = 'MPV-EMBED-' + Date.now()
+const instanceId = `${(Math.random() * 10).toString().replace('.', '')}`
+
+const mpvTitle = `MPV-EMBED-${instanceId}`
 
 const parentHelperPath =
   process.platform === 'win32'
@@ -28,9 +43,22 @@ const parentHelperPath =
 const mpvPath =
   process.platform === 'win32' ? join(app.getAppPath(), '..', 'tools', 'mpv', 'mpv.exe') : 'mpv'
 
-const pipeName = process.platform === 'win32' ? `\\\\.\\pipe\\mpvpipe` : '/tmp/mpvpipe' + Date.now()
+const pipeName =
+  process.platform === 'win32' ? `\\\\.\\pipe\\mpvpipe-${instanceId}` : `/tmp/mpvpipe${instanceId}`
 
 let request_id = 0
+
+let currentWatchParty: {
+  roomId: number | null
+  isHost: boolean
+  streamPrepared: boolean
+  allMembersReady: boolean
+} = {
+  roomId: null,
+  isHost: false,
+  streamPrepared: false,
+  allMembersReady: false
+}
 
 const pendingRequests = new Map()
 
@@ -71,7 +99,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.zync.client')
+  electronApp.setAppUserModelId(`com.zync.client.${instanceId}`)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -92,11 +120,7 @@ app.whenReady().then(async () => {
   })
 })
 
-console.log('[MAIN] Registering MPV IPC handlers')
-
 ipcMain.handle('mpv-command', async (_, args) => {
-  console.log('[MAIN] Received mpv-command:', args)
-
   if (!mpvIpcSocket) {
     console.error('[MAIN] MPV socket not initialized')
     return false
@@ -113,14 +137,16 @@ ipcMain.handle('mpv-command', async (_, args) => {
       case 'set-volume':
         command = { command: ['set_property', 'volume', args.value] }
         break
-      case 'toggle-fullscreen':
-        command = { command: ['cycle', 'fullscreen'] }
-        break
       case 'set-subtitle':
         command = { command: ['set_property', 'sid', args.value] }
         break
+      case 'add-subtitle':
+        command = { command: ['sub-add', args.value] }
+        break
+      case 'subtitle-delay':
+        command = { command: ['set_property', 'sub-delay', args.value] }
+        break
       default:
-        console.log("ipc handler didn't receive a command")
         return { success: false, error: 'Invalid command' }
     }
     if (command) {
@@ -135,8 +161,6 @@ ipcMain.handle('mpv-command', async (_, args) => {
 })
 
 ipcMain.handle('mpv-fetch', async (_, args) => {
-  console.log('[MAIN] Received mpv-fetch:', args)
-
   if (!mpvIpcSocket) {
     console.error('[MAIN] MPV socket not initialized')
     return null
@@ -176,6 +200,9 @@ ipcMain.handle('mpv-fetch', async (_, args) => {
         case 'isFullscreen':
           command = { command: ['get_property', 'fullscreen'], request_id: thisRequestId }
           break
+        case 'subtitleTracks':
+          command = { command: ['get_property', 'track-list'], request_id: thisRequestId }
+          break
         case 'currentSubtitle':
           command = { command: ['get_property', 'sid'], request_id: thisRequestId }
           break
@@ -199,42 +226,57 @@ ipcMain.handle('mpv-fetch', async (_, args) => {
   }
 })
 
-console.log('[MAIN] MPV IPC handlers registered')
+const extractMetadata = (details) => {
+  if (!details)
+    return {
+      imdbId: null,
+      title: null,
+      year: null,
+      type: null,
+      season: null,
+      episode: null,
+      episodeTitle: null
+    }
 
-ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
-  currentTorrentInfo = { infoHash, fileIdx }
-  await new Promise((resolve) => setTimeout(resolve, 5000))
+  return {
+    imdbId: details.imdb_id || null,
+    title: details.title || null,
+    year: details.year || null,
+    type: details.type || null,
+    season: details.season || null,
+    episode: details.episode || null,
+    episodeTitle: details.episodeTitle || null
+  }
+}
+
+ipcMain.handle('prepare-stream', async (_, streamUrl, infoHash, fileIdx, movieDetails) => {
+  const metadata = extractMetadata(movieDetails)
+
+  currentTorrentInfo = {
+    infoHash,
+    fileIdx,
+    ...metadata
+  }
+
   try {
     if (!mpvProcess || mpvProcess.killed) {
-      console.log('ok')
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
       mpvIpcSocket = socket
     }
-
-    const electronTitle = mainWindow.getTitle()
-
-    if (mpvIpcSocket) {
-      mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'vid', 'auto'] }) + '\n')
-      mpvIpcSocket.write(
-        JSON.stringify({ command: ['set_property', 'force-window', 'yes'] }) + '\n'
-      )
-    } else {
-      throw new Error('MPV IPC socket is not initialized')
-    }
-
     if (mpvIpcSocket) {
       command = {
         command: ['loadfile', streamUrl]
       }
       mpvIpcSocket.write(JSON.stringify(command) + '\n')
+      mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'pause', true] }) + '\n')
     } else {
       throw new Error('MPV IPC socket is not initialized')
     }
-    const pollForDuration = async (retries = 100): Promise<void> => {
+
+    const waitForReady = async (retries = 100): Promise<boolean> => {
       for (let i = 0; i < retries; i++) {
         try {
-          console.log(`[Overlay] Polling MPV for duration (attempt ${i + 1}/${retries})...`)
           const duration = await new Promise((resolve, reject) => {
             const thisRequestId = request_id++
             const timeoutId = setTimeout(() => {
@@ -260,13 +302,293 @@ ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
               reject(new Error('MPV IPC socket is not initialized'))
             }
           })
-          console.log(`[Overlay] MPV duration response:`, duration)
+
           if (typeof duration === 'number' && duration > 0) {
-            console.log(
-              '[Overlay] Valid duration received, merging MPV window and creating overlay window.'
+            mainWindow.webContents.send('member-ready-local')
+            return true
+          }
+        } catch (e) {
+          console.error('[Stream] Error checking stream readiness:', e)
+        }
+        await new Promise((r) => setTimeout(r, 200))
+      }
+      return false
+    }
+
+    const isReady = await waitForReady()
+    return { success: isReady, ready: isReady }
+  } catch (err) {
+    console.error('Failed to prepare stream:', err)
+    return { success: false, error: err, ready: false }
+  }
+})
+
+ipcMain.handle('search-subtitles', async () => {
+  try {
+    const searchData = currentTorrentInfo
+    if (!searchData.imdbId && !searchData.title) {
+      throw new Error('Didnt pass torrent info correctly idiot.')
+    }
+    let apiUrl: string
+
+    if (searchData.type === 'series' && searchData.season && searchData.episode) {
+      apiUrl = `${API_SUBS}/subtitles/series/${searchData.imdbId}:${searchData.season}:${searchData.episode}.json`
+    } else {
+      apiUrl = `${API_SUBS}/subtitles/movie/${searchData.imdbId}.json`
+    }
+
+    const res = await fetch(apiUrl)
+    if (!res.ok) {
+      throw new Error(`Subs APi Error: ${res.status}, ${res.statusText}`)
+    }
+
+    const data = await res.json()
+    const subs = data.subtitles || []
+
+    const prefferedLanguages = ['eng', 'en', 'ell']
+    const filteredSubs = subs.filter(
+      (sub) => prefferedLanguages.includes(sub.lang) || subs.length < 10
+    )
+
+    return {
+      success: true,
+      subtitles: filteredSubs.length > 0 ? filteredSubs : subs.slice(0, 20),
+      searchData,
+      totalFound: subs.length
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: (error as Error).message,
+      subtitles: []
+    }
+  }
+})
+
+let idx = 1
+
+ipcMain.handle('download-subtitle', async (_, subsInfo) => {
+  try {
+    const downloadUrl = subsInfo.url
+
+    if (!downloadUrl) {
+      throw new Error('No downlaod URL')
+    }
+
+    const res = await fetch(downloadUrl)
+    if (!res.ok) {
+      throw new Error(`Download failed: ${res.status}, ${res.statusText}`)
+    }
+
+    const subsContent = await res.text()
+    console.log('[SUBTITLES] Downloaded content length:', subsContent.length)
+
+    const subsDir = join(app.getPath('temp'), 'zync-subs')
+    if (!existsSync(subsDir)) {
+      mkdirSync(subsDir, { recursive: true })
+    }
+
+    const lang = subsInfo.lang || 'unknown'
+    const encoding = subsInfo.SubEncoding || 'utf8'
+    const filename = `subtitles_${lang}_${idx}.srt`
+    const filepath = join(subsDir, filename)
+    idx++
+
+    writeFileSync(filepath, subsContent, encoding)
+
+    return {
+      success: true,
+      filepath,
+      filename,
+      language: subsInfo.lang,
+      encoding: subsInfo.SubEncoding
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: (error as Error).message
+    }
+  }
+})
+
+ipcMain.handle('init-watch-party', async (_, roomId, isHost) => {
+  try {
+    currentWatchParty = {
+      roomId,
+      isHost,
+      streamPrepared: false,
+      allMembersReady: false
+    }
+    return { success: true, party: currentWatchParty }
+  } catch (err) {
+    console.error(`[PARTY-${instanceId}] Failed to initialize watch party:`, err)
+    return { success: false, error: err }
+  }
+})
+
+ipcMain.handle('all-members-ready', async () => {
+  try {
+    currentWatchParty.allMembersReady = true
+
+    if (currentWatchParty.isHost) {
+      let countdown = 5
+      const countdownInterval = setInterval(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('party-countdown-broadcast', countdown)
+        } else {
+          console.error(`[PARTY-${instanceId}] MainWindow is null or destroyed!`)
+        }
+
+        countdown--
+
+        if (countdown < 0) {
+          clearInterval(countdownInterval)
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('party-start-playback-broadcast')
+          } else {
+            console.error(
+              `[PARTY-${instanceId}] MainWindow is null or destroyed for playback start!`
             )
+          }
+        }
+      }, 1000)
+    } else {
+      //
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error(`[PARTY-${instanceId}] Failed to handle all members ready:`, err)
+    return { success: false, error: err }
+  }
+})
+
+ipcMain.handle('reset-watch-party', async () => {
+  try {
+    currentWatchParty = {
+      roomId: null,
+      isHost: false,
+      streamPrepared: false,
+      allMembersReady: false
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error(`[PARTY-${instanceId}] Failed to reset watch party:`, err)
+    return { success: false, error: err }
+  }
+})
+
+ipcMain.handle('start-synchronized-playback', async () => {
+  try {
+    if (!mpvIpcSocket) {
+      throw new Error('MPV IPC socket is not initialized')
+    }
+
+    const electronTitle = mainWindow.getTitle()
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+
+    mainWindow.setAlwaysOnTop(true, 'screen-saver')
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(false)
+      }
+    }, 1000)
+
+    mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'vid', 'auto'] }) + '\n')
+    mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'force-window', 'yes'] }) + '\n')
+    mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'fullscreen', true] }) + '\n')
+    setTimeout(() => {
+      overlayWindow = createMpvOverlayWindow(mainWindow)
+      windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
+        detached: true
+      })
+
+      setTimeout(() => {
+        mainWindow.moveTop()
+        mainWindow.focus()
+
+        mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'pause', false] }) + '\n')
+      }, 100)
+    }, 200)
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to start synchronized playback:', err)
+    return { success: false, error: err }
+  }
+})
+
+ipcMain.handle('play-in-mpv-solo', async (_, streamUrl, infoHash, fileIdx, movieDetails) => {
+  const metadata = extractMetadata(movieDetails)
+
+  currentTorrentInfo = {
+    infoHash,
+    fileIdx,
+    ...metadata
+  }
+  await new Promise((resolve) => setTimeout(resolve, 5000))
+  try {
+    if (!mpvProcess || mpvProcess.killed) {
+      const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
+      mpvProcess = process
+      mpvIpcSocket = socket
+    }
+
+    const electronTitle = mainWindow.getTitle()
+
+    if (mpvIpcSocket) {
+      mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'vid', 'auto'] }) + '\n')
+      mpvIpcSocket.write(
+        JSON.stringify({ command: ['set_property', 'force-window', 'yes'] }) + '\n'
+      )
+      mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'fullscreen', true] }) + '\n')
+    } else {
+      throw new Error('MPV IPC socket is not initialized')
+    }
+
+    if (mpvIpcSocket) {
+      command = {
+        command: ['loadfile', streamUrl]
+      }
+      mpvIpcSocket.write(JSON.stringify(command) + '\n')
+    } else {
+      throw new Error('MPV IPC socket is not initialized')
+    }
+    const pollForDuration = async (retries = 100): Promise<void> => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const duration = await new Promise((resolve, reject) => {
+            const thisRequestId = request_id++
+            const timeoutId = setTimeout(() => {
+              if (pendingRequests.has(thisRequestId)) {
+                pendingRequests.delete(thisRequestId)
+                resolve(0)
+              }
+            }, 500)
+
+            pendingRequests.set(thisRequestId, (msg) => {
+              clearTimeout(timeoutId)
+              if (msg.error === 'success') {
+                resolve(msg.data)
+              } else {
+                resolve(0)
+              }
+            })
+
+            const cmd = { command: ['get_property', 'duration'], request_id: thisRequestId }
+            if (mpvIpcSocket) {
+              mpvIpcSocket.write(JSON.stringify(cmd) + '\n')
+            } else {
+              reject(new Error('MPV IPC socket is not initialized'))
+            }
+          })
+          if (typeof duration === 'number' && duration > 0) {
             if (mainWindow.isMinimized()) {
-              console.log('[Main] Restoring minimized main window')
               mainWindow.restore()
             }
             mainWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -275,18 +597,10 @@ ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
                 mainWindow.setAlwaysOnTop(false)
               }
             }, 1000)
-            setTimeout(() => {
-              overlayWindow = createMpvOverlayWindow(mainWindow)
-              windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
-                detached: true
-              })
-
-              setTimeout(() => {
-                mainWindow.moveTop()
-                mainWindow.focus()
-                console.log('[Main] Main window brought to front after overlay creation')
-              }, 100)
-            }, 200)
+            overlayWindow = createMpvOverlayWindow(mainWindow)
+            windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
+              detached: true
+            })
             return
           }
         } catch (e) {
@@ -306,8 +620,6 @@ ipcMain.handle('play-in-mpv', async (_, streamUrl, infoHash, fileIdx) => {
 
 ipcMain.handle('hide-mpv', async () => {
   try {
-    console.log('Killing MPV and restarting in idle mode')
-
     closeAll(mpvProcess, windowMergerProcess, () => removeMpvOverlayWindow(overlayWindow))
     mpvProcess = null
     windowMergerProcess = null
@@ -322,13 +634,16 @@ ipcMain.handle('hide-mpv', async () => {
       console.error('Failed to remove torrent from backend:', err)
     }
 
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('navigate-to-discover')
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     try {
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
       mpvIpcSocket = socket
-      console.log('MPV restarted in idle mode')
       return { success: true }
     } catch (restartErr) {
       console.error('Failed to restart MPV in idle mode:', restartErr)
@@ -350,7 +665,6 @@ ipcMain.handle('fullscreen-main-window', async () => {
 })
 
 ipcMain.handle('get-current-torrent-info', async () => {
-  console.log('[MAIN] Received get-current-torrent-info')
   return currentTorrentInfo
 })
 

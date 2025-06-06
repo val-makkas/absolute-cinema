@@ -21,7 +21,6 @@ export default function useNotifications(
 
   const handleMessage = useCallback(
     (data: any) => {
-      console.log('Notifications: Received message:', data.type)
 
       if (data.type === 'notification') {
         if (onNotificationReceived) {
@@ -95,7 +94,6 @@ export default function useNotifications(
           ['connection_established', 'auth_success', 'notification'],
           handleMessage
         )
-        console.log('🔔 Notifications: Subscribed to messages')
       } else {
         const timeoutId = setTimeout(subscribe, 1000)
         return () => clearTimeout(timeoutId)
@@ -106,7 +104,6 @@ export default function useNotifications(
 
     return () => {
       websocketService.unsubscribe('notifications')
-      console.log('Notifications: Unsubscribed')
     }
   }, [token, handleMessage])
 

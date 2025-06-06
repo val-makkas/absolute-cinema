@@ -13,7 +13,6 @@ export function useWebSocketConnection(token: string) {
       await websocketService.connect(token)
       setConnected(true)
     } catch (error) {
-      console.log(error)
       setConnected(false)
     } finally {
       setConnecting(false)
@@ -33,7 +32,6 @@ export function useWebSocketConnection(token: string) {
       setConnected(isConnected)
 
       if (!isConnected && !connecting) {
-        console.log('🔄 App: Auto-reconnecting WebSocket...')
         connect()
       }
     }, 5000)

@@ -4,40 +4,73 @@ interface Extension {
   url: string
 }
 
-export default function useExtensions(extensions: Extension[] | null): {
-  extensionManifests
-  extensionsOpen
-  setExtensionsOpen
-  newManifestUrl
-  setNewManifestUrl
-  showExtensionDetails
-  setShowExtensionDetails
-  addExtension
-  removeExtension
-} {
-  const [extensionManifests, setExtensionManifests] = useState<Record<string, unknown>>({})
-  const [extensionsOpen, setExtensionsOpen] = useState(false)
-  const [newManifestUrl, setNewManifestUrl] = useState('')
+interface Manifest {
+  id: string
+  version: string
+  name: string
+  description: string
+  resources: string[]
+  types: string[]
+  catalogs?: any[]
+  behaviorHints?: {
+    configurable?: boolean
+    configurationRequired?: boolean
+  }
+}
+
+interface UseExtensionsReturn {
+  extensionManifests: Record<string, Manifest>
+  extensionsOpen: boolean
+  setExtensionsOpen: (open: boolean) => void
+  newManifestUrl: string
+  setNewManifestUrl: (url: string) => void
+  showExtensionDetails: string | null
+  setShowExtensionDetails: (url: string | null) => void
+  addExtension: (updateExtensions: (exts: Extension[]) => Promise<void>) => Promise<void>
+  removeExtension: (
+    url: string,
+    updateExtensions: (exts: Extension[]) => Promise<void>
+  ) => Promise<void>
+}
+
+export default function useExtensions(extensions: Extension[] | null): UseExtensionsReturn {
+  const [extensionManifests, setExtensionManifests] = useState<Record<string, Manifest>>({})
+  const [extensionsOpen, setExtensionsOpen] = useState<boolean>(false)
+  const [newManifestUrl, setNewManifestUrl] = useState<string>('')
   const [showExtensionDetails, setShowExtensionDetails] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchManifests(): Promise<void> {
       if (!extensions) return
-      const manifests = {}
+
+      const manifests: Record<string, Manifest> = {}
+
       await Promise.all(
-        extensions.map(async (ext) => {
+        extensions.map(async (ext: Extension) => {
           const url = typeof ext === 'string' ? ext : ext.url
           try {
-            const res = await fetch(url)
-            if (!res.ok) throw new Error('Failed to fetch manifest')
-            const manifest = await res.json()
+            const res = await fetch(url, {
+              headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json'
+              }
+            })
+
+            if (!res.ok) throw new Error(`Failed to fetch manifest: ${res.status}`)
+
+            const manifest: Manifest = await res.json()
+
+            if (!manifest.name || !manifest.id || !manifest.resources) {
+              throw new Error('Invalid manifest structure')
+            }
+
             manifests[url] = manifest
-          } catch (e) {
-            manifests[url] = undefined
-            console.log(e)
+          } catch {
+            //
           }
         })
       )
+
       setExtensionManifests(manifests)
     }
 
@@ -51,16 +84,24 @@ export default function useExtensions(extensions: Extension[] | null): {
   const addExtension = async (
     updateExtensions: (exts: Extension[]) => Promise<void>
   ): Promise<void> => {
-    if (!newManifestUrl) return
-    if (!/^https?:\/\//.test(newManifestUrl)) return alert('Please enter a valid URL')
+    if (!newManifestUrl.trim()) {
+      alert('Please enter a manifest URL')
+      return
+    }
 
-    if (
-      extensions?.some(
-        (ext) =>
-          ext.url === newManifestUrl || (typeof ext === 'object' && ext.url === newManifestUrl)
-      )
-    ) {
-      return alert('Extension already added')
+    if (!/^https?:\/\//.test(newManifestUrl)) {
+      alert('Please enter a valid URL starting with http:// or https://')
+      return
+    }
+
+    const isAlreadyAdded = extensions?.some((ext: Extension) => {
+      const extUrl = typeof ext === 'string' ? ext : ext.url
+      return extUrl === newManifestUrl
+    })
+
+    if (isAlreadyAdded) {
+      alert('Extension already added')
+      return
     }
 
     try {
@@ -72,25 +113,29 @@ export default function useExtensions(extensions: Extension[] | null): {
       })
 
       if (!manifestResponse.ok) {
-        throw new Error('Failed to fetch manifest data')
+        throw new Error(
+          `Failed to fetch manifest: ${manifestResponse.status} ${manifestResponse.statusText}`
+        )
       }
 
-      const manifestData = await manifestResponse.json()
+      const manifestData: Manifest = await manifestResponse.json()
 
-      if (!manifestData.name) {
-        throw new Error('Invalid manifest: missing name property')
+      if (!manifestData.name || !manifestData.id || !manifestData.resources) {
+        throw new Error('Invalid manifest: missing required properties (name, id, resources)')
       }
 
-      setExtensionManifests((prevManifests) => ({
+      setExtensionManifests((prevManifests: Record<string, Manifest>) => ({
         ...prevManifests,
         [newManifestUrl]: manifestData
       }))
 
-      await updateExtensions([...(extensions || []), { url: newManifestUrl }])
+      const updatedExtensions: Extension[] = [...(extensions || []), { url: newManifestUrl }]
+      await updateExtensions(updatedExtensions)
 
       setNewManifestUrl('')
-    } catch {
-      //
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add extension'
+      alert(`Error adding extension: ${errorMessage}`)
     }
   }
 
@@ -101,14 +146,14 @@ export default function useExtensions(extensions: Extension[] | null): {
     try {
       if (!extensions) return
 
-      const filteredExtensions = extensions.filter((ext) => {
+      const filteredExtensions = extensions.filter((ext: Extension) => {
         const extUrl = typeof ext === 'string' ? ext : ext.url
         return extUrl !== url
       })
 
       await updateExtensions(filteredExtensions)
 
-      setExtensionManifests((prevManifests) => {
+      setExtensionManifests((prevManifests: Record<string, Manifest>) => {
         const newManifests = { ...prevManifests }
         delete newManifests[url]
         return newManifests
@@ -130,3 +175,5 @@ export default function useExtensions(extensions: Extension[] | null): {
     removeExtension
   }
 }
+
+export type { Extension, Manifest, UseExtensionsReturn }

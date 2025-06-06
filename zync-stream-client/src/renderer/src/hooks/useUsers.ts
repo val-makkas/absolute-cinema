@@ -167,8 +167,6 @@ export function useUsers(): {
 
         setExtensions(extensionsArray)
         localStorage.setItem('extensions', JSON.stringify(extensionsArray))
-
-        console.log('Extensions updated successfully:', extensionsArray)
         return true
       } catch (error) {
         console.error('Extension update error:', error)

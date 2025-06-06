@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { useNavigate } from 'react-router-dom'
 import {
   Home,
   Search,
@@ -66,6 +67,7 @@ export default function Sidebar({
   const [searchInputValue, setSearchInputValue] = useState<string>('')
   const [partyExpanded, setPartyExpanded] = useState(false)
   const [partyJustCreated, setPartyJustCreated] = useState(false)
+  const navigate = useNavigate()
 
   const partyDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -99,6 +101,11 @@ export default function Sidebar({
     if (onCreateParty) {
       onCreateParty()
     }
+  }
+
+  const getStatusColor = (connected: boolean): string => {
+    if (connected) return 'bg-green-500'
+    else return 'bg-gray-500'
   }
 
   return (
@@ -198,7 +205,7 @@ export default function Sidebar({
               if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                 const query = e.currentTarget.value.trim()
                 onSearchValue && onSearchValue(query)
-                onSelect('discover')
+                navigate('/discover')
               } else if (e.key === 'Escape') {
                 setSearchInputValue('')
                 onSearchValue && onSearchValue('')
@@ -413,10 +420,15 @@ export default function Sidebar({
             className="flex items-center gap-2 h-9 px-3 rounded-full relative group focus-visible:ring-2 focus-visible:ring-white/30 border-2 border-transparent transition-all hover:scale-105 overflow-hidden"
           >
             <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 bg-gradient-to-br from-purple-600/40 to-blue-600/40 transition-all duration-300 group-hover:shadow-[0_0_10px_rgba(120,87,255,0.5)]"></span>
-            <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center rounded-full">
-              <span className="text-white text-xs font-semibold">
-                {username?.charAt(0).toUpperCase() ?? ''}
-              </span>
+            <div className="relative">
+              <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center rounded-full">
+                <span className="text-white text-xs font-semibold">
+                  {username?.charAt(0).toUpperCase() ?? ''}
+                </span>
+              </div>
+              <div
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 ${getStatusColor(connected)} border-2 border-gray-900 rounded-full`}
+              />
             </div>
             <span className="text-sm relative z-10">{username}</span>
           </Button>

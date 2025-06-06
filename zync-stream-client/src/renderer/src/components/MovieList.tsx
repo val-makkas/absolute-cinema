@@ -38,8 +38,6 @@ export default function MovieList({
 }: MovieListProps): React.ReactElement {
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false)
 
-  console.log('MovieList search prop:', search, 'length:', search?.length)
-
   useEffect(() => {
     if (!moviesLoading) {
       setIsLoadingMore(false)
@@ -83,7 +81,7 @@ export default function MovieList({
     <main className="w-full min-h-screen flex flex-col justify-start pl-2 mt-15 pr-80 pb-12 pt-8 animate-fade-in relative">
       <div className="w-full relative z-10 mb-6">
         <div className="flex ml-20 flex-row gap-4 items-center">
-          {search && search.length >= 3 ? (
+          {search && search.length > 3 ? (
             <h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0">
               Search Results for &quot;{search}&quot;
             </h2>

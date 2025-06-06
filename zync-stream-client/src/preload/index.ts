@@ -2,29 +2,65 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { overlayControls } from './overlayControls'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.on(channel, callback)
+  }
+}
+
+interface RoomMovie {
+  title: string
+  year: string
+  poster?: string
+  imdb_id: string
+  type: 'movie' | 'series'
+  season?: number
+  episode?: number
+  episodeTitle?: string
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  playInMpv: (streamUrl, infoHash, fileIdx) =>
-    ipcRenderer.invoke('play-in-mpv', streamUrl, infoHash, fileIdx),
+  playInMpvSolo: (streamUrl: string, infoHash: string, fileIdx: number, movieDetails: RoomMovie) =>
+    ipcRenderer.invoke('play-in-mpv-solo', streamUrl, infoHash, fileIdx, movieDetails),
   hideMpv: () => ipcRenderer.invoke('hide-mpv'),
-  send: (channel, data) => {
-    // Whitelist channels
-    const validChannels = ['play-in-mpv', 'mpv-command', 'mpv-fetch', 'stop-mpv']
-    if (validChannels.includes(channel)) {
-      ipcRenderer.send(channel, data)
-    }
+  initWatchParty: (roomId: number, isHost: boolean) =>
+    ipcRenderer.invoke('init-watch-party', roomId, isHost),
+  allMembersReady: () => ipcRenderer.invoke('all-members-ready'),
+  resetWatchParty: () => ipcRenderer.invoke('reset-watch-party'),
+  prepareStream: (streamUrl: string, infoHash: string, fileIdx: number, movieDetails: RoomMovie) =>
+    ipcRenderer.invoke('prepare-stream', streamUrl, infoHash, fileIdx, movieDetails),
+  startSynchronizedPlayback: () => ipcRenderer.invoke('start-synchronized-playback'),
+  onPartyEvent: (callback: (event: string, data?: any) => void) => {
+    ipcRenderer.removeAllListeners('member-ready-local')
+    ipcRenderer.removeAllListeners('party-countdown-broadcast')
+    ipcRenderer.removeAllListeners('party-start-playback-broadcast')
+
+    ipcRenderer.on('member-ready-local', () => {
+      callback('member-ready-local')
+    })
+
+    ipcRenderer.on('party-countdown-broadcast', (_, data) => {
+      callback('party-countdown-broadcast', data)
+    })
+
+    ipcRenderer.on('party-start-playback-broadcast', () => {
+      callback('party-start-playback-broadcast')
+    })
   },
-  receive: (channel, func) => {
-    const validChannels = ['sync-update', 'chat-message', 'user-event']
-    if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (_, ...args) => func(...args))
-    }
+
+  offPartyEvent: () => {
+    ipcRenderer.removeAllListeners('member-ready-local')
+    ipcRenderer.removeAllListeners('party-countdown-broadcast')
+    ipcRenderer.removeAllListeners('party-start-playback-broadcast')
+  },
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.on(channel, callback)
+  },
+  removeListener: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.removeListener(channel, callback)
   }
 })
 
-// Expose MPV controls in main window as well
 contextBridge.exposeInMainWorld('overlayControls', overlayControls)
 
 if (process.contextIsolated) {
@@ -35,8 +71,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-ignore (defined in dts)
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
+  // @ts-ignore (defined in dts)
   window.api = api
 }

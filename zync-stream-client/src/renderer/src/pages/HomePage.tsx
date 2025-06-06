@@ -15,15 +15,6 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
   const { featuredMovie, popularMovies, popularSeries, updatedWatchHistory, loading, error } =
     useHomePage(token)
 
-  console.log('HomePage data:', {
-    featuredMovie,
-    popularMovies: popularMovies?.length,
-    popularSeries: popularSeries?.length,
-    updatedWatchHistory: updatedWatchHistory?.length,
-    loading,
-    error
-  })
-
   const handlePlayItem = (item: entry | updatedWatchHistoryEntry): void => {
     if ('imdb_id' in item) {
       onMovieClick(item)
@@ -58,9 +49,9 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
       <section className="relative h-[70vh] mb-8 overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src={featuredMovie.poster}
+            src={featuredMovie.background}
             alt={featuredMovie.name}
-            className="w-full h-full object-cover filter blur-sm scale-110"
+            className="w-full h-full mt-10 object-cover filter scale-110"
             onError={(e) => {
               const target = e.target as HTMLImageElement
               target.src = '/assets/missing.jpg'
@@ -74,7 +65,7 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
           <div className="max-w-3xl">
             <div className="mb-4 flex items-center gap-3">
               <span className="text-sm font-semibold uppercase tracking-wide text-yellow-400">
-                Featured {featuredMovie.type === 'series' ? 'Series' : 'Movie'}
+                Popular {featuredMovie.type === 'series' ? 'Series' : 'Movie'}
               </span>
               {featuredMovie.imdbRating && (
                 <div className="flex items-center gap-1 bg-yellow-400/20 backdrop-blur-sm rounded-lg px-2 py-1">
@@ -86,7 +77,7 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
               )}
             </div>
 
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black drop-shadow-2xl mb-6 bg-gradient-to-r from-white via-white to-gray-300 bg-clip-text text-transparent leading-tight">
+            <h1 className="text-5xl md:text-5xl lg:text-5xl font-black drop-shadow-2xl mb-6 bg-gradient-to-r from-white via-white to-gray-300 bg-clip-text text-transparent leading-tight">
               {featuredMovie.name}
             </h1>
 
@@ -105,7 +96,7 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
               </Button>
               <Button
                 variant="outline"
-                className="flex items-center gap-2 bg-black/50 backdrop-blur-sm border-white/30 text-white px-6 py-3 rounded-lg font-semibold hover:bg-black/70 transition-all duration-200"
+                className="flex items-center gap-2 backdrop-blur-sm border-white/30 text-white px-6 py-3 rounded-lg font-semibold hover:bg-black/70 transition-all duration-200"
                 onClick={() => onMovieClick(featuredMovie)}
               >
                 <Info size={20} />
@@ -118,7 +109,7 @@ const HomePage = ({ token, onMovieClick }: HomePageProps): React.ReactElement =>
                 {featuredMovie.genre.slice(0, 3).map((genre) => (
                   <span
                     key={genre}
-                    className="bg-white/10 backdrop-blur-sm border border-white/20 text-white px-3 py-1 rounded-full text-sm"
+                    className="backdrop-blur-sm border border-white/20 text-white px-3 py-1 rounded-full text-sm"
                   >
                     {genre}
                   </span>

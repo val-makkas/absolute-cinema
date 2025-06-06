@@ -549,7 +549,139 @@ func (rh *RoomHandler) broadcastMemberListUpdate(roomID int) {
 	}
 
 	rh.publishRoomEvent(roomID, event)
-	log.Printf("📋 Broadcasted member list update to room %d (new member: %s)", roomID, rh.username)
+	log.Printf("Broadcasted member list update to room %d (new member: %s)", roomID, rh.username)
+}
+
+func (rh *RoomHandler) HandlePartyMovieSelected(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, role, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	if role != "owner" {
+		return fmt.Errorf("only room owner can select party movies")
+	}
+
+	event := RoomEvent{
+		Type:      "party_movie_selected",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	log.Printf("User %d (%s) selected party movie in room %d", rh.userID, rh.username, *rh.currentRoom)
+	return nil
+}
+
+func (rh *RoomHandler) HandlePartySourceStatus(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, _, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	event := RoomEvent{
+		Type:      "party_source_status",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	log.Printf("User %d (%s) updated party source status in room %d", rh.userID, rh.username, *rh.currentRoom)
+	return nil
+}
+
+func (rh *RoomHandler) HandlePartyStart(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, role, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	if role != "owner" {
+		return fmt.Errorf("only room owner can start the party")
+	}
+
+	event := RoomEvent{
+		Type:      "party_start",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	log.Printf("User %d (%s) started party in room %d", rh.userID, rh.username, *rh.currentRoom)
+	return nil
+}
+
+func (rh *RoomHandler) HandlePartyMovieCleared(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, role, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	if role != "owner" {
+		return fmt.Errorf("only room owner can clear party movies")
+	}
+
+	event := RoomEvent{
+		Type:      "party_movie_cleared",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	log.Printf("User %d (%s) cleared party movie in room %d", rh.userID, rh.username, *rh.currentRoom)
+	return nil
 }
 
 func (rh *RoomHandler) Subscribe() {

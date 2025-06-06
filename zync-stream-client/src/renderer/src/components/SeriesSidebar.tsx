@@ -11,7 +11,6 @@ export default function SeriesSidebar({
   onEpisodeSelect: (ep: episode) => void
   selectedEpisodeid?: string
 }): React.JSX.Element | null {
-  console.log(details)
   // Group episodes by season
   const episodesBySeason = details.videos.reduce((acc: Record<number, episode[]>, ep) => {
     if (ep.season > 0) {
