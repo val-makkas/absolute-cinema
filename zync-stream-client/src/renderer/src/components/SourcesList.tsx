@@ -1,6 +1,7 @@
 import { episode, Source } from '@renderer/types'
 import { Blocks } from 'lucide-react'
 import { Button } from './ui/button'
+import { Separator } from './ui/separator'
 
 interface SourcesListProps {
   sources: Source[]
@@ -106,6 +107,16 @@ export default function SourcesList({
             </option>
           ))}
         </select>
+        {episode && (
+          <>
+            <div className="flex items-center justify-center mt-3">
+              <h2 className="inline-block scroll-m-20 pb-2 text-2xl font-semibold tracking-tight first:mt-0">
+                Episode {episode.number}
+              </h2>
+            </div>
+            <Separator />
+          </>
+        )}
         <div className="flex flex-col mt-3 gap-1">
           {sources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-white/70">
@@ -139,12 +150,14 @@ export default function SourcesList({
                 >
                   <div className="flex flex-col justify-center h-full overflow-hidden">
                     <div className="font-mono text-xs opacity-90 line-clamp-1">
-                      {source.displayName} {source.quality}
+                      {source.displayName}
                     </div>
                     <div className="font-semibold text-xs w-full truncate max-w-[250px] leading-tight">
                       {source.displayTitle}
                     </div>
-                    <div className="font-mono text-xs opacity-90 line-clamp-1">{source.info}</div>
+                    <div className="font-mono text-xs opacity-90 line-clamp-1">
+                      {source.info} {source.quality}
+                    </div>
                   </div>
                 </button>
               )

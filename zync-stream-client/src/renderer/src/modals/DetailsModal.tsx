@@ -70,15 +70,23 @@ export default function DetailsModal({
             }
             allSources.push(
               ...streams.map((source) => {
-                const [displayName, ...rest] = source.name!.split('\n')
-                const [displayTitle, ...restTitle] = source.title!.split('\n')
+                const titleParts = source.title!.split('\n')
+                let q: string = ''
+                let inf: string = ''
+                if (titleParts.length < 2) {
+                  q = titleParts[titleParts.length - 1]
+                  inf = ''
+                } else {
+                  inf = titleParts[titleParts.length - 1]
+                  q = titleParts[titleParts.length - 2]
+                }
                 return {
                   ...source,
                   extensionName: manifest.name || baseUrl,
-                  displayName,
-                  displayTitle,
-                  info: restTitle.join('\n'),
-                  quality: rest.join('\n')
+                  displayName: source.name,
+                  displayTitle: titleParts[0],
+                  quality: q,
+                  info: inf
                 }
               })
             )
