@@ -65,6 +65,7 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const subtitleMenuRef = useRef<HTMLDivElement>(null)
 
   const formatTime = (seconds: number): string => {
     seconds = Math.floor(seconds)
@@ -79,6 +80,30 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   }
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent): void => {
+      if (subtitleMenuRef.current && !subtitleMenuRef.current.contains(event.target as Node)) {
+        event.stopPropagation()
+        event.preventDefault()
+        setShowSubtitleMenu(false)
+      }
+    }
+
+    if (showSubtitleMenu) {
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside)
+      }, 100)
+
+      return () => {
+        clearTimeout(timeoutId)
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSubtitleMenu])
   const loadSubtitleTracks = useCallback(async () => {
     try {
       const tracks = await window.overlayControls.getSubtitleTracks()
@@ -112,6 +137,7 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const handleSubtitleSelect = useCallback(async (trackId: number | null) => {
     try {
       await window.overlayControls.setSubtitle(trackId)
+      await loadSubtitleTracks()
       setShowSubtitleMenu(false)
     } catch (err) {
       console.log(err as Error)
@@ -585,7 +611,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                     </svg>
                   )}
                 </button>
-                {/* Volume slider (visible on hover) */}
                 <div className="invisible opacity-0 scale-95 group-hover:visible group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-in-out absolute left-2 bottom-full mb-2 p-3 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 shadow-lg z-[1000] pointer-events-auto">
                   <input
                     type="range"
@@ -625,7 +650,11 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
               </div>
               <div className="relative">
                 <button
-                  onClick={() => setShowSubtitleMenu(!showSubtitleMenu)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    setShowSubtitleMenu(!showSubtitleMenu)
+                  }}
                   className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 text-white hover:shadow-md hover:shadow-[#785aeb]/10 hover:scale-105 transform ${
                     currentSubtitle ? 'bg-purple-600/50' : 'bg-black/30 hover:bg-black/50'
                   }`}
@@ -637,12 +666,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                 </button>
 
                 {showSubtitleMenu && (
-                  <div className="absolute right-0 bottom-full mb-2 w-80 max-h-96 overflow-y-auto bg-black/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-[1000] pointer-events-auto">
+                  <div
+                    ref={subtitleMenuRef}
+                    className="absolute right-0 bottom-full mb-10 w-80 max-h-96 overflow-y-auto bg-black/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-[1000] pointer-events-auto"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-white font-semibold text-sm">Subtitles</h3>
                         <button
-                          onClick={() => setShowSubtitleMenu(false)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowSubtitleMenu(false)
+                          }}
                           className="text-white/60 hover:text-white"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -653,7 +689,10 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
 
                       <div className="space-y-2 mb-4">
                         <button
-                          onClick={() => handleSubtitleSelect(null)}
+                          onClick={() => {
+                            handleSubtitleSelect(null)
+                            setShowSubtitleMenu(false)
+                          }}
                           className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
                             currentSubtitle === null
                               ? 'bg-purple-500 text-white'

@@ -21,7 +21,7 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
     transparent: true,
     frame: false,
     alwaysOnTop: true,
-    focusable: true,
+    focusable: false,
     hasShadow: false,
     resizable: false,
     skipTaskbar: true,
@@ -101,6 +101,7 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
     isMainMinimized = true
     if (overlay && !isDestroyed && !overlay.isDestroyed()) {
       overlay.hide()
+      overlay.minimize()
     }
   })
 
@@ -134,6 +135,7 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
   main.on('show', () => {
     if (overlay && !overlay.isDestroyed()) {
       overlay.show()
+      overlay.restore()
       syncPosition()
     }
   })
@@ -171,22 +173,24 @@ function setupOverlayPositionSync(overlay: BrowserWindow, main: BrowserWindow): 
       !isMainMinimized &&
       !main.isMinimized()
     ) {
-      overlay.show()
+      overlay.focus()
       syncOverlayToMain(overlay, main)
     }
   })
 
   overlay.on('focus', () => {
-    if (
-      !isDestroyed &&
-      overlay &&
-      !overlay.isDestroyed() &&
-      !isMainMinimized &&
-      !main.isMinimized()
-    ) {
-      overlay.show()
-    } else if (main.isMinimized()) {
-      overlay.hide()
+    if (!main.isDestroyed() && !main.isMinimized()) {
+      main.focus()
+    }
+  })
+
+  overlay.on('blur', () => {
+    if (!main.isDestroyed() && !main.isMinimized()) {
+      setTimeout(() => {
+        if (!main.isFocused()) {
+          main.focus()
+        }
+      }, 10)
     }
   })
 }

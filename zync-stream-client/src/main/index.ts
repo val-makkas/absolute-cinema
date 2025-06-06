@@ -138,7 +138,11 @@ ipcMain.handle('mpv-command', async (_, args) => {
         command = { command: ['set_property', 'volume', args.value] }
         break
       case 'set-subtitle':
-        command = { command: ['set_property', 'sid', args.value] }
+        if (args.value === null) {
+          command = { command: ['set_property', 'sid', 'false'] }
+        } else {
+          command = { command: ['set_property', 'sid', args.value] }
+        }
         break
       case 'add-subtitle':
         command = { command: ['sub-add', args.value] }

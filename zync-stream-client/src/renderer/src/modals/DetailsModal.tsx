@@ -142,21 +142,19 @@ export default function DetailsModal({
         className="flex flex-row p-0 max-w-7xl h-200 bg-black/80 backdrop-blur-xl border border-white/15 shadow-2xl overflow-hidden animate-in fade-in-50 slide-in-from-bottom-10 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
         <DialogPrimitive.Close className="absolute top-6 left-6 z-50 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/40">
           <XIcon className="w-6 h-6" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
 
-        {/* Blurred poster background */}
-        {details?.poster && (
+        {details?.background && (
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage: `url(${details.poster})`,
+              backgroundImage: `url(${details.background})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              filter: 'blur(26px) brightness(1.08) saturate(1.25)',
+              filter: 'blur(5px) brightness(1.08) saturate(1.25)',
               opacity: 0.68
             }}
           />
@@ -170,7 +168,7 @@ export default function DetailsModal({
               <div className="flex justify-center mb-4">
                 <img
                   src={details.logo}
-                  alt={details.title}
+                  alt={details.name}
                   className="w-56 h-56 object-contain rounded-xl drop-shadow-xl"
                 />
               </div>

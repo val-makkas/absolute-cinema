@@ -2,6 +2,7 @@ import { episode, Source } from '@renderer/types'
 import { Blocks } from 'lucide-react'
 import { Button } from './ui/button'
 import { Separator } from './ui/separator'
+import { useState } from 'react'
 
 interface SourcesListProps {
   sources: Source[]
@@ -34,42 +35,30 @@ export default function SourcesList({
   episode,
   addExtension
 }: SourcesListProps): React.ReactElement {
-  // Filter sources based on active provider
-  const filteredSources =
-    activeProvider === 'All' ? sources : sources.filter((s) => s.extensionName === activeProvider)
-  // Sort sources based on sortBy
-  const sortedSources = [...filteredSources].sort((a, b) => {
-    return 0
+  const [qualityFilter, setQualityFilter] = useState('All')
+
+  const getQualityFromText = (text: string): string => {
+    const lower = text.toLowerCase()
+    if (lower.includes('2160p') || lower.includes('4k')) return '4K'
+    if (lower.includes('1080p')) return '1080p'
+    if (lower.includes('720p')) return '720p'
+    return 'Other'
+  }
+
+  const filteredSources = sources.filter((source) => {
+    if (activeProvider !== 'All' && source.extensionName !== activeProvider) {
+      return false
+    }
+    if (qualityFilter !== 'All') {
+      const sourceQuality = getQualityFromText((source.quality || '') + ' ' + (source.info || ''))
+      if (sourceQuality !== qualityFilter) return false
+    }
+    return true
   })
-
-  // Helper to extract file size in MB
-  function extractSize(text: string): number {
-    const match = text.match(/(\d+(\.\d+)?)\s*(GB|MB)/i)
-    if (!match) return 0
-    const size = parseFloat(match[1])
-    const unit = match[3].toUpperCase()
-    return unit === 'GB' ? size * 1024 : size
-  }
-
-  // Get quality badge style based on quality text
-  const getQualityBadge = (quality: string): string => {
-    const lowerQuality = quality.toLowerCase()
-    if (lowerQuality.includes('4k') || lowerQuality.includes('2160p')) {
-      return 'bg-white/20 text-white font-medium border border-white/30'
-    }
-    if (lowerQuality.includes('1080p') || lowerQuality.includes('fhd')) {
-      return 'bg-white/15 text-white font-medium border border-white/20'
-    }
-    if (lowerQuality.includes('720p') || lowerQuality.includes('hd')) {
-      return 'bg-white/10 text-white font-medium border border-white/15'
-    }
-    return 'bg-white/10 text-white/90'
-  }
-
   return (
     <aside className="w-full bg-black/80 border-r border-white/10 h-full overflow-y-auto p-4">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-white/70 font-semibold mt-2 mb-2 mr-18">Sources</h2>
+        <h2 className="text-white/70 font-semibold mt-2 ml-2 mb-2 mr-18">Sources</h2>
         {episode && (
           <Button
             onClick={() => onEpisodeSelect(null)}
@@ -96,29 +85,28 @@ export default function SourcesList({
         )}
       </div>
       <div className="mb-4">
+        {episode && (
+          <div className="flex items-center justify-center mt-3">
+            <h2 className="inline-block scroll-m-20 pb-2 text-2xl font-semibold tracking-tight first:mt-0">
+              Episode {episode.number}
+            </h2>
+          </div>
+        )}
+        <Separator className="mb-3" />
         <select
-          value={activeProvider}
-          onChange={(e) => onProviderChange(e.target.value)}
+          value={qualityFilter}
+          onChange={(e) => setQualityFilter(e.target.value)}
           className="w-full bg-black text-white border border-white/15 rounded-xl px-4 py-2 shadow focus:border-white/30 focus:outline-none"
         >
-          {providers.map((provider) => (
-            <option key={provider} value={provider}>
-              {provider}
-            </option>
-          ))}
+          <option value="All">All Qualities</option>
+          <option value="4K">4K / 2160p</option>
+          <option value="1080p">1080p</option>
+          <option value="720p">720p</option>
+          <option value="Other">Other</option>
         </select>
-        {episode && (
-          <>
-            <div className="flex items-center justify-center mt-3">
-              <h2 className="inline-block scroll-m-20 pb-2 text-2xl font-semibold tracking-tight first:mt-0">
-                Episode {episode.number}
-              </h2>
-            </div>
-            <Separator />
-          </>
-        )}
+        <Separator className="mt-3" />
         <div className="flex flex-col mt-3 gap-1">
-          {sources.length === 0 ? (
+          {filteredSources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-white/70">
               <Blocks className="w-12 h-12 mb-5" />
               <span className="mb-3 text-center">
@@ -132,7 +120,7 @@ export default function SourcesList({
               </button>
             </div>
           ) : (
-            sources.map((source) => {
+            filteredSources.map((source) => {
               const uniq = `${source.extensionName}-${source.displayTitle}-${source.quality || ''}-${source.info || ''}`
               const isSelected =
                 selectedSource &&
