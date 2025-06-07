@@ -37,8 +37,12 @@ export function useUsers(): {
   const logout = useCallback(() => {
     setToken('')
     setUser(null)
-    localStorage.removeItem('jwt')
-    localStorage.removeItem('user')
+    setExtensions([])
+    setError(null)
+    setLoading(false)
+    localStorage.clear()
+
+    window.location.reload()
   }, [])
 
   const refreshUser = useCallback(async (): Promise<void> => {

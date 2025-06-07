@@ -6,7 +6,7 @@ import { spawn, ChildProcess } from 'child_process'
 import { createMpvOverlayWindow, removeMpvOverlayWindow } from './overlay'
 import path from 'path'
 import { Socket } from 'net'
-import { writeFileSync, existsSync, mkdirSync } from 'fs'
+import { writeFileSync, existsSync, mkdirSync, rmSync } from 'fs'
 
 const API_SUBS = import.meta.env.VITE_API_SUBS
 
@@ -139,8 +139,9 @@ ipcMain.handle('mpv-command', async (_, args) => {
         break
       case 'set-subtitle':
         if (args.value === null) {
-          command = { command: ['set_property', 'sid', 'false'] }
+          command = { command: ['set_property', 'sub-visibility', 'false'] }
         } else {
+          command = { command: ['set_property', 'sub-visibility', 'true'] }
           command = { command: ['set_property', 'sid', args.value] }
         }
         break
@@ -349,14 +350,9 @@ ipcMain.handle('search-subtitles', async () => {
     const data = await res.json()
     const subs = data.subtitles || []
 
-    const prefferedLanguages = ['eng', 'en', 'ell']
-    const filteredSubs = subs.filter(
-      (sub) => prefferedLanguages.includes(sub.lang) || subs.length < 10
-    )
-
     return {
       success: true,
-      subtitles: filteredSubs.length > 0 ? filteredSubs : subs.slice(0, 20),
+      subtitles: subs,
       searchData,
       totalFound: subs.length
     }
@@ -388,7 +384,8 @@ ipcMain.handle('download-subtitle', async (_, subsInfo) => {
     console.log('[SUBTITLES] Downloaded content length:', subsContent.length)
 
     const subsDir = join(app.getPath('temp'), 'zync-subs')
-    if (!existsSync(subsDir)) {
+    if (existsSync(subsDir)) {
+      rmSync(subsDir, { recursive: true, force: true })
       mkdirSync(subsDir, { recursive: true })
     }
 
@@ -675,5 +672,83 @@ ipcMain.handle('get-current-torrent-info', async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+// KEYBOARD FORWARDING
+
+ipcMain.handle('overlay-play-pause', async () => {
+  try {
+    if (!mpvIpcSocket) {
+      return { success: false, error: 'MPV socket not initialized' }
+    }
+
+    const command = { command: ['cycle', 'pause'] }
+    mpvIpcSocket.write(JSON.stringify(command) + '\n')
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to toggle play/pause:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('overlay-seek', async (_, seconds: number) => {
+  try {
+    if (!mpvIpcSocket) {
+      return { success: false, error: 'MPV socket not initialized' }
+    }
+
+    // Seek relative to current position
+    const command = { command: ['seek', seconds.toString()] }
+    mpvIpcSocket.write(JSON.stringify(command) + '\n')
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to seek:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('overlay-volume', async (_, delta: number) => {
+  try {
+    if (!mpvIpcSocket) {
+      return { success: false, error: 'MPV socket not initialized' }
+    }
+
+    // Add to current volume
+    const command = { command: ['add', 'volume', delta.toString()] }
+    mpvIpcSocket.write(JSON.stringify(command) + '\n')
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to change volume:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('overlay-fullscreen', async () => {
+  try {
+    if (mainWindow) {
+      const isFull = mainWindow.isFullScreen()
+      mainWindow.setFullScreen(!isFull)
+      return { success: true }
+    }
+    return { success: false, error: 'Main window not available' }
+  } catch (error) {
+    console.error('Failed to toggle fullscreen:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('overlay-mute', async () => {
+  try {
+    if (!mpvIpcSocket) {
+      return { success: false, error: 'MPV socket not initialized' }
+    }
+
+    const command = { command: ['cycle', 'mute'] }
+    mpvIpcSocket.write(JSON.stringify(command) + '\n')
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to toggle mute:', error)
+    return { success: false, error: (error as Error).message }
   }
 })

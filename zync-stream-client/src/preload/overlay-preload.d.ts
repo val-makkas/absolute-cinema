@@ -44,5 +44,17 @@ interface Window {
       error?: string
     }>
     addExternalSubtitle: (subtitlePath: string | undefined) => Promise<boolean>
+
+    overlayPlayPause: () => Promise<{ success: boolean; error?: string }>
+    overlaySeek: (seconds: number) => Promise<{ success: boolean; error?: string }>
+    overlayVolume: (delta: number) => Promise<{ success: boolean; error?: string }>
+    overlayFullscreen: () => Promise<{ success: boolean; error?: string }>
+    overlayMute: () => Promise<{ success: boolean; error?: string }>
+  }
+  electron: {
+    ipcRenderer: {
+      on: (channel: string, callback: (event: any, ...args: any[]) => void) => void
+      removeListener: (channel: string, callback: (event: any, ...args: any[]) => void) => void
+    }
   }
 }

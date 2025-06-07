@@ -1,24 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react'
+import SubtitleMenu from './SubtitleMenu'
 
 interface MpvOverlayProps {}
 
-interface SubtitleTrack {
-  id: number
-  type: string
-  lang?: string
-  title?: string
-  selected?: boolean
-}
-
-interface ExternalSubtitle {
-  id: string
-  url: string
-  lang: string
-  SubEncoding: string
-  g?: string
-}
-
 const Overlay: React.FC<MpvOverlayProps> = () => {
+  const overlayRef = useRef<HTMLDivElement>(null)
   const [isPaused, setIsPaused] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -28,11 +14,9 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const [showPlayAnimation, setShowPlayAnimation] = useState(false)
   const [isCursorVisible, setIsCursorVisible] = useState(true)
   const [activeHint, setActiveHint] = useState<string | null>(null)
-  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrack[]>([])
-  const [currentSubtitle, setCurrentSubtitle] = useState<number | null>(null)
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false)
-  const [availableSubtitles, setAvailableSubtitles] = useState<ExternalSubtitle[]>([])
-  const [isLoadingSubtitles, setIsLoadingSubtitles] = useState(false)
+  const [currentSubtitle, setCurrentSubtitle] = useState<number | null>(null)
+
   const keyframes = `
     @keyframes scaleIn {
       0% { transform: scale(0); opacity: 0; }
@@ -58,6 +42,11 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       100% { background-position: 0% 50%; }
     }
   `
+  useEffect(() => {
+    if (overlayRef.current) {
+      overlayRef.current.focus()
+    }
+  }, [])
 
   const seekBarRef = useRef<HTMLInputElement>(null)
   const updateIntervalRef = useRef<number | null>(null)
@@ -65,7 +54,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const subtitleMenuRef = useRef<HTMLDivElement>(null)
 
   const formatTime = (seconds: number): string => {
     seconds = Math.floor(seconds)
@@ -80,94 +68,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   }
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (subtitleMenuRef.current && !subtitleMenuRef.current.contains(event.target as Node)) {
-        event.stopPropagation()
-        event.preventDefault()
-        setShowSubtitleMenu(false)
-      }
-    }
-
-    if (showSubtitleMenu) {
-      const timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside)
-      }, 100)
-
-      return () => {
-        clearTimeout(timeoutId)
-        document.removeEventListener('mousedown', handleClickOutside)
-      }
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showSubtitleMenu])
-  const loadSubtitleTracks = useCallback(async () => {
-    try {
-      const tracks = await window.overlayControls.getSubtitleTracks()
-      if (tracks && Array.isArray(tracks)) {
-        const subsTracks = tracks.filter((track) => track.type === 'sub')
-        setSubtitleTracks(subsTracks)
-      }
-      const currentSub = await window.overlayControls.getCurrentSubtitle()
-      setCurrentSubtitle(currentSub)
-    } catch (err) {
-      console.log(err as Error)
-    }
-  }, [])
-
-  const handleSearchSubtitles = useCallback(async () => {
-    setIsLoadingSubtitles(true)
-    try {
-      const res = await window.overlayControls.searchSubtitles()
-      if (res.success && res.subtitles.length > 0) {
-        setAvailableSubtitles(res.subtitles)
-      } else {
-        setAvailableSubtitles([])
-      }
-    } catch (err) {
-      console.log(err as Error)
-    } finally {
-      setIsLoadingSubtitles(false)
-    }
-  }, [])
-
-  const handleSubtitleSelect = useCallback(async (trackId: number | null) => {
-    try {
-      await window.overlayControls.setSubtitle(trackId)
-      await loadSubtitleTracks()
-      setShowSubtitleMenu(false)
-    } catch (err) {
-      console.log(err as Error)
-    }
-  }, [])
-
-  const handleDownloadSubtitle = useCallback(
-    async (subtitle: ExternalSubtitle) => {
+  const startProgressUpdates = (): void => {
+    updateIntervalRef.current = window.setInterval(async () => {
       try {
-        const res = await window.overlayControls.downloadSubtitle(subtitle)
-        if (res.success) {
-          await window.overlayControls.addExternalSubtitle(res.filepath)
-          await loadSubtitleTracks()
-          setShowSubtitleMenu(false)
-          setTimeout(async () => {
-            const tracks = await window.overlayControls.getSubtitleTracks()
-            if (tracks && Array.isArray(tracks)) {
-              const newSubTrack = tracks.filter((track) => track.type === 'sub').pop()
-              if (newSubTrack) {
-                await handleSubtitleSelect(newSubTrack.id)
-              }
-            }
-          }, 500)
-        }
+        const currentTimeValue = (await window.overlayControls.getCurrentTime()) || 0
+        const durationValue = (await window.overlayControls.getDuration()) || 0
+
+        setCurrentTime(currentTimeValue)
+        setDuration(durationValue)
       } catch (err) {
-        console.error(err as Error)
+        console.error(err)
       }
-    },
-    [loadSubtitleTracks, handleSubtitleSelect]
-  )
+    }, 1000)
+  }
 
   useEffect(() => {
     const initPlayerState = async (): Promise<void> => {
@@ -185,9 +98,14 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           setMediaTitle(torrentInfo.title)
         }
 
+        try {
+          const currentSub = await window.overlayControls.getCurrentSubtitle()
+          setCurrentSubtitle(currentSub)
+        } catch (err) {
+          console.log('Error getting current subtitle:', err)
+        }
+
         startProgressUpdates()
-        loadSubtitleTracks()
-        handleSearchSubtitles()
       } catch (err) {
         console.error(err)
       }
@@ -196,8 +114,9 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     initPlayerState()
 
     return () => {
-      if (updateIntervalRef.current !== null) {
-        window.clearInterval(updateIntervalRef.current)
+      const currentInterval = updateIntervalRef.current
+      if (currentInterval !== null) {
+        window.clearInterval(currentInterval)
       }
     }
   }, [])
@@ -210,19 +129,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     return () => clearTimeout(timer)
   }, [])
 
-  const startProgressUpdates = (): void => {
-    updateIntervalRef.current = window.setInterval(async () => {
-      try {
-        const currentTimeValue = (await window.overlayControls.getCurrentTime()) || 0
-        const durationValue = (await window.overlayControls.getDuration()) || 0
-
-        setCurrentTime(currentTimeValue)
-        setDuration(durationValue)
-      } catch (err) {
-        console.error(err)
-      }
-    }, 1000)
-  }
   const handleMouseMove = useCallback((): void => {
     setIsHovering(true)
     setIsCursorVisible(true)
@@ -322,113 +228,72 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
 
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent): Promise<void> => {
+      console.log('🎹 Key pressed directly on overlay:', e.code)
+
       if (
         ['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyF', 'KeyM'].includes(
           e.code
         )
       ) {
         e.preventDefault()
+        e.stopPropagation()
       }
 
-      switch (e.code) {
-        case 'Space':
-          setActiveHint('space')
-          await handlePlayPause()
-          setTimeout(() => setActiveHint(null), 800)
-          break
-        case 'ArrowLeft':
-          setActiveHint('left')
-          try {
-            const newTime = Math.max(0, currentTime - 10)
-            await window.overlayControls.seek(newTime)
-            setCurrentTime(newTime)
-            setIsHovering(true)
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-            hoverTimerRef.current = setTimeout(() => setIsHovering(false), 3000)
-          } catch (err) {
-            console.error(err)
-          }
-          setTimeout(() => setActiveHint(null), 800)
-          break
-        case 'ArrowRight':
-          setActiveHint('right')
-          try {
-            const newTime = Math.min(duration, currentTime + 10)
-            await window.overlayControls.seek(newTime)
-            setCurrentTime(newTime)
-            setIsHovering(true)
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-            hoverTimerRef.current = setTimeout(() => setIsHovering(false), 3000)
-          } catch (err) {
-            console.error(err)
-          }
-          setTimeout(() => setActiveHint(null), 800)
-          break
-        case 'ArrowUp':
-          setActiveHint('up')
-          try {
-            const newVolume = Math.min(100, volume + 5)
-            await window.overlayControls.setVolume(newVolume)
-            setVolume(newVolume)
-            setIsHovering(true)
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-            hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
-          } catch (err) {
-            console.error(err)
-          }
-          setTimeout(() => setActiveHint(null), 800)
-          break
-        case 'ArrowDown':
-          setActiveHint('down')
-          try {
-            const newVolume = Math.max(0, volume - 5)
-            await window.overlayControls.setVolume(newVolume)
-            setVolume(newVolume)
-            setIsHovering(true)
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-            hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
-          } catch (err) {
-            console.error(err)
-          }
-          setTimeout(() => setActiveHint(null), 800)
-          break
-        case 'KeyF':
-          setActiveHint('f')
-          try {
-            await handleFullscreen()
-            setIsHovering(true)
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-            hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
-          } catch (err) {
-            console.error(err)
-          }
-          setTimeout(() => setActiveHint(null), 800)
-          break
-        case 'KeyM':
-          setActiveHint('m')
-          try {
-            await handleMuteToggle()
-            setIsHovering(true)
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-            hoverTimerRef.current = setTimeout(() => setIsHovering(false), 2000)
-          } catch (err) {
-            console.error(err)
-          }
-          setTimeout(() => setActiveHint(null), 800)
-          break
+      try {
+        switch (e.code) {
+          case 'Space':
+            setActiveHint('space')
+            await window.overlayControls.overlayPlayPause()
+            break
+          case 'ArrowLeft':
+            setActiveHint('left')
+            await window.overlayControls.overlaySeek(-10)
+            break
+          case 'ArrowRight':
+            setActiveHint('right')
+            await window.overlayControls.overlaySeek(10)
+            break
+          case 'ArrowUp':
+            setActiveHint('up')
+            await window.overlayControls.overlayVolume(5)
+            setVolume((prev) => Math.min(100, prev + 5))
+            break
+          case 'ArrowDown':
+            setActiveHint('down')
+            await window.overlayControls.overlayVolume(-5)
+            setVolume((prev) => Math.max(0, prev - 5))
+            break
+          case 'KeyF':
+            setActiveHint('f')
+            await window.overlayControls.overlayFullscreen()
+            break
+          case 'KeyM':
+            setActiveHint('m')
+            await window.overlayControls.overlayMute()
+            break
+        }
+
+        setTimeout(() => setActiveHint(null), 800)
+      } catch (error) {
+        console.error('Keyboard shortcut error:', error)
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown, { capture: true })
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', handleKeyDown, { capture: true })
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
-  }, [currentTime, duration, volume, handlePlayPause, handleMuteToggle, handleFullscreen])
+  }, [])
+
   return (
     <div
       className={`fixed inset-0 w-full h-full z-50 ${isCursorVisible ? 'cursor-default' : 'cursor-none'} pointer-events-auto`}
       onMouseMove={handleMouseMove}
+      ref={overlayRef}
+      tabIndex={0}
       style={{ pointerEvents: 'auto' }}
     >
       <style>{keyframes}</style>
@@ -589,7 +454,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                   </svg>
                 )}
               </button>
-              {/* Volume control - Stremio style */}
               <div className="relative group">
                 {' '}
                 <button
@@ -664,104 +528,12 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                     <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6v-2zm0 4h8v2H6v-2zm10 0h2v2h-2v-2zm-6-4h8v2h-8v-2z" />
                   </svg>
                 </button>
-
-                {showSubtitleMenu && (
-                  <div
-                    ref={subtitleMenuRef}
-                    className="absolute right-0 bottom-full mb-10 w-80 max-h-96 overflow-y-auto bg-black/90 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl z-[1000] pointer-events-auto"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-white font-semibold text-sm">Subtitles</h3>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowSubtitleMenu(false)
-                          }}
-                          className="text-white/60 hover:text-white"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div className="space-y-2 mb-4">
-                        <button
-                          onClick={() => {
-                            handleSubtitleSelect(null)
-                            setShowSubtitleMenu(false)
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                            currentSubtitle === null
-                              ? 'bg-purple-500 text-white'
-                              : 'text-gray-300 hover:bg-white/10'
-                          }`}
-                        >
-                          Off
-                        </button>
-
-                        {subtitleTracks.map((track) => (
-                          <button
-                            key={track.id}
-                            onClick={() => handleSubtitleSelect(track.id)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                              currentSubtitle === track.id
-                                ? 'bg-purple-500 text-white'
-                                : 'text-gray-300 hover:bg-white/10'
-                            }`}
-                          >
-                            {track.title || track.lang || `Track ${track.id}`}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="border-t border-white/20 pt-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-white text-sm font-medium">External</span>
-                          <button
-                            onClick={handleSearchSubtitles}
-                            disabled={isLoadingSubtitles}
-                            className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded-lg transition-all disabled:opacity-50"
-                          >
-                            {isLoadingSubtitles ? 'Searching...' : 'Refresh'}
-                          </button>
-                        </div>
-
-                        {availableSubtitles.length > 0 ? (
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {availableSubtitles.slice(0, 8).map((subtitle, index) => (
-                              <div
-                                key={subtitle.id || index}
-                                className="flex items-center justify-between p-2 bg-white/5 rounded-lg"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-white text-xs font-medium">
-                                    {subtitle.lang.toUpperCase()}
-                                  </p>
-                                  <p className="text-gray-400 text-xs">
-                                    {subtitle.SubEncoding} • Quality: {subtitle.g || '?'}
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={() => handleDownloadSubtitle(subtitle)}
-                                  className="ml-2 px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-all"
-                                >
-                                  Add
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-400 text-xs text-center py-2">
-                            {isLoadingSubtitles ? 'Searching...' : 'No external subtitles found'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <SubtitleMenu
+                  showSubtitleMenu={showSubtitleMenu}
+                  setShowSubtitleMenu={setShowSubtitleMenu}
+                  currentSubtitle={currentSubtitle}
+                  setCurrentSubtitle={setCurrentSubtitle}
+                />
               </div>
               <button
                 onClick={handleFullscreen}

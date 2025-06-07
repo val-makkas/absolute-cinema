@@ -149,7 +149,7 @@ export default function FriendsSidebar({
 
         {!showSearch && friendRequests.length > 0 && (
           <div className="px-4 py-2 space-y-2 border-b border-white/10">
-            <h3 className="text-xs text-white/60 uppercase">Requests</h3>
+            <h3 className="text-xs text-white/60 uppercase">New Friend Requests</h3>
             {friendRequests.map((r) => (
               <div
                 key={r.id}

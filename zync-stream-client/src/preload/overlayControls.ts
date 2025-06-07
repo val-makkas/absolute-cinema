@@ -12,7 +12,8 @@ export const overlayControls = {
   getCurrentSubtitle: () => ipcRenderer.invoke('mpv-fetch', { command: 'currentSubtitle' }),
   setSubtitle: (trackId) =>
     ipcRenderer.invoke('mpv-command', { command: 'set-subtitle', value: trackId }),
-  addExternalSubtitle: (subtitlePath) => ipcRenderer.invoke('mpv-command', { command: 'add-subtitle', value: subtitlePath }),
+  addExternalSubtitle: (subtitlePath) =>
+    ipcRenderer.invoke('mpv-command', { command: 'add-subtitle', value: subtitlePath }),
   searchSubtitles: (movieInfo) => ipcRenderer.invoke('search-subtitles', movieInfo),
   downloadSubtitle: (subtitleId) => ipcRenderer.invoke('download-subtitle', subtitleId),
   getCurrentTorrentInfo: () => ipcRenderer.invoke('get-current-torrent-info'),
@@ -22,5 +23,11 @@ export const overlayControls = {
   getPlaybackState: async () => ipcRenderer.invoke('mpv-fetch', { command: 'isPlaying' }),
   getVolume: async () => ipcRenderer.invoke('mpv-fetch', { command: 'volume' }),
   getTorrentInfo: async () => ipcRenderer.invoke('get-current-torrent-info'),
-  hideMpv: async () => ipcRenderer.invoke('hide-mpv')
+  hideMpv: async () => ipcRenderer.invoke('hide-mpv'),
+
+  overlayPlayPause: () => ipcRenderer.invoke('overlay-play-pause'),
+  overlaySeek: (seconds: number) => ipcRenderer.invoke('overlay-seek', seconds),
+  overlayVolume: (delta: number) => ipcRenderer.invoke('overlay-volume', delta),
+  overlayFullscreen: () => ipcRenderer.invoke('overlay-fullscreen'),
+  overlayMute: () => ipcRenderer.invoke('overlay-mute')
 }
