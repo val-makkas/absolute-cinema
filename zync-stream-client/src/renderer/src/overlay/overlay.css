@@ -12,6 +12,41 @@
   --overlay-transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+* {
+  outline: none !important;
+  -webkit-focus-ring-color: transparent !important;
+}
+
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+body, html {
+  outline: none !important;
+  border: none !important;
+  -webkit-focus-ring-color: transparent !important;
+}
+
+body:focus, html:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+div:focus,
+span:focus,
+a:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 .fixed {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }

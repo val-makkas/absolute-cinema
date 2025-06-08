@@ -4,31 +4,6 @@ import { is } from '@electron-toolkit/utils'
 
 let overlayWindow: BrowserWindow | null = null
 
-function setupKeyboardForwarding(overlay: BrowserWindow, main: BrowserWindow): void {
-  main.webContents.on('before-input-event', (_, input) => {
-    if (overlay && !overlay.isDestroyed() && overlay.isVisible()) {
-      const forwardKeys = [
-        'Space',
-        'ArrowLeft',
-        'ArrowRight',
-        'ArrowUp',
-        'ArrowDown',
-        'KeyF',
-        'KeyM'
-      ]
-
-      if (forwardKeys.includes(input.code) && input.type === 'keyDown') {
-        console.log('✅ Forwarding key to overlay:', input.code)
-        overlay.webContents.send('forwarded-key', {
-          code: input.code,
-          key: input.key,
-          type: input.type
-        })
-      }
-    }
-  })
-}
-
 export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.close()
@@ -48,6 +23,7 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
     autoHideMenuBar: true,
     titleBarOverlay: false,
     hasShadow: false,
+    thickFrame: false,
     resizable: false,
     skipTaskbar: true,
     parent: mainWindow,
@@ -59,20 +35,8 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
     }
   })
 
-  if (process.platform === 'win32') {
-    overlayWindow.setAppDetails({
-      appId: '',
-      appIconPath: '',
-      appIconIndex: 0,
-      relaunchCommand: '',
-      relaunchDisplayName: ''
-    })
-  }
-
   overlayWindow.setSkipTaskbar(true)
-  overlayWindow.setMenuBarVisibility(false)
-  overlayWindow.setVisibleOnAllWorkspaces(true)
-  overlayWindow.setIgnoreMouseEvents(true)
+  overlayWindow.setIgnoreMouseEvents(false)
 
   if (is.dev) {
     overlayWindow.webContents.once('dom-ready', () => {
@@ -106,7 +70,6 @@ export function createMpvOverlayWindow(mainWindow: BrowserWindow): BrowserWindow
 
   overlayWindow.on('show', () => {
     overlayWindow?.setSkipTaskbar(true)
-    // Focus overlay when it shows
     setTimeout(() => {
       if (overlayWindow && !overlayWindow.isDestroyed()) {
         overlayWindow.focus()

@@ -29,11 +29,7 @@ export default function RoomInvitationCard({
         </button>
       </div>
 
-      <div className="mb-3">
-        <div className="text-white/80 text-sm">{invitation.room_name}</div>
-      </div>
-
-      <div className="flex gap-2">
+      <div className="flex gap-2 mt-5">
         <button
           onClick={onAccept}
           className="flex-1 px-3 py-1.5 bg-green-600/20 border border-green-500/40 text-green-400 hover:bg-green-600/30 text-xs rounded-md transition-colors"

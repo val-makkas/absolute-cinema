@@ -28,7 +28,7 @@ interface SubtitleMenuProps {
 interface ActiveExternalSubtitle {
   id: number
   language: string
-  filePath: string
+  filePath: string | undefined
   isActive: boolean
 }
 
@@ -207,14 +207,7 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
       (indicator) => title.includes(indicator) || filePath.includes(indicator)
     )
 
-    const looksLikeDownloadedFile =
-      title.includes('/') ||
-      title.includes('\\') ||
-      title.match(/\.\w{3}$/) ||
-      filePath.includes('temp') ||
-      filePath.includes('download')
-
-    return hasExternalIndicator || looksLikeDownloadedFile
+    return hasExternalIndicator
   }, [])
 
   useEffect(() => {
@@ -288,14 +281,19 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
     } catch (err) {
       console.log(err as Error)
     }
-  }, [setCurrentSubtitle, isExternalSubtitle, normalizeLanguage, currentSubtitle])
+  }, [
+    setCurrentSubtitle,
+    isExternalSubtitle,
+    normalizeLanguage,
+    currentSubtitle,
+    activeExternalSubtitles
+  ])
 
   const handleSearchSubtitles = useCallback(async () => {
     setIsLoadingSubtitles(true)
     try {
       const res = await window.overlayControls.searchSubtitles()
       if (res.success && res.subtitles.length > 0) {
-        // Normalize subtitle languages
         const normalizedSubtitles = res.subtitles.map((sub) => ({
           ...sub,
           lang: normalizeLanguage(sub.lang)
@@ -326,6 +324,22 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
     },
     [setCurrentSubtitle]
   )
+
+  const applySubtitleSize = useCallback(async (size: number) => {
+    try {
+      await window.overlayControls.setSubtitleSize(size)
+    } catch (err) {
+      console.error('Error setting subtitle size:', err)
+    }
+  }, [])
+
+  const applySubtitleDelay = useCallback(async (delay: number) => {
+    try {
+      await window.overlayControls.setSubtitleDelay(delay)
+    } catch (err) {
+      console.error('Error setting subtitle delay:', err)
+    }
+  }, [])
 
   const handleDownloadSubtitle = useCallback(
     async (subtitle: ExternalSubtitle) => {
@@ -376,7 +390,6 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
       subtitleTracks,
       isExternalSubtitle,
       normalizeLanguage,
-      setShowSubtitleMenu,
       setCurrentSubtitle
     ]
   )
@@ -408,7 +421,13 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
         handleSearchSubtitles()
       }
     }
-  }, [showSubtitleMenu])
+  }, [
+    availableSubtitles.length,
+    handleSearchSubtitles,
+    isLoadingSubtitles,
+    loadSubtitleTracks,
+    showSubtitleMenu
+  ])
 
   useEffect(() => {
     let mounted = true
@@ -425,7 +444,7 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
         clearTimeout(searchTimer)
       }
     }
-  }, [showSubtitleMenu, availableSubtitles.length, isLoadingSubtitles])
+  }, [showSubtitleMenu, availableSubtitles.length, isLoadingSubtitles, handleSearchSubtitles])
 
   useEffect(() => {
     setActiveExternalSubtitles((prev) =>
@@ -433,13 +452,23 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
     )
   }, [currentSubtitle])
 
-  const adjustSubtitleSize = useCallback((delta: number) => {
-    setSubtitleSize((prev) => Math.max(50, Math.min(200, prev + delta)))
-  }, [])
+  const adjustSubtitleSize = useCallback(
+    (delta: number) => {
+      const newSize = Math.max(50, Math.min(200, subtitleSize + delta))
+      setSubtitleSize(newSize)
+      applySubtitleSize(newSize)
+    },
+    [subtitleSize, applySubtitleSize]
+  )
 
-  const adjustSubtitleDelay = useCallback((delta: number) => {
-    setSubtitleDelay((prev) => Math.max(-10, Math.min(10, prev + delta)))
-  }, [])
+  const adjustSubtitleDelay = useCallback(
+    (delta: number) => {
+      const newDelay = Math.max(-10, Math.min(10, subtitleDelay + delta))
+      setSubtitleDelay(newDelay)
+      applySubtitleDelay(newDelay)
+    },
+    [subtitleDelay, applySubtitleDelay]
+  )
 
   if (!showSubtitleMenu) return null
 
@@ -480,9 +509,22 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
                   .filter((track) => !isExternalSubtitle(track))
                   .map((track) => normalizeLanguage(track.lang || track.title))
               )
-
               const activeExternalLanguages = new Set(
-                activeExternalSubtitles.map((ext) => ext.language)
+                activeExternalSubtitles
+                  .filter((ext) => {
+                    const lang = ext.language.toLowerCase()
+                    return (
+                      !lang.includes('.srt') &&
+                      !lang.includes('.ass') &&
+                      !lang.includes('.vtt') &&
+                      !lang.includes('subtitle') &&
+                      !lang.includes('downloaded') &&
+                      !lang.includes('external') &&
+                      !lang.match(/\d+/) &&
+                      lang.length > 2
+                    )
+                  })
+                  .map((ext) => ext.language)
               )
 
               const availableLanguages = new Set(
@@ -649,7 +691,10 @@ const SubtitleMenu: React.FC<SubtitleMenuProps> = ({
                     -0.1s
                   </button>
                   <button
-                    onClick={() => setSubtitleDelay(0)}
+                    onClick={() => {
+                      setSubtitleDelay(0)
+                      applySubtitleDelay(0)
+                    }}
                     className={`px-3 py-1 rounded text-white text-xs transition-colors ${
                       subtitleDelay === 0 ? 'bg-purple-800' : 'bg-white/10 hover:bg-white/20'
                     }`}

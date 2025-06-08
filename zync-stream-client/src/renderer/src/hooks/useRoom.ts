@@ -15,6 +15,7 @@ export interface RoomMovie {
   season?: number
   episode?: number
   episodeTitle?: string
+  genre: string[]
 }
 
 export interface RoomSource {
@@ -150,8 +151,7 @@ export function useRoom(
   useEffect(() => {
     memberUpdateAudioRef.current = new Audio(sound)
     memberUpdateAudioRef.current.volume = 1
-    memberUpdateAudioRef.current.play().catch((error) => {
-    })
+    memberUpdateAudioRef.current.play().catch((error) => {})
 
     memberUpdateAudioRef.current.load()
 
@@ -165,8 +165,7 @@ export function useRoom(
   const playMemberUpdateSound = useCallback(() => {
     if (memberUpdateAudioRef.current) {
       memberUpdateAudioRef.current.currentTime = 0
-      memberUpdateAudioRef.current.play().catch((error) => {
-      })
+      memberUpdateAudioRef.current.play().catch((error) => {})
     }
   }, [])
 
@@ -391,17 +390,7 @@ export function useRoom(
         }
       }
     },
-    [
-      getRoom,
-      playMemberUpdateSound,
-      myCompatibleSource,
-      roomMovie,
-      room,
-      navigate,
-      role,
-      user,
-      roomSource
-    ]
+    [getRoom, playMemberUpdateSound, myCompatibleSource, navigate, role, user]
   )
 
   const leaveRoom = useCallback(() => {
@@ -518,7 +507,6 @@ export function useRoom(
               behaviorHints: compatibleStream.behaviorHints
             })
 
-            // Use websocketService.send instead of sendMessage
             websocketService.send({
               type: 'party_source_status',
               data: {
@@ -537,7 +525,6 @@ export function useRoom(
         }
       }
 
-      // Use websocketService.send instead of sendMessage
       websocketService.send({
         type: 'party_source_status',
         data: {

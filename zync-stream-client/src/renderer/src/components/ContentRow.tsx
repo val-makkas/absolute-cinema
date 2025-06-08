@@ -1,15 +1,16 @@
 import React, { useRef, useMemo, useCallback } from 'react'
 import { entry } from '@/types'
 import { updatedWatchHistoryEntry } from '@/hooks/useWatchHistory'
-import { ChevronLeft, ChevronRight, Play, Star, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Star, Clock } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Movie } from '@/types'
 
 interface ContentRowProps {
   title: string
   items: (entry | updatedWatchHistoryEntry)[]
   showProgress?: boolean
   loading?: boolean
-  onItemClick: (item: entry | updatedWatchHistoryEntry) => void
+  onItemClick: (item?: entry | updatedWatchHistoryEntry) => void
 }
 
 const ContentRow: React.FC<ContentRowProps> = ({
@@ -117,16 +118,18 @@ const ContentRow: React.FC<ContentRowProps> = ({
               onClick={() => handleItemClick(item.originalItem)}
             >
               <div className="relative w-full h-72 rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
-                <img
-                  src={item.poster}
-                  alt={item.name}
-                  className="w-full h-full rounded-2xl object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.src = '/assets/missing.jpg'
-                  }}
-                />
+                {item.poster && (
+                  <img
+                    src={item.poster}
+                    alt={item.name}
+                    className="w-full h-full rounded-2xl object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.src = '/assets/missing.jpg'
+                    }}
+                  />
+                )}
 
                 {showProgress && item.isWatchHistory && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3">

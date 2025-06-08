@@ -17,12 +17,24 @@ export default function DiscoverPage({
   const [search, setSearch] = useState<string>('')
   const [type, setType] = useState<'movie' | 'series'>('movie')
   const [catalog, setCatalog] = useState<'IMDB' | 'CINE' | 'PDM'>('CINE')
+  const [sortBy, setSortBy] = useState<'none' | 'released' | 'imdbRating' | 'popularity'>('none')
 
-  const { movies, loading, error: moviesError, loadMore } = useMovies(token, search, type, catalog)
+  const {
+    movies,
+    loading,
+    error: moviesError,
+    loadMore,
+    searchResults
+  } = useMovies(token, search, type, catalog)
+
+  const handleSortChange = (newSort: 'none' | 'released' | 'imdbRating' | 'popularity'): void => {
+    setSortBy(newSort)
+  }
 
   useEffect(() => {
     if (searchQuery) {
       setSearch(searchQuery)
+      setSortBy('released')
     } else {
       setSearch('')
     }
@@ -44,6 +56,9 @@ export default function DiscoverPage({
               onCatalogChange={setCatalog}
               onTypeChange={setType}
               onLoadMore={loadMore}
+              sortBy={sortBy}
+              onSortChange={handleSortChange}
+              searchResults={searchResults}
             />
           </main>
         </div>

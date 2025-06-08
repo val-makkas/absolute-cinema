@@ -16,6 +16,7 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const [activeHint, setActiveHint] = useState<string | null>(null)
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false)
   const [currentSubtitle, setCurrentSubtitle] = useState<number | null>(null)
+  const subtitleMenuRef = useRef<HTMLDivElement>(null)
 
   const keyframes = `
     @keyframes scaleIn {
@@ -47,6 +48,22 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       overlayRef.current.focus()
     }
   }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent): void => {
+      if (subtitleMenuRef.current && !subtitleMenuRef.current.contains(event.target as Node)) {
+        setShowSubtitleMenu(false)
+      }
+    }
+
+    if (showSubtitleMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showSubtitleMenu])
 
   const seekBarRef = useRef<HTMLInputElement>(null)
   const updateIntervalRef = useRef<number | null>(null)
@@ -94,8 +111,10 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         setVolume(volumeValue)
 
         const torrentInfo = await window.overlayControls.getTorrentInfo()
-        if (torrentInfo?.title) {
-          setMediaTitle(torrentInfo.title)
+        if (torrentInfo.season && torrentInfo.episode) {
+          setMediaTitle(`${torrentInfo.title} (S${torrentInfo.season}, EP${torrentInfo.episode})`)
+        } else {
+          setMediaTitle(`${torrentInfo.title} (${torrentInfo.year})`)
         }
 
         try {
@@ -228,8 +247,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
 
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent): Promise<void> => {
-      console.log('🎹 Key pressed directly on overlay:', e.code)
-
       if (
         ['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyF', 'KeyM'].includes(
           e.code
@@ -243,33 +260,55 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         switch (e.code) {
           case 'Space':
             setActiveHint('space')
-            await window.overlayControls.overlayPlayPause()
+            await handlePlayPause()
             break
           case 'ArrowLeft':
             setActiveHint('left')
-            await window.overlayControls.overlaySeek(-10)
+            try {
+              await window.overlayControls.seek(Math.max(0, currentTime - 10))
+              setCurrentTime((prev) => Math.max(0, prev - 10))
+            } catch (err) {
+              console.error('Seek error:', err)
+            }
             break
           case 'ArrowRight':
             setActiveHint('right')
-            await window.overlayControls.overlaySeek(10)
+            try {
+              await window.overlayControls.seek(Math.min(duration, currentTime + 10))
+              setCurrentTime((prev) => Math.min(duration, prev + 10))
+            } catch (err) {
+              console.error('Seek error:', err)
+            }
             break
-          case 'ArrowUp':
+          case 'ArrowUp': {
             setActiveHint('up')
-            await window.overlayControls.overlayVolume(5)
-            setVolume((prev) => Math.min(100, prev + 5))
+            const newVolumeUp = Math.min(100, volume + 5)
+            try {
+              await window.overlayControls.setVolume(newVolumeUp)
+              setVolume(newVolumeUp)
+            } catch (err) {
+              console.error('Volume error:', err)
+            }
             break
-          case 'ArrowDown':
+          }
+          case 'ArrowDown': {
             setActiveHint('down')
-            await window.overlayControls.overlayVolume(-5)
-            setVolume((prev) => Math.max(0, prev - 5))
+            const newVolumeDown = Math.max(0, volume - 5)
+            try {
+              await window.overlayControls.setVolume(newVolumeDown)
+              setVolume(newVolumeDown)
+            } catch (err) {
+              console.error('Volume error:', err)
+            }
             break
+          }
           case 'KeyF':
             setActiveHint('f')
-            await window.overlayControls.overlayFullscreen()
+            await handleFullscreen()
             break
           case 'KeyM':
             setActiveHint('m')
-            await window.overlayControls.overlayMute()
+            await handleMuteToggle()
             break
         }
 
@@ -279,6 +318,10 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       }
     }
 
+    if (overlayRef.current) {
+      overlayRef.current.focus()
+    }
+
     document.addEventListener('keydown', handleKeyDown, { capture: true })
     window.addEventListener('keydown', handleKeyDown, { capture: true })
 
@@ -286,7 +329,7 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       document.removeEventListener('keydown', handleKeyDown, { capture: true })
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
-  }, [])
+  }, [handlePlayPause, handleFullscreen, handleMuteToggle, currentTime, duration, volume])
 
   return (
     <div
@@ -299,7 +342,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
       <style>{keyframes}</style>
       {showPlayAnimation && (
         <div className="fixed inset-0 flex items-center justify-center z-[1000] pointer-events-none">
-          {' '}
           <div className="opacity-0 animate-[fadeIn_0.2s_ease-in-out_forwards]">
             {isPaused ? (
               <div
@@ -455,7 +497,6 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                 )}
               </button>
               <div className="relative group">
-                {' '}
                 <button
                   onClick={handleMuteToggle}
                   className="flex items-center justify-center w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 transition-all duration-200 text-white hover:shadow-md hover:shadow-[#785aeb]/10 hover:scale-105 transform"
@@ -475,7 +516,7 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                     </svg>
                   )}
                 </button>
-                <div className="invisible opacity-0 scale-95 group-hover:visible group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-in-out absolute left-2 bottom-full mb-2 p-3 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 shadow-lg z-[1000] pointer-events-auto">
+                <div className="invisible opacity-0 scale-95 group-hover:visible group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-in-out absolute left-10 -bottom-1 p-3 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 shadow-lg z-[1000] pointer-events-auto">
                   <input
                     type="range"
                     min={0}
@@ -512,7 +553,7 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                   </span>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative" ref={subtitleMenuRef}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -520,7 +561,9 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
                     setShowSubtitleMenu(!showSubtitleMenu)
                   }}
                   className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 text-white hover:shadow-md hover:shadow-[#785aeb]/10 hover:scale-105 transform ${
-                    currentSubtitle ? 'bg-purple-600/50' : 'bg-black/30 hover:bg-black/50'
+                    currentSubtitle
+                      ? 'bg-gradient-to-br from-purple-700 to-blue-500'
+                      : 'bg-black/30 hover:bg-black/50'
                   }`}
                   title="Subtitles"
                 >
@@ -549,12 +592,17 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         </div>
       </div>
       <div
-        className={`fixed top-1/2 left-16 transform -translate-y-1/2 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'left' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed top-1/2 left-16 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'left' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(0, -50%, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'left'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'left' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'left' ? 'gradient-border 8s ease infinite' : 'none'
         }}
@@ -563,14 +611,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           ←
         </span>
         <span className="text-white/90 text-sm font-medium">-10s</span>
-      </div>{' '}
+      </div>
       <div
-        className={`fixed top-1/2 right-16 transform -translate-y-1/2 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'right' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed top-1/2 right-16 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'right' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(0, -50%, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'right'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'right' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'right' ? 'gradient-border 8s ease infinite' : 'none'
         }}
@@ -579,14 +632,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         <span className="inline-block bg-white/90 text-black font-semibold rounded px-2 py-1 text-sm">
           →
         </span>
-      </div>{' '}
+      </div>
       <div
-        className={`fixed top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center gap-3 backdrop-blur-sm px-5 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'space' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed top-1/3 left-1/2 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'space' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(-50%, -50%, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'space'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'space' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'space' ? 'gradient-border 8s ease infinite' : 'none'
         }}
@@ -595,14 +653,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
           Space
         </span>
         <span className="text-white/90 text-sm font-medium">{isPaused ? 'Play' : 'Pause'}</span>
-      </div>{' '}
+      </div>
       <div
-        className={`fixed top-1/4 right-1/4 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'up' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed top-1/4 right-1/4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'up' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(0, 0, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'up'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'up' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'up' ? 'gradient-border 8s ease infinite' : 'none'
         }}
@@ -610,15 +673,20 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         <span className="text-white/90 text-sm font-medium">Volume +</span>
         <span className="inline-block bg-white/90 text-black font-semibold rounded px-2 py-1 text-sm">
           ↑
-        </span>{' '}
-      </div>{' '}
+        </span>
+      </div>
       <div
-        className={`fixed bottom-1/4 right-1/4 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'down' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed bottom-1/4 right-1/4 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'down' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(0, 0, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'down'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'down' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'down' ? 'gradient-border 8s ease infinite' : 'none'
         }}
@@ -627,14 +695,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         <span className="inline-block bg-white/90 text-black font-semibold rounded px-2 py-1 text-sm">
           ↓
         </span>
-      </div>{' '}
+      </div>
       <div
-        className={`fixed top-1/3 right-1/3 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'f' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed top-1/3 right-1/3 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'f' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(0, 0, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'f'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'f' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'f' ? 'gradient-border 8s ease infinite' : 'none'
         }}
@@ -643,14 +716,19 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
         <span className="inline-block bg-white/90 text-black font-semibold rounded px-2 py-1 text-sm">
           F
         </span>
-      </div>{' '}
+      </div>
       <div
-        className={`fixed bottom-1/3 left-1/3 flex items-center gap-2 backdrop-blur-sm px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'm' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+        className={`fixed bottom-1/3 left-1/3 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border border-white/30 transition-all duration-300 ${activeHint === 'm' ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
         style={{
-          background:
+          transform: 'translate3d(0, 0, 0)',
+          backfaceVisibility: 'hidden',
+          perspective: '1000px',
+          willChange: 'transform, opacity',
+          backgroundImage:
             activeHint === 'm'
-              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.7), rgba(236, 72, 153, 0.7))'
-              : 'rgba(0, 0, 0, 0.7)',
+              ? 'linear-gradient(-45deg, rgba(168, 85, 247, 0.9), rgba(59, 130, 246, 0.9), rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9))'
+              : 'none',
+          backgroundColor: activeHint === 'm' ? 'transparent' : 'rgba(0, 0, 0, 0.9)',
           backgroundSize: '300% 300%',
           animation: activeHint === 'm' ? 'gradient-border 8s ease infinite' : 'none'
         }}

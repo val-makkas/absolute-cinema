@@ -29,6 +29,15 @@ interface Window {
     getTorrentInfo: () => Promise<any>
     hideMpv: () => Promise<void>
 
+    setSubtitleDelay: (delay: number) => Promise<boolean>
+    setSubtitleSize: (size: number) => Promise<boolean>
+    removeSubtitle: (trackId: number) => Promise<boolean>
+    cycleSubtitle: () => Promise<boolean>
+    setSubtitleVisibility: (visible: boolean) => Promise<boolean>
+    getSubtitleDelay: () => Promise<number>
+    getSubtitleScale: () => Promise<number>
+    getSubtitleVisibility: () => Promise<boolean>
+
     // New subtitle functions
     searchSubtitles: () => Promise<{
       success: boolean
@@ -44,12 +53,6 @@ interface Window {
       error?: string
     }>
     addExternalSubtitle: (subtitlePath: string | undefined) => Promise<boolean>
-
-    overlayPlayPause: () => Promise<{ success: boolean; error?: string }>
-    overlaySeek: (seconds: number) => Promise<{ success: boolean; error?: string }>
-    overlayVolume: (delta: number) => Promise<{ success: boolean; error?: string }>
-    overlayFullscreen: () => Promise<{ success: boolean; error?: string }>
-    overlayMute: () => Promise<{ success: boolean; error?: string }>
   }
   electron: {
     ipcRenderer: {

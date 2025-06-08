@@ -9,6 +9,11 @@ const API_PDM = import.meta.env.VITE_PUBLIC_MOVIES
 const EXPIRY = 15 * 60 * 1000
 const MAX_SIZE = 50
 
+export interface SearchResults {
+  movies: entry[]
+  series: entry[]
+}
+
 export function useMovies(
   token: string,
   searchQuery: string,
@@ -19,8 +24,10 @@ export function useMovies(
   loading: boolean
   error: string | null
   loadMore: () => void
+  searchResults?: SearchResults
 } {
   const [movies, setMovies] = useState<entry[]>([])
+  const [searchResults, setSearchResults] = useState<SearchResults | undefined>(undefined)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -80,32 +87,26 @@ export function useMovies(
     if (query !== '' && query.length >= 3) {
       setLoading(true)
       try {
-        const endpoints: string[] = []
+        const movieEndpoint = `${API_CINE}/catalog/movie/top/search=${query}.json`
+        const seriesEndpoint = `${API_CINE}/catalog/series/top/search=${query}.json`
 
-        endpoints.push(`${API_CINE}/catalog/movie/top/search=${query}.json`)
+        const [movieRes, seriesRes] = await Promise.all([
+          fetch(movieEndpoint),
+          fetch(seriesEndpoint)
+        ])
 
-        endpoints.push(`${API_CINE}/catalog/series/top/search=${query}.json`)
+        if (!movieRes.ok || !seriesRes.ok) {
+          throw new Error('Failed to search')
+        }
 
-        const results = await Promise.all(
-          endpoints.map(async (endpoint) => {
-            const res = await fetch(endpoint)
-            if (!res.ok) throw new Error(`Failed to search: ${res.status}`)
-            return res.json()
-          })
-        )
+        const [movieData, seriesData] = await Promise.all([movieRes.json(), seriesRes.json()])
 
-        let allMetas: entry[] = []
-        results.forEach((data) => {
-          if (data.metas && Array.isArray(data.metas)) {
-            allMetas = [...allMetas, ...data.metas]
-          }
-        })
+        const movies = movieData.metas || []
+        const series = seriesData.metas || []
 
-        const uniqueMetas = allMetas.filter(
-          (meta, index, self) => index === self.findIndex((m) => m.id === meta.id)
-        )
+        setSearchResults({ movies, series })
 
-        setMovies(uniqueMetas)
+        setMovies([...movies, ...series])
         setError(null)
       } catch (err) {
         console.error('Search error:', err)
@@ -175,18 +176,20 @@ export function useMovies(
   useEffect(() => {
     setPage(1)
     setMovies([])
+    setSearchResults(undefined)
     setError(null)
     if (searchQuery && searchQuery.length >= 3) {
       searchCatalog(searchQuery)
     } else {
       fetchPopular(1)
     }
-  }, [searchQuery, type, catalog])
+  }, [searchQuery, type, catalog, fetchPopular, searchCatalog])
 
   return {
     movies,
     loading,
     error,
-    loadMore
+    loadMore,
+    searchResults
   }
 }

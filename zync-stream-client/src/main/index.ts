@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, ipcRenderer } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { startIdleMpv, closeAll } from './mpv'
@@ -7,6 +7,10 @@ import { createMpvOverlayWindow, removeMpvOverlayWindow } from './overlay'
 import path from 'path'
 import { Socket } from 'net'
 import { writeFileSync, existsSync, mkdirSync, rmSync } from 'fs'
+
+if (process.type === 'renderer') {
+  ipcRenderer.setMaxListeners(15)
+}
 
 const API_SUBS = import.meta.env.VITE_API_SUBS
 
@@ -66,7 +70,6 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1700,
     height: 900,
-    show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? '' : {}),
     webPreferences: {
@@ -141,15 +144,29 @@ ipcMain.handle('mpv-command', async (_, args) => {
         if (args.value === null) {
           command = { command: ['set_property', 'sub-visibility', 'false'] }
         } else {
-          command = { command: ['set_property', 'sub-visibility', 'true'] }
           command = { command: ['set_property', 'sid', args.value] }
+          mpvIpcSocket.write(
+            JSON.stringify({ command: ['set_property', 'sub-visibility', true] }) + '\n'
+          )
         }
         break
       case 'add-subtitle':
-        command = { command: ['sub-add', args.value] }
+        command = { command: ['sub-add', args.value, 'select'] }
         break
       case 'subtitle-delay':
         command = { command: ['set_property', 'sub-delay', args.value] }
+        break
+      case 'subtitle-size':
+        command = { command: ['set_property', 'sub-scale', (args.value / 100).toString()] }
+        break
+      case 'remove-subtitle':
+        command = { command: ['sub-remove', args.value] }
+        break
+      case 'cycle-subtitle':
+        command = { command: ['cycle', 'sub'] }
+        break
+      case 'set-subtitle-visibility':
+        command = { command: ['set_property', 'sub-visibility', args.value] }
         break
       default:
         return { success: false, error: 'Invalid command' }
@@ -210,6 +227,15 @@ ipcMain.handle('mpv-fetch', async (_, args) => {
           break
         case 'currentSubtitle':
           command = { command: ['get_property', 'sid'], request_id: thisRequestId }
+          break
+        case 'subtitleDelay':
+          command = { command: ['get_property', 'sub-delay'], request_id: thisRequestId }
+          break
+        case 'subtitleScale':
+          command = { command: ['get_property', 'sub-scale'], request_id: thisRequestId }
+          break
+        case 'subtitleVisibility':
+          command = { command: ['get_property', 'sub-visibility'], request_id: thisRequestId }
           break
         default:
           pendingRequests.delete(thisRequestId)
@@ -498,7 +524,7 @@ ipcMain.handle('start-synchronized-playback', async () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setAlwaysOnTop(false)
       }
-    }, 1000)
+    }, 200)
 
     mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'vid', 'auto'] }) + '\n')
     mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'force-window', 'yes'] }) + '\n')
@@ -639,6 +665,13 @@ ipcMain.handle('hide-mpv', async () => {
       mainWindow.webContents.send('navigate-to-discover')
     }
 
+    mainWindow.setAlwaysOnTop(true, 'screen-saver')
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(false)
+      }
+    }, 200)
+
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     try {
@@ -672,83 +705,5 @@ ipcMain.handle('get-current-torrent-info', async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
-  }
-})
-
-// KEYBOARD FORWARDING
-
-ipcMain.handle('overlay-play-pause', async () => {
-  try {
-    if (!mpvIpcSocket) {
-      return { success: false, error: 'MPV socket not initialized' }
-    }
-
-    const command = { command: ['cycle', 'pause'] }
-    mpvIpcSocket.write(JSON.stringify(command) + '\n')
-    return { success: true }
-  } catch (error) {
-    console.error('Failed to toggle play/pause:', error)
-    return { success: false, error: (error as Error).message }
-  }
-})
-
-ipcMain.handle('overlay-seek', async (_, seconds: number) => {
-  try {
-    if (!mpvIpcSocket) {
-      return { success: false, error: 'MPV socket not initialized' }
-    }
-
-    // Seek relative to current position
-    const command = { command: ['seek', seconds.toString()] }
-    mpvIpcSocket.write(JSON.stringify(command) + '\n')
-    return { success: true }
-  } catch (error) {
-    console.error('Failed to seek:', error)
-    return { success: false, error: (error as Error).message }
-  }
-})
-
-ipcMain.handle('overlay-volume', async (_, delta: number) => {
-  try {
-    if (!mpvIpcSocket) {
-      return { success: false, error: 'MPV socket not initialized' }
-    }
-
-    // Add to current volume
-    const command = { command: ['add', 'volume', delta.toString()] }
-    mpvIpcSocket.write(JSON.stringify(command) + '\n')
-    return { success: true }
-  } catch (error) {
-    console.error('Failed to change volume:', error)
-    return { success: false, error: (error as Error).message }
-  }
-})
-
-ipcMain.handle('overlay-fullscreen', async () => {
-  try {
-    if (mainWindow) {
-      const isFull = mainWindow.isFullScreen()
-      mainWindow.setFullScreen(!isFull)
-      return { success: true }
-    }
-    return { success: false, error: 'Main window not available' }
-  } catch (error) {
-    console.error('Failed to toggle fullscreen:', error)
-    return { success: false, error: (error as Error).message }
-  }
-})
-
-ipcMain.handle('overlay-mute', async () => {
-  try {
-    if (!mpvIpcSocket) {
-      return { success: false, error: 'MPV socket not initialized' }
-    }
-
-    const command = { command: ['cycle', 'mute'] }
-    mpvIpcSocket.write(JSON.stringify(command) + '\n')
-    return { success: true }
-  } catch (error) {
-    console.error('Failed to toggle mute:', error)
-    return { success: false, error: (error as Error).message }
   }
 })

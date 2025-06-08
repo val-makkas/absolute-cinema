@@ -183,10 +183,10 @@ export default function FriendsSidebar({
               {room?.userRole === 'owner' && onClearPartyMovie && (
                 <button
                   onClick={onClearPartyMovie}
-                  className="p-1 hover:bg-red-500/20 rounded transition-colors"
+                  className="p-1 ml-28 hover:bg-red-500/20 rounded transition-colors"
                   title="Clear party movie"
                 >
-                  <X className="w-3 h-3 text-red-400 hover:text-red-300" />
+                  <X className="w-4 h-4 text-red-400 hover:text-red-300" />
                 </button>
               )}
             </h3>
@@ -196,14 +196,14 @@ export default function FriendsSidebar({
                   <img
                     src={roomMovie.poster}
                     alt={roomMovie.title}
-                    className="w-12 h-16 object-cover rounded"
+                    className="w-30 h-40 object-cover rounded"
                   />
                 )}
                 <div className="flex-1 min-w-0">
                   <h4 className="text-white font-medium text-sm leading-tight mb-1">
                     {roomMovie.title}
                   </h4>
-                  <p className="text-white/60 text-xs">
+                  <p className="text-white/60 ml-1 text-xs">
                     {roomMovie.year}
                     {roomMovie.type === 'series' && roomMovie.season && roomMovie.episode && (
                       <span className="ml-2">
@@ -214,12 +214,22 @@ export default function FriendsSidebar({
                       </span>
                     )}
                   </p>
+                  <p>
+                    {roomMovie?.genre?.map((genre: string, i: number) => (
+                      <span
+                        key={i}
+                        className="text-s mr-2 mt-2 px-2 text-xs py-0.5 rounded-full bg-white/10 text-white/80 inline-block"
+                      >
+                        {genre.trim()}
+                      </span>
+                    ))}
+                  </p>
                 </div>
               </div>
               {memberStatuses && memberStatuses.size > 0 && (
                 <div className="space-y-1 mb-3">
                   {Array.from(memberStatuses.entries()).map(([userId, status]) => (
-                    <div key={userId} className="flex items-center justify-between text-xs">
+                    <div key={userId} className="flex items-center justify-between text-s">
                       <span className="text-white/70">{status.username}</span>
                       <span
                         className={status.hasCompatibleSource ? 'text-green-400' : 'text-red-400'}
@@ -235,7 +245,7 @@ export default function FriendsSidebar({
                 <button
                   onClick={onStartParty}
                   disabled={!canStartParty}
-                  className={`w-full text-xs py-2 rounded transition-all ${
+                  className={`w-full text-s py-2 rounded transition-all ${
                     canStartParty
                       ? 'bg-green-600 hover:bg-green-700 text-white'
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -278,7 +288,13 @@ export default function FriendsSidebar({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1 scrollbar-thin scrollbar-thumb-white/20">
+        <div
+          className="flex-1 overflow-y-auto px-2 py-3 space-y-1"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent'
+          }}
+        >
           <div className="relative min-h-full">
             {!showSearch && (
               <div className="transition-all duration-300 ease-in-out opacity-100 transform translate-x-0">

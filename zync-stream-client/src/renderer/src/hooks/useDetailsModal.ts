@@ -130,7 +130,8 @@ export default function useDetailsModal(
               type: details.type || 'movie',
               season: episode?.season,
               episode: episode?.number,
-              episodeTitle: episode?.title
+              episodeTitle: episode?.title,
+              genre: details.genre
             },
             {
               infoHash: selectedSource.infoHash,
@@ -143,7 +144,7 @@ export default function useDetailsModal(
         alert('No valid streaming source selected.')
       }
     },
-    [selectMovieForParty]
+    [selectMovieForParty, selectedEpisode, selectedMovie]
   )
   const handleCloseDetails = useCallback((): void => {
     setShowDetailsModal(false)
