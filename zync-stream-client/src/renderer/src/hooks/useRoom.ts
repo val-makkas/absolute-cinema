@@ -531,6 +531,10 @@ export function useRoom(
         })
         return
       }
+      if (data.type === 'watch_party_start') {
+        setMessages((prev) => [...prev, data])
+        return
+      }
 
       if (data.type === 'party_start') {
         const currentRoom = roomRef.current
@@ -635,6 +639,7 @@ export function useRoom(
         const senderUsername = data.username
         const isOwnEvent = data.user_id === user?.id
 
+        setMessages((prev) => [...prev, data])
         if (eventType === 'play') {
           console.log(isOwnEvent ? 'You resumed the video' : `${senderUsername} resumed the video`)
         }
@@ -645,6 +650,9 @@ export function useRoom(
 
         if (eventType === 'seek') {
           console.log(isOwnEvent ? 'You seeked the video' : `${senderUsername} seeked the video`)
+        }
+        if (eventType === 'watch_party_start') {
+          console.log('📺 Received watch_party_start via party_sync_data')
         }
         return
       }
@@ -723,7 +731,9 @@ export function useRoom(
             'party_movie_selected',
             'party_source_status',
             'party_start',
-            'party_movie_cleared'
+            'party_movie_cleared',
+            'watch_party_start',
+            'party_sync_data'
           ],
           handleRoomMessage
         )

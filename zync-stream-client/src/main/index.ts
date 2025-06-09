@@ -886,6 +886,7 @@ ipcMain.handle('reset-watch-party', async () => {
 })
 
 ipcMain.handle('start-synchronized-playback', async () => {
+  console.log('started DONT WORRY')
   try {
     if (!mpvIpcSocket) {
       throw new Error('MPV IPC socket is not initialized')
@@ -947,16 +948,6 @@ ipcMain.handle('play-in-mpv-solo', async (_, streamUrl, infoHash, fileIdx, movie
     const electronTitle = mainWindow.getTitle()
 
     if (mpvIpcSocket) {
-      mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'vid', 'auto'] }) + '\n')
-      mpvIpcSocket.write(
-        JSON.stringify({ command: ['set_property', 'force-window', 'yes'] }) + '\n'
-      )
-      mpvIpcSocket.write(JSON.stringify({ command: ['set_property', 'fullscreen', true] }) + '\n')
-    } else {
-      throw new Error('MPV IPC socket is not initialized')
-    }
-
-    if (mpvIpcSocket) {
       command = {
         command: ['loadfile', streamUrl]
       }
@@ -993,6 +984,19 @@ ipcMain.handle('play-in-mpv-solo', async (_, streamUrl, infoHash, fileIdx, movie
             }
           })
           if (typeof duration === 'number' && duration > 0) {
+            if (mpvIpcSocket) {
+              mpvIpcSocket.write(
+                JSON.stringify({ command: ['set_property', 'vid', 'auto'] }) + '\n'
+              )
+              mpvIpcSocket.write(
+                JSON.stringify({ command: ['set_property', 'force-window', 'yes'] }) + '\n'
+              )
+              mpvIpcSocket.write(
+                JSON.stringify({ command: ['set_property', 'fullscreen', true] }) + '\n'
+              )
+            } else {
+              throw new Error('MPV IPC socket is not initialized')
+            }
             if (mainWindow.isMinimized()) {
               mainWindow.restore()
             }
@@ -1002,10 +1006,12 @@ ipcMain.handle('play-in-mpv-solo', async (_, streamUrl, infoHash, fileIdx, movie
                 mainWindow.setAlwaysOnTop(false)
               }
             }, 1000)
-            overlayWindow = createMpvOverlayWindow(mainWindow)
-            windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
-              detached: true
-            })
+            setTimeout(() => {
+              overlayWindow = createMpvOverlayWindow(mainWindow)
+              windowMergerProcess = spawn(parentHelperPath, [mpvTitle, electronTitle], {
+                detached: true
+              })
+            }, 100)
             return
           }
         } catch (e) {

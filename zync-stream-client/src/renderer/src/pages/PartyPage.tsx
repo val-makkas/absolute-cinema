@@ -207,7 +207,7 @@ export default function PartyPage({
   }, [roomData, leaveRoom, onExit])
 
   const processNewMessages = useCallback(() => {
-    if (!messages?.length || phase !== 'playing') return
+    if (!messages?.length || (phase !== 'playing' && phase !== 'ready')) return
 
     const newMessages = messages.slice(lastProcessedMessageRef.current)
     if (newMessages.length === 0) return
@@ -226,6 +226,11 @@ export default function PartyPage({
           } catch {
             console.log('Skipping non-JSON chat message:', msg.data.message)
             return
+          }
+        } else if (msg.type === 'party_sync_data') {
+          parsed = {
+            type: msg.data?.eventType || 'sync_update',
+            ...msg.data
           }
         } else {
           console.log('Skipping unsupported message type:', msg.type)

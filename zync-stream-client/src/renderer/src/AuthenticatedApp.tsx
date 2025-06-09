@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import useFriends from '@/hooks/useFriends'
 import { useRoom } from './hooks/useRoom'
@@ -112,14 +112,14 @@ export default function AuthenticatedApp({
     restorePreviousModal
   } = useDetailsModal(selectMovieForParty)
 
-  useEffect(() => {
-    const handleNavigateToDiscover = (): void => {
-      navigate('/discover')
-      setTimeout(() => {
-        restorePreviousModal()
-      }, 100)
-    }
+  const handleNavigateToDiscover = useCallback((): void => {
+    navigate('/discover')
+    setTimeout(() => {
+      restorePreviousModal()
+    }, 100)
+  }, [navigate, restorePreviousModal])
 
+  useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.on('navigate-to-discover', handleNavigateToDiscover)
     }
@@ -129,7 +129,7 @@ export default function AuthenticatedApp({
         window.electronAPI.removeListener('navigate-to-discover', handleNavigateToDiscover)
       }
     }
-  }, [navigate, restorePreviousModal])
+  }, [handleNavigateToDiscover])
 
   const onFriendAction = (
     action: 'send' | 'accept' | 'reject' | 'remove' | 'invite',
