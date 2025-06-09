@@ -38,7 +38,6 @@ interface Window {
     getSubtitleScale: () => Promise<number>
     getSubtitleVisibility: () => Promise<boolean>
 
-    // New subtitle functions
     searchSubtitles: () => Promise<{
       success: boolean
       subtitles: any[]
@@ -53,6 +52,13 @@ interface Window {
       error?: string
     }>
     addExternalSubtitle: (subtitlePath: string | undefined) => Promise<boolean>
+
+    getSyncStatus: () => Promise<{
+      isActive: boolean
+      isInSync: boolean
+      isHost: boolean
+      lastSyncTime: number
+    }>
   }
   electron: {
     ipcRenderer: {

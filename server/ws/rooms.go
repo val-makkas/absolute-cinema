@@ -684,6 +684,105 @@ func (rh *RoomHandler) HandlePartyMovieCleared(data map[string]interface{}) erro
 	return nil
 }
 
+func (rh *RoomHandler) HandlePartySyncData(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, _, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	eventType, _ := data["eventType"].(string)
+	if eventType == "" {
+		eventType = "heartbeat"
+	}
+
+	switch eventType {
+	case "play", "pause", "seek", "heartbeat":
+		log.Printf("User %d sent %s event in room %d", rh.userID, eventType, *rh.currentRoom)
+	}
+
+	event := RoomEvent{
+		Type:      "party_sync_data",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	return nil
+}
+
+func (rh *RoomHandler) HandleManualSyncRequest(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, _, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	event := RoomEvent{
+		Type:      "manual_sync_request",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	log.Printf("User %d requested manual sync in room %d", rh.userID, *rh.currentRoom)
+	return nil
+}
+
+func (rh *RoomHandler) HandleSyncStatusUpdate(data map[string]interface{}) error {
+	if rh.currentRoom == nil {
+		return fmt.Errorf("not in any room")
+	}
+
+	roomRepo := GetRoomRepository()
+	if roomRepo == nil {
+		return fmt.Errorf("room service unavailable")
+	}
+
+	ctx := context.Background()
+	isMember, _, err := roomRepo.IsRoomMember(ctx, *rh.currentRoom, rh.userID)
+	if err != nil || !isMember {
+		rh.currentRoom = nil
+		return fmt.Errorf("you are no longer a member of this room")
+	}
+
+	event := RoomEvent{
+		Type:      "sync_status_update",
+		UserID:    rh.userID,
+		Username:  rh.username,
+		Timestamp: time.Now().Unix(),
+		Data:      data,
+	}
+
+	rh.publishRoomEvent(*rh.currentRoom, event)
+	log.Printf("User %d sent sync status update in room %d", rh.userID, *rh.currentRoom)
+	return nil
+}
+
 func (rh *RoomHandler) Subscribe() {
 	go rh.subscribeToPersonalRoomInvitations()
 }

@@ -3,6 +3,7 @@
   "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }],
   "compilerOptions": {
     "baseUrl": ".",
+    "typeRoots": ["./node_modules/@types", "./src/preload"],
     "paths": {
       "@/*": ["./src/renderer/src/*"]
     }
@@ -11,6 +12,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/main/**/*.ts",
+    "src/preload/**/*.d.ts",
     "src/preload/**/*.ts",
     "src/renderer/src/**/*.tsx",
     "src/renderer/src/**/*.ts"

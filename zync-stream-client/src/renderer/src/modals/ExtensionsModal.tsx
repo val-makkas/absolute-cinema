@@ -28,7 +28,6 @@ export default function ExtensionsModal({
   showExtensionDetails,
   setShowExtensionDetails
 }: ExtensionsModalProps): React.ReactElement {
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-black/80 backdrop-blur-xl p-0 border-6 border-white/5 shadow-2xl max-w-xl animate-in fade-in-50 slide-in-from-bottom-10 duration-300">

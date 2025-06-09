@@ -53,6 +53,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('party-countdown-broadcast')
     ipcRenderer.removeAllListeners('party-start-playback-broadcast')
   },
+
+  startPartySync: (roomId: number, isHost: boolean) =>
+    ipcRenderer.invoke('start-party-sync', roomId, isHost),
+
+  applySyncUpdate: (syncData: any) => ipcRenderer.invoke('apply-sync-update', syncData),
+
+  stopPartySync: () => ipcRenderer.invoke('stop-party-sync'),
+
+  triggerManualSync: () => ipcRenderer.invoke('trigger-manual-sync'),
+
+  onSyncUpdate: (callback: (syncData: any) => void) => {
+    ipcRenderer.on('host-sync-data', (_, syncData) => callback(syncData))
+  },
+
+  onManualSync: (callback: (syncData: any) => void) => {
+    ipcRenderer.on('send-manual-sync', (_, syncData) => callback(syncData))
+  },
+
+  offSyncEvents: () => {
+    ipcRenderer.removeAllListeners('host-sync-data')
+    ipcRenderer.removeAllListeners('send-manual-sync')
+  },
+
+  getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
+  updatePartyMembers: (count: number) => ipcRenderer.invoke('update-party-members', count),
+
   on: (channel: string, callback: (...args: any[]) => void) => {
     ipcRenderer.on(channel, callback)
   },

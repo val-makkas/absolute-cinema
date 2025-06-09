@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Source, User } from '@/types'
@@ -18,35 +18,7 @@ import {
   ArrowLeft
 } from 'lucide-react'
 
-interface ElectronAPI {
-  prepareStream: (
-    streamUrl: string,
-    infoHash: string,
-    fileIdx: number,
-    movieDetails: RoomMovie | null
-  ) => Promise<{ success: boolean; ready: boolean }>
-  startSynchronizedPlayback: () => Promise<{ success: boolean }>
-  initWatchParty: (roomId: number, isHost: boolean) => Promise<{ success: boolean }>
-  allMembersReady: () => Promise<{ success: boolean }>
-  resetWatchParty: () => Promise<{ success: boolean }>
-  onPartyEvent: (callback: (event: string, data?: any) => void) => void
-  offPartyEvent: () => void
-
-  playInMpvSolo: (
-    streamUrl: string,
-    infoHash: string,
-    fileIdx: number,
-    movieDetails: RoomMovie | null
-  ) => Promise<{ success: boolean }>
-}
-
-declare global {
-  interface Window {
-    electronAPI?: ElectronAPI
-  }
-}
-
-interface VideoPlayerProps {
+interface PartyPageProps {
   source: Source | null
   details: RoomMovie | null
   onExit: () => void
@@ -57,7 +29,8 @@ interface VideoPlayerProps {
   leaveRoom: () => void
   sendMessage: (message: string) => void
   messages: any[]
-  token: string
+  sendPlaybackUpdate?: (timestamp: number, playing: boolean, eventType?: string) => void
+  requestManualSync?: () => void
 }
 
 const API_BASE_URL = 'http://localhost:8888'
@@ -72,16 +45,48 @@ export default function PartyPage({
   startWatchParty,
   leaveRoom,
   sendMessage,
-  messages
-}: VideoPlayerProps): React.ReactElement {
+  messages,
+  sendPlaybackUpdate,
+  requestManualSync
+}: PartyPageProps): React.ReactElement {
   const location = useLocation()
   const { selectedSource, details: locationDetails, room: locationRoom } = location.state || {}
 
-  console.log(details, "||||||", locationDetails)
-  const finalSource = source || selectedSource
-  const finalDetails = details || locationDetails
-  const finalRoom = room || locationRoom
+  const roomData = useMemo(() => {
+    const result = room || locationRoom
+    return result
+      ? {
+          id: result.id,
+          userRole: result.userRole,
+          members: result.members,
+          name: result.name
+        }
+      : null
+  }, [room?.id, locationRoom?.id, room?.userRole, locationRoom?.userRole])
 
+  const movieData = useMemo(() => {
+    const result = details || locationDetails
+    return result
+      ? {
+          imdb_id: result.imdb_id,
+          name: result.name,
+          title: result.title,
+          year: result.year
+        }
+      : null
+  }, [details?.imdb_id, locationDetails?.imdb_id])
+
+  const sourceData = useMemo(() => {
+    const result = source || selectedSource
+    return result
+      ? {
+          infoHash: result.infoHash,
+          fileIdx: result.fileIdx
+        }
+      : null
+  }, [source?.infoHash, selectedSource?.infoHash])
+
+  // Component state
   const [phase, setPhase] = useState<'loading' | 'ready' | 'countdown' | 'playing' | 'error'>(
     'loading'
   )
@@ -90,18 +95,23 @@ export default function PartyPage({
   const [loadingStep, setLoadingStep] = useState('Initializing')
   const [memberReadyStates, setMemberReadyStates] = useState<Set<number>>(new Set())
 
-  const movieTitle = finalDetails?.name || finalDetails?.title || 'Unknown Title'
-  const movieYear = finalDetails?.year
-  const isHost = finalRoom?.userRole === 'owner'
-  const totalMembers = finalRoom?.members?.length || 0
+  // Refs to prevent re-renders
+  const lastProcessedMessageRef = useRef(0)
+  const partySyncInitializedRef = useRef(false)
+  const isUnmountingRef = useRef(false)
+
+  // Derived values
+  const movieTitle = movieData?.name || movieData?.title || 'Unknown Title'
+  const movieYear = movieData?.year
+  const isHost = roomData?.userRole === 'owner'
+  const totalMembers = roomData?.members?.length || 0
   const readyMembers = memberReadyStates.size
   const allReady = readyMembers === totalMembers && totalMembers > 0
 
-  const infoHash = finalSource?.infoHash || ''
-  const fileIdx = finalSource?.fileIdx ?? 0
-  const magnetUri = `magnet:?xt=urn:btih:${infoHash}`
-
+  // Stable callbacks
   const handleStartPlayback = useCallback(async (): Promise<void> => {
+    if (isUnmountingRef.current) return
+
     setPhase('playing')
     try {
       const result = await window.electronAPI?.startSynchronizedPlayback()
@@ -109,25 +119,31 @@ export default function PartyPage({
         throw new Error('Failed to start synchronized playback')
       }
     } catch (err) {
-      setError('Failed to start watch party: ' + (err as Error).message)
-      setPhase('error')
+      if (!isUnmountingRef.current) {
+        setError('Failed to start watch party: ' + (err as Error).message)
+        setPhase('error')
+      }
     }
   }, [])
 
   const setupStream = useCallback(async () => {
-    if (!finalSource) {
+    if (!sourceData || isUnmountingRef.current) {
       setError('No source available')
       setPhase('error')
       return
     }
 
     try {
+      const magnetUri = `magnet:?xt=urn:btih:${sourceData.infoHash}`
+
       setLoadingStep('Connecting to network')
       const response = await fetch(`${API_BASE_URL}/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ magnet: magnetUri, fileIdx: fileIdx })
+        body: JSON.stringify({ magnet: magnetUri, fileIdx: sourceData.fileIdx })
       })
+
+      if (isUnmountingRef.current) return
 
       setLoadingStep('Processing metadata')
       let data: any = null
@@ -140,47 +156,107 @@ export default function PartyPage({
         throw new Error(`Network error: ${response.statusText}`)
       }
 
-      if (data?.infoHash) {
+      if (data?.infoHash && !isUnmountingRef.current) {
         setLoadingStep('Preparing stream')
-        const directStreamUrl = `${API_BASE_URL}/stream/${data.infoHash}/${fileIdx}`
+        const directStreamUrl = `${API_BASE_URL}/stream/${data.infoHash}/${sourceData.fileIdx}`
         const prepareResult = await window.electronAPI?.prepareStream(
           directStreamUrl,
           data.infoHash,
-          fileIdx,
-          details
+          sourceData.fileIdx,
+          movieData
         )
-        if (prepareResult?.ready) {
-          setPhase('ready')
-        } else {
-          throw new Error('Failed to prepare stream')
+
+        if (!isUnmountingRef.current) {
+          if (prepareResult?.ready) {
+            setPhase('ready')
+          } else {
+            throw new Error('Failed to prepare stream')
+          }
         }
-      } else {
+      } else if (!isUnmountingRef.current) {
         throw new Error('Invalid stream data')
       }
     } catch (err) {
-      setError((err as Error).message)
-      setPhase('error')
+      if (!isUnmountingRef.current) {
+        setError((err as Error).message)
+        setPhase('error')
+      }
     }
-  }, [finalSource, magnetUri, fileIdx])
+  }, [sourceData, movieData])
 
-  const handleStart = async () => {
+  const handleStart = useCallback(async (): Promise<void> => {
     if (isHost && allReady) {
       await handleStartPlayback()
       if (startWatchParty) startWatchParty()
-      sendMessage(JSON.stringify({ type: 'watch_party_start' }))
+      if (sendPlaybackUpdate) {
+        sendPlaybackUpdate(0, true, 'watch_party_start')
+      }
     }
-  }
+  }, [isHost, allReady, startWatchParty, sendPlaybackUpdate, handleStartPlayback])
 
-  const handleExit = async () => {
+  const handleExit = useCallback(async (): Promise<void> => {
+    isUnmountingRef.current = true
     try {
+      await window.electronAPI?.stopPartySync?.()
       await window.electronAPI?.resetWatchParty?.()
-      if (finalRoom && leaveRoom) leaveRoom()
-    } catch {}
+      if (roomData && leaveRoom) leaveRoom()
+    } catch (err) {
+      console.error('Error during exit:', err)
+    }
     onExit()
-  }
+  }, [roomData, leaveRoom, onExit])
 
+  const processNewMessages = useCallback(() => {
+    if (!messages?.length || phase !== 'playing') return
+
+    const newMessages = messages.slice(lastProcessedMessageRef.current)
+    if (newMessages.length === 0) return
+
+    console.log('Processing', newMessages.length, 'new messages')
+
+    newMessages.forEach((msg) => {
+      try {
+        let parsed
+
+        if (msg.type === 'chat_message' && msg.data?.message) {
+          // Chat message with JSON payload
+          try {
+            const messageContent = JSON.parse(msg.data.message)
+            parsed = messageContent
+          } catch {
+            console.log('Skipping non-JSON chat message:', msg.data.message)
+            return
+          }
+        } else {
+          console.log('Skipping unsupported message type:', msg.type)
+          return
+        }
+
+        console.log('Processing message type:', parsed.type, 'IsHost:', isHost)
+
+        if (parsed.type === 'watch_party_start' && !isHost) {
+          console.log('Non-host received watch party start')
+          handleStartPlayback()
+        }
+
+        // Handle manual sync requests for host
+        if (parsed.type === 'manual_sync_request' && isHost) {
+          console.log('Host received manual sync request from:', parsed.username)
+          if (window.electronAPI?.triggerManualSync) {
+            window.electronAPI.triggerManualSync()
+          }
+        }
+      } catch (err) {
+        console.error('Error processing message:', err, 'Message:', msg)
+      }
+    })
+
+    lastProcessedMessageRef.current = messages.length
+  }, [messages?.length, phase, isHost, handleStartPlayback])
+
+  // Initialize party
   useEffect(() => {
-    if (!finalSource || !finalDetails) {
+    if (!sourceData || !movieData || !roomData) {
       setError('No content selected')
       setPhase('error')
       return
@@ -188,27 +264,28 @@ export default function PartyPage({
 
     const initParty = async () => {
       try {
-        const userIsHost = finalRoom?.userRole === 'owner'
-        const result = await window.electronAPI?.initWatchParty?.(
-          parseInt(finalRoom.id),
-          userIsHost
-        )
+        const result = await window.electronAPI?.initWatchParty?.(parseInt(roomData.id), isHost)
         if (result?.success) {
           setupStream()
         } else {
           throw new Error('Failed to initialize watch party')
         }
       } catch (err) {
-        setError('Failed to initialize watch party')
-        setPhase('error')
+        if (!isUnmountingRef.current) {
+          setError('Failed to initialize watch party')
+          setPhase('error')
+        }
       }
     }
 
     initParty()
-  }, [finalRoom, finalSource, finalDetails, setupStream])
+  }, [roomData?.id, sourceData, movieData, isHost, setupStream])
 
+  // Handle main electron events
   useEffect(() => {
     const handleMainEvents = (event: string, data?: any) => {
+      if (isUnmountingRef.current) return
+
       switch (event) {
         case 'member-ready-local':
           if (user) {
@@ -237,36 +314,107 @@ export default function PartyPage({
       window.electronAPI.onPartyEvent(handleMainEvents)
     }
     return () => window.electronAPI?.offPartyEvent?.()
-  }, [user, sendMessage, handleStartPlayback])
+  }, [user?.id, sendMessage, handleStartPlayback])
 
+  // Process ready states from messages
   useEffect(() => {
-    if (!messages || !Array.isArray(messages)) return
+    if (!messages?.length) return
 
-    const newReadyStates = new Set(memberReadyStates)
+    const newReadyStates = new Set<number>()
+
+    console.log('🔍 Processing messages for ready states:', messages.length)
+    messages.forEach((msg, index) => {
+      console.log(`Message ${index}:`, {
+        type: msg.type,
+        data: msg.data,
+        hasMessage: !!msg.data?.message,
+        messageContent: msg.data?.message
+      })
+    })
 
     messages.forEach((msg) => {
       try {
         const parsed = JSON.parse(msg.data?.message || '{}')
-        switch (parsed.type) {
-          case 'watch_party_ready':
-            newReadyStates.add(parsed.user_id)
-            break
-          case 'watch_party_countdown':
-            setCountdown(parsed.countdown)
-            setPhase('countdown')
-            break
-          case 'watch_party_start':
-            if (!isHost) handleStartPlayback()
-            break
+        if (parsed.type === 'watch_party_ready') {
+          newReadyStates.add(parsed.user_id)
         }
       } catch {
-        //
+        // Ignore invalid messages
       }
     })
 
     setMemberReadyStates(newReadyStates)
-  }, [messages, isHost, handleStartPlayback])
+  }, [messages?.length])
 
+  // Handle host sync data broadcasting
+  useEffect(() => {
+    if (phase !== 'playing' || !isHost) return
+
+    const handleHostSyncData = (event: any, syncData: any) => {
+      if (isUnmountingRef.current) return
+
+      console.log(`Host sending ${syncData.type || 'heartbeat'}:`, syncData)
+
+      if (sendPlaybackUpdate && syncData) {
+        sendPlaybackUpdate(syncData.timestamp, syncData.playing, syncData.type || 'heartbeat')
+      }
+    }
+
+    if (window.electronAPI?.on) {
+      window.electronAPI.on('host-sync-data', handleHostSyncData)
+    }
+
+    return () => {
+      if (window.electronAPI?.removeListener) {
+        window.electronAPI.removeListener('host-sync-data', handleHostSyncData)
+      }
+    }
+  }, [phase, isHost, sendPlaybackUpdate])
+
+  // Process new messages
+  useEffect(() => {
+    processNewMessages()
+  }, [processNewMessages])
+
+  // Initialize party sync when playing starts
+  useEffect(() => {
+    if (phase === 'playing' && roomData?.id && !partySyncInitializedRef.current) {
+      partySyncInitializedRef.current = true
+
+      const initializePartySync = async () => {
+        try {
+          console.log('Starting party sync - Host:', isHost, 'Room:', roomData.id)
+          const syncResult = await window.electronAPI?.startPartySync(parseInt(roomData.id), isHost)
+          if (!syncResult?.success) {
+            console.error('Failed to start party sync:', syncResult?.error)
+          } else {
+            console.log('Party sync started successfully')
+          }
+        } catch (err) {
+          console.error('Failed to initialize party sync:', err)
+        }
+      }
+
+      initializePartySync()
+    }
+  }, [phase, isHost, roomData?.id])
+
+  // Update party member count
+  useEffect(() => {
+    if (memberStatuses?.size && window.electronAPI?.updatePartyMembers) {
+      window.electronAPI.updatePartyMembers(memberStatuses.size)
+    }
+  }, [memberStatuses?.size])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isUnmountingRef.current = true
+      window.electronAPI?.stopPartySync?.()
+    }
+  }, [])
+
+  // Render error state
   if (phase === 'error') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -289,6 +437,7 @@ export default function PartyPage({
     )
   }
 
+  // Render countdown state
   if (phase === 'countdown' && countdown !== null) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -323,6 +472,7 @@ export default function PartyPage({
     )
   }
 
+  // Render playing state
   if (phase === 'playing') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
@@ -356,6 +506,7 @@ export default function PartyPage({
     )
   }
 
+  // Render main party screen
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6">
       <div className="w-full max-w-4xl">
@@ -381,7 +532,7 @@ export default function PartyPage({
 
           <div className="flex justify-center mb-8">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 max-w-3xl">
-              {finalRoom?.members?.map((member: any) => {
+              {roomData?.members?.map((member: any) => {
                 const isCurrentUser = member.user_id === user?.id
                 const isReady =
                   memberReadyStates.has(member.user_id) || (isCurrentUser && phase === 'ready')
@@ -490,7 +641,7 @@ export default function PartyPage({
             {phase === 'loading' ? 'Cancel' : 'Leave Party'}
           </Button>
           <p className="text-gray-500 text-sm">
-            {finalRoom?.name || `Room #${finalRoom?.id}`} • {totalMembers} members
+            {roomData?.name || `Room #${roomData?.id}`} • {totalMembers} members
           </p>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { User } from "@renderer/types"
+
 type MessageHandler = (data) => void
 
 interface WebSocketSubscription {
@@ -115,7 +117,59 @@ class WebSocketService {
     }
   }
 
+  private getCurrentUserID(): string | null {
+    if (typeof window !== 'undefined') {
+      const currentUserString = localStorage.getItem('user')
+      if (currentUserString) {
+        try {
+          const currentUser = JSON.parse(currentUserString)
+          return currentUser.id
+        } catch {
+          return null
+        }
+      }
+    }
+    return null
+  }
+
+  private handlePartySyncData(data): void {
+    const { eventType } = data.data
+    const senderID = data.user_id
+
+    const currentUserID = this.getCurrentUserID()
+    const isOwnEvent = senderID === currentUserID
+
+    window.electronAPI
+      .applySyncUpdate({
+        ...data.data,
+        isOwnEvent,
+        senderID,
+        senderUsername: data.username
+      })
+      .catch((err) => {
+        console.log('Failed to apply sync state', err)
+      })
+
+    const uiEvents = ['play', 'pause', 'seek', 'member_ready', 'watch_party_start']
+    if (uiEvents.includes(eventType)) {
+      for (const subscription of this.subscriptions.values()) {
+        if (subscription.messageTypes.includes(data.type)) {
+          try {
+            subscription.handler(data)
+          } catch {
+            //
+          }
+        }
+      }
+    }
+  }
+
   private routeMessage(data): void {
+    if (data.type === 'party_sync_data') {
+      this.handlePartySyncData(data)
+      return
+    }
+
     for (const subscription of this.subscriptions.values()) {
       if (subscription.messageTypes.includes(data.type)) {
         try {

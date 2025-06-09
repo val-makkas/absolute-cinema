@@ -66,6 +66,18 @@ let currentWatchParty: {
 
 const pendingRequests = new Map()
 
+let syncInterval: NodeJS.Timeout | null = null
+let lastKnownState = { playing: false, timestamp: 0 }
+
+const partySyncState = {
+  isActive: false,
+  isHost: false,
+  isInSync: true,
+  lastSyncTime: 0,
+  memberCount: 0,
+  roomId: null as number | null
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1700,
@@ -101,6 +113,11 @@ function createWindow(): void {
   })
 }
 
+function setMpvSocket(socket: Socket): void {
+  mpvIpcSocket = socket
+  setupMpvEventHandling()
+}
+
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId(`com.zync.client.${instanceId}`)
 
@@ -113,7 +130,7 @@ app.whenReady().then(async () => {
   try {
     const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
     mpvProcess = process
-    mpvIpcSocket = socket
+    setMpvSocket(socket)
   } catch (err) {
     console.error('Failed to start MPV:', err)
   }
@@ -122,6 +139,56 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+function setupMpvEventHandling(): void {
+  if (!mpvIpcSocket) return
+
+  mpvIpcSocket.removeAllListeners('data')
+
+  mpvIpcSocket.on('data', (data) => {
+    const lines = data
+      .toString()
+      .split('\n')
+      .filter((line) => line.trim())
+
+    lines.forEach((line) => {
+      try {
+        const message = JSON.parse(line)
+
+        if (
+          message.event === 'property-change' &&
+          partySyncState.isActive &&
+          partySyncState.isHost
+        ) {
+          switch (message.name) {
+            case 'pause':
+              if (message.data === false) {
+                console.log('MPV play event detected')
+                sendSyncEvent('play')
+              } else if (message.data === true) {
+                console.log('MPV pause event detected')
+                sendSyncEvent('pause')
+              }
+              break
+          }
+        }
+
+        if (message.event === 'seek' && partySyncState.isActive && partySyncState.isHost) {
+          console.log('MPV seek event detected')
+          sendSyncEvent('seek')
+        }
+
+        if (message.request_id && pendingRequests.has(message.request_id)) {
+          const callback = pendingRequests.get(message.request_id)
+          if (callback) callback(message)
+          pendingRequests.delete(message.request_id)
+        }
+      } catch (err) {
+        console.error('Error parsing MPV message:', err)
+      }
+    })
+  })
+}
 
 ipcMain.handle('mpv-command', async (_, args) => {
   if (!mpvIpcSocket) {
@@ -134,9 +201,13 @@ ipcMain.handle('mpv-command', async (_, args) => {
       case 'toggle-pause':
         command = { command: ['cycle', 'pause'] }
         break
-      case 'seek':
+      case 'seek': {
         command = { command: ['set_property', 'time-pos', args.value] }
+        if (partySyncState.isActive && partySyncState.isHost) {
+          setTimeout(() => sendSyncEvent('seek'), 100)
+        }
         break
+      }
       case 'set-volume':
         command = { command: ['set_property', 'volume', args.value] }
         break
@@ -293,7 +364,7 @@ ipcMain.handle('prepare-stream', async (_, streamUrl, infoHash, fileIdx, movieDe
     if (!mpvProcess || mpvProcess.killed) {
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
-      mpvIpcSocket = socket
+      setMpvSocket(socket)
     }
     if (mpvIpcSocket) {
       command = {
@@ -352,6 +423,313 @@ ipcMain.handle('prepare-stream', async (_, streamUrl, infoHash, fileIdx, movieDe
     console.error('Failed to prepare stream:', err)
     return { success: false, error: err, ready: false }
   }
+})
+
+ipcMain.handle('get-sync-status', async () => {
+  return {
+    isActive: partySyncState.isActive,
+    isInSync: partySyncState.isInSync,
+    lastSyncTime: partySyncState.lastSyncTime,
+    isHost: partySyncState.isHost
+  }
+})
+
+ipcMain.handle('update-party-members', async (_, memberCount) => {
+  partySyncState.memberCount = memberCount
+
+  mainWindow?.webContents.send('party-event', 'member-count-changed', {
+    memberCount
+  })
+
+  return { success: true }
+})
+
+ipcMain.handle('start-party-sync', async (_, roomId: number, isHost: boolean) => {
+  try {
+    console.log('Starting party sync - Room:', roomId, 'Host:', isHost)
+
+    partySyncState.isActive = true
+    partySyncState.isHost = isHost
+    partySyncState.roomId = roomId
+
+    if (isHost && mpvIpcSocket) {
+      // Only start sync if we have a valid room
+      if (roomId && roomId > 0) {
+        // Enable MPV events for pause/play detection
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['observe_property', 1, 'pause']
+          }) + '\n'
+        )
+
+        // Send heartbeat every 10 seconds (reduced frequency)
+        syncInterval = setInterval(() => {
+          if (partySyncState.isActive && partySyncState.roomId) {
+            sendSyncEvent('heartbeat')
+          }
+        }, 10000) // 10 seconds instead of 2
+
+        console.log('Party sync started successfully for room', roomId)
+      }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to start party sync:', err)
+    return { success: false, error: err }
+  }
+})
+
+async function sendSyncEvent(type: 'play' | 'pause' | 'seek' | 'heartbeat'): Promise<void> {
+  if (
+    !mpvIpcSocket ||
+    !partySyncState.isActive ||
+    !partySyncState.isHost ||
+    !partySyncState.roomId ||
+    mpvIpcSocket.destroyed ||
+    !mpvIpcSocket.writable
+  ) {
+    console.log(`Skipping ${type} sync event - invalid state or MPV not available`)
+    return
+  }
+
+  try {
+    const currentTime = await new Promise<number>((resolve) => {
+      const thisRequestId = request_id++
+
+      const timeout = setTimeout(() => {
+        if (pendingRequests.has(thisRequestId)) {
+          pendingRequests.delete(thisRequestId)
+          console.warn('MPV time-pos request timed out')
+          resolve(0)
+        }
+      }, 2000)
+
+      pendingRequests.set(thisRequestId, (msg) => {
+        clearTimeout(timeout)
+        resolve(msg.error === 'success' ? msg.data : 0)
+      })
+
+      try {
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['get_property', 'time-pos'],
+            request_id: thisRequestId
+          }) + '\n'
+        )
+      } catch (err) {
+        clearTimeout(timeout)
+        pendingRequests.delete(thisRequestId)
+        console.error('Failed to write to MPV socket:', err)
+        resolve(0)
+      }
+    })
+
+    const isPaused = await new Promise<boolean>((resolve) => {
+      const thisRequestId = request_id++
+
+      const timeout = setTimeout(() => {
+        if (pendingRequests.has(thisRequestId)) {
+          pendingRequests.delete(thisRequestId)
+          console.warn('MPV pause request timed out')
+          resolve(true)
+        }
+      }, 2000)
+
+      pendingRequests.set(thisRequestId, (msg) => {
+        clearTimeout(timeout)
+        resolve(msg.error === 'success' ? msg.data : true)
+      })
+
+      try {
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['get_property', 'pause'],
+            request_id: thisRequestId
+          }) + '\n'
+        )
+      } catch (err) {
+        clearTimeout(timeout)
+        pendingRequests.delete(thisRequestId)
+        console.error('Failed to write to MPV socket:', err)
+        resolve(true)
+      }
+    })
+
+    if (currentTime === 0 && type === 'heartbeat') {
+      console.log('Skipping heartbeat with 0 timestamp - MPV likely not playing')
+      return
+    }
+
+    const syncData = {
+      timestamp: currentTime,
+      playing: !isPaused,
+      syncTime: Date.now(),
+      type: type,
+      roomId: partySyncState.roomId
+    }
+
+    if (
+      type === 'heartbeat' ||
+      syncData.playing !== lastKnownState.playing ||
+      Math.abs(syncData.timestamp - lastKnownState.timestamp) > 2
+    ) {
+      console.log(`Sending ${type} sync event for room ${partySyncState.roomId}:`, syncData)
+      mainWindow.webContents.send('host-sync-data', syncData)
+
+      lastKnownState = { playing: syncData.playing, timestamp: syncData.timestamp }
+    }
+  } catch (err) {
+    console.error('Failed to send sync event:', err)
+    if (type === 'heartbeat') {
+      console.log('Heartbeat failed - stopping party sync')
+      partySyncState.isActive = false
+    }
+  }
+}
+
+ipcMain.handle('apply-sync-update', async (_, syncData) => {
+  console.log('🔄 apply-sync-update called with:', syncData)
+  try {
+    if (!mpvIpcSocket) return { success: false }
+
+    const {
+      timestamp,
+      playing,
+      syncTime,
+      eventType = 'heartbeat',
+      isOwnEvent = false,
+      senderID,
+      senderUsername = 'Unknown'
+    } = syncData
+
+    if (isOwnEvent) {
+      partySyncState.lastSyncTime = Date.now()
+      partySyncState.isInSync = true
+      return { success: true, message: 'Own event ignored' }
+    }
+
+    const latency = Date.now() - syncTime
+    const adjustedTimestamp = timestamp + latency / 1000
+
+    console.log(`🎬 Applying ${eventType} from ${senderUsername} (ID: ${senderID}):`, {
+      timestamp,
+      playing,
+      latency: latency + 'ms',
+      adjustedTimestamp
+    })
+
+    switch (eventType) {
+      case 'seek':
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['set_property', 'time-pos', adjustedTimestamp]
+          }) + '\n'
+        )
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['set_property', 'pause', !playing]
+          }) + '\n'
+        )
+        break
+
+      case 'play':
+      case 'pause':
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['set_property', 'pause', !playing]
+          }) + '\n'
+        )
+        if (Math.abs(latency) > 1000) {
+          mpvIpcSocket.write(
+            JSON.stringify({
+              command: ['set_property', 'time-pos', adjustedTimestamp]
+            }) + '\n'
+          )
+        }
+        break
+
+      case 'heartbeat':
+      default: {
+        const currentTime = await new Promise((resolve) => {
+          const thisRequestId = request_id++
+          pendingRequests.set(thisRequestId, (msg) => {
+            resolve(msg.error === 'success' ? msg.data : 0)
+          })
+          mpvIpcSocket.write(
+            JSON.stringify({
+              command: ['get_property', 'time-pos'],
+              request_id: thisRequestId
+            }) + '\n'
+          )
+        })
+
+        const drift = Math.abs(currentTime - adjustedTimestamp)
+        if (drift > 3) {
+          mpvIpcSocket.write(
+            JSON.stringify({
+              command: ['set_property', 'time-pos', adjustedTimestamp]
+            }) + '\n'
+          )
+        }
+
+        mpvIpcSocket.write(
+          JSON.stringify({
+            command: ['set_property', 'pause', !playing]
+          }) + '\n'
+        )
+        break
+      }
+    }
+
+    partySyncState.lastSyncTime = Date.now()
+    partySyncState.isInSync = true
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to apply sync update:', err)
+    partySyncState.isInSync = false
+    return { success: false, error: err }
+  }
+})
+
+ipcMain.handle('stop-party-sync', async () => {
+  console.log('Stopping party sync')
+
+  if (syncInterval) {
+    clearInterval(syncInterval)
+    syncInterval = null
+  }
+
+  if (mpvIpcSocket && partySyncState.isHost) {
+    try {
+      mpvIpcSocket.write(
+        JSON.stringify({
+          command: ['unobserve_property', 1]
+        }) + '\n'
+      )
+      console.log('MPV property observations disabled')
+    } catch (err) {
+      console.error('Failed to disable MPV observations:', err)
+    }
+  }
+
+  partySyncState.isActive = false
+  partySyncState.isHost = false
+  partySyncState.roomId = null
+  lastKnownState = { playing: false, timestamp: 0 }
+
+  console.log('Party sync stopped successfully')
+  return { success: true }
+})
+
+ipcMain.handle('trigger-manual-sync', async () => {
+  if (partySyncState.isHost && partySyncState.isActive) {
+    console.log('Triggering manual sync')
+    sendSyncEvent('heartbeat')
+    return { success: true }
+  }
+  return { success: false, error: 'Only active host can trigger manual sync' }
 })
 
 ipcMain.handle('search-subtitles', async () => {
@@ -563,7 +941,7 @@ ipcMain.handle('play-in-mpv-solo', async (_, streamUrl, infoHash, fileIdx, movie
     if (!mpvProcess || mpvProcess.killed) {
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
-      mpvIpcSocket = socket
+      setMpvSocket(socket)
     }
 
     const electronTitle = mainWindow.getTitle()
@@ -677,7 +1055,7 @@ ipcMain.handle('hide-mpv', async () => {
     try {
       const { process, socket } = await startIdleMpv(mpvTitle, mpvPath, pipeName, pendingRequests)
       mpvProcess = process
-      mpvIpcSocket = socket
+      setMpvSocket(socket)
       return { success: true }
     } catch (restartErr) {
       console.error('Failed to restart MPV in idle mode:', restartErr)

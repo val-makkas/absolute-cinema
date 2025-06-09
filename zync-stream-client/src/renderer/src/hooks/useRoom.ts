@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { websocketService } from '../services/websocketService'
 import { User } from '@/types'
 import sound from '@/assets/sounds/mixkit-message-pop-alert-2354.mp3'
+import { timeStamp } from 'console'
 
 const API_BASE = 'http://localhost:8080/api/rooms'
 
@@ -79,7 +80,6 @@ export interface useRoomReturn {
   isInRoom: boolean
   room: Room | null
   sendMessage: (message: string) => void
-  sendPlaybackUpdate: (timestamp: number, playing: boolean) => void
   leaveRoom: () => void
   createRoom: () => void
   deleteRoom: (id: string) => void
@@ -99,6 +99,13 @@ export interface useRoomReturn {
   checkExtensionsForParty: () => Promise<boolean>
   startWatchParty: () => void
   clearPartyMovie: () => void
+
+  //
+
+  sendPlaybackUpdate: (timestamp: number, playing: boolean, eventType?: string) => void
+  requestManualSync: () => void
+  sendMemberReady: () => void
+  sendWatchPartyStart: () => void
 }
 
 export function useRoom(
@@ -126,6 +133,7 @@ export function useRoom(
   const [allMembersReady, setAllMembersReady] = useState(false)
   const [canStartParty, setCanStartParty] = useState(false)
   const [myCompatibleSource, setMyCompatibleSource] = useState<any | null>(null)
+
   const roomRef = useRef<Room | null>(null)
   const roomMovieRef = useRef<RoomMovie | null>(null)
   const roomSourceRef = useRef<RoomSource | null>(null)
@@ -168,6 +176,8 @@ export function useRoom(
       memberUpdateAudioRef.current.play().catch((error) => {})
     }
   }, [])
+
+  // ROOM FUNCTIONS
 
   const joinRoom = useCallback((roomId: number) => {
     websocketService.send({
@@ -247,152 +257,6 @@ export function useRoom(
     [token]
   )
 
-  const handleRoomMessage = useCallback(
-    (data) => {
-      if (data.type === 'party_movie_selected') {
-        setRoomMovie(data.data.movie)
-        setRoomSource(data.data.source)
-        return
-      }
-
-      if (data.type === 'party_source_status') {
-        setMemberStatuses((prev) => {
-          const updated = new Map(prev)
-          updated.set(data.data.userId, {
-            userId: data.data.userId,
-            username: data.data.username,
-            hasCompatibleSource: data.data.hasCompatibleSource,
-            extensionName: data.data.extensionName,
-            timestamp: data.data.timestamp
-          })
-          return updated
-        })
-        return
-      }
-
-      if (data.type === 'party_start') {
-        // Use refs to get current values instead of stale closure values
-        const currentRoom = roomRef.current
-        const currentRoomMovie = roomMovieRef.current
-        const currentRoomSource = roomSourceRef.current
-
-        if (currentRoom) {
-          navigate('/watch-party', {
-            state: {
-              selectedSource: myCompatibleSource || currentRoomSource,
-              details: currentRoomMovie,
-              room: currentRoom
-            }
-          })
-        } else {
-          console.error('❌ Cannot navigate to party: missing room', {
-            currentRoom: !!currentRoom,
-            currentRoomMovie: !!currentRoomMovie
-          })
-          alert('Cannot start party - room not found')
-        }
-        return
-      }
-      if (data.type === 'room_invitation') {
-        playMemberUpdateSound()
-        const invitation: RoomInvitation = {
-          invitation_id: data.data.invitation_id,
-          inviter_id: data.data.inviter_id,
-          inviter_name: data.data.inviter_name,
-          room_id: data.data.room_id,
-          room_name: data.data.room_name,
-          timestamp: data.timestamp
-        }
-
-        setRoomInvitations((prev) => [...prev, invitation])
-        return
-      }
-
-      if (data.type === 'party_movie_cleared') {
-        setRoomMovie(null)
-        setRoomSource(null)
-        setMemberStatuses(new Map())
-        setMyCompatibleSource(null)
-        setAllMembersReady(false)
-        setCanStartParty(false)
-        return
-      }
-
-      if (data.type === 'member_list_update') {
-        if (data.data.members) {
-          setRoom((prev) => {
-            if (!prev) return null
-            return {
-              ...prev,
-              members: data.data.members
-            }
-          })
-        }
-        return
-      }
-
-      if (data.type === 'user_left') {
-        setRoom((prev) => {
-          if (!prev) return null
-          const filteredMembers = prev.members?.filter((member) => {
-            return member.user_id !== data.data.user_id
-          })
-          return {
-            ...prev,
-            members: filteredMembers
-          }
-        })
-      }
-
-      if (data.type === 'ownership_transfer') {
-        setRoom((prev) => {
-          if (!prev) return null
-          const changedOwnerMembers = prev.members?.map((member) => {
-            if (member.user_id === data.data.new_owner_id) return { ...member, role: 'owner' }
-            if (member.role === 'owner') {
-              return { ...member, role: 'member' }
-            }
-            return member
-          })
-          return {
-            ...prev,
-            members: changedOwnerMembers,
-            ownerId: data.data.new_owner_id
-          }
-        })
-
-        if (user && data.data.new_owner_id === user.id) {
-          setRole('owner')
-        } else if (role === 'owner') {
-          setRole('member')
-        }
-      }
-
-      if (data.type === 'room_deleted') {
-        setRoom(null)
-        setCurrentRoom(null)
-      }
-
-      if (['chat_message', 'playback_update', 'user_joined', 'user_left'].includes(data.type)) {
-        setMessages((prev) => [...prev, data])
-      }
-
-      if (data.type === 'success') {
-        if (data.message === 'Joined room successfully') {
-          if (data.data?.role) {
-            setRole(data.data.role === 'owner' ? 'owner' : 'member')
-          }
-
-          if (data.data?.room_id) {
-            localStorage.setItem('current_room_id', data.data?.room_id)
-            getRoom(data.data.room_id)
-          }
-        }
-      }
-    },
-    [getRoom, playMemberUpdateSound, myCompatibleSource, navigate, role, user]
-  )
-
   const leaveRoom = useCallback(() => {
     websocketService.send({
       type: 'leave_room',
@@ -407,13 +271,6 @@ export function useRoom(
     setRoom(null)
     setMessages([])
   }, [deleteRoom, role, room])
-
-  const sendMessage = useCallback((message: string) => {
-    websocketService.send({
-      type: 'room_message',
-      data: { message }
-    })
-  }, [])
 
   const inviteToRoom = useCallback(
     (username: string) => {
@@ -456,12 +313,44 @@ export function useRoom(
     [roomInvitations, joinRoom, removeRoomInvitation]
   )
 
-  const sendPlaybackUpdate = useCallback((timestamp: number, playing: boolean) => {
+  // ROOM MANAGMENT
+
+  const selectMovieForParty = useCallback(
+    (movie: RoomMovie, source: RoomSource) => {
+      if (room?.userRole !== 'owner') return
+
+      setRoomMovie(movie)
+      setRoomSource(source)
+
+      websocketService.send({
+        type: 'party_movie_selected',
+        data: {
+          movie,
+          source,
+          timestamp: Date.now()
+        }
+      })
+    },
+    [room?.userRole]
+  )
+
+  const clearPartyMovie = useCallback(() => {
+    if (room?.userRole !== 'owner') return
+
+    setRoomMovie(null)
+    setRoomSource(null)
+    setMemberStatuses(new Map())
+    setMyCompatibleSource(null)
+    setAllMembersReady(false)
+    setCanStartParty(false)
+
     websocketService.send({
-      type: 'playback_sync',
-      data: { timestamp, playing }
+      type: 'party_movie_cleared',
+      data: {
+        timestamp: Date.now()
+      }
     })
-  }, [])
+  }, [room?.userRole])
 
   const checkExtensionsForParty = useCallback(async (): Promise<boolean> => {
     if (!roomMovie || !roomSource || !user || !extensionManifests) return false
@@ -542,25 +431,6 @@ export function useRoom(
     }
   }, [roomMovie, roomSource, user, extensionManifests])
 
-  const selectMovieForParty = useCallback(
-    (movie: RoomMovie, source: RoomSource) => {
-      if (room?.userRole !== 'owner') return
-
-      setRoomMovie(movie)
-      setRoomSource(source)
-
-      websocketService.send({
-        type: 'party_movie_selected',
-        data: {
-          movie,
-          source,
-          timestamp: Date.now()
-        }
-      })
-    },
-    [room?.userRole]
-  )
-
   const startWatchParty = useCallback(() => {
     if (room?.userRole !== 'owner' || !canStartParty) return
 
@@ -572,23 +442,239 @@ export function useRoom(
     })
   }, [room?.userRole, canStartParty])
 
-  const clearPartyMovie = useCallback(() => {
-    if (room?.userRole !== 'owner') return
+  // ROOM COMMUNICATION
 
-    setRoomMovie(null)
-    setRoomSource(null)
-    setMemberStatuses(new Map())
-    setMyCompatibleSource(null)
-    setAllMembersReady(false)
-    setCanStartParty(false)
+  const sendMessage = useCallback((message: string) => {
+    websocketService.send({
+      type: 'room_message',
+      data: { message }
+    })
+  }, [])
+
+  const sendPlaybackUpdate = useCallback(
+    (timestamp: number, playing: boolean, eventType: string = 'heartbeat') => {
+      if (eventType !== 'heartbeat') {
+        console.log(`Sending ${eventType} sync via WebSocket:`, { timestamp, playing })
+      }
+
+      websocketService.send({
+        type: 'party_sync_data',
+        data: {
+          timestamp,
+          playing,
+          syncTime: Date.now(),
+          eventType
+        }
+      })
+    },
+    []
+  )
+
+  const requestManualSync = useCallback(() => {
+    console.log('Requesting manual sync via WebSocket')
 
     websocketService.send({
-      type: 'party_movie_cleared',
+      type: 'manual_sync_request',
       data: {
+        timestamp: Date.now(),
+        requester: user?.id
+      }
+    })
+  }, [user])
+
+  const sendMemberReady = useCallback(() => {
+    if (!user) return
+
+    websocketService.send({
+      type: 'party_sync_data',
+      data: {
+        eventType: 'member_ready',
+        user_id: user.id,
+        username: user.username,
+        prepared: true,
         timestamp: Date.now()
       }
     })
-  }, [room?.userRole])
+  }, [user])
+
+  const sendWatchPartyStart = useCallback(() => {
+    websocketService.send({
+      type: 'party_sync_data',
+      data: {
+        eventType: 'watch_party_start',
+        timestamp: Date.now()
+      }
+    })
+  }, [])
+
+  // MESSAGE HANDLING
+
+  const handleRoomMessage = useCallback(
+    (data) => {
+      if (data.type === 'party_movie_selected') {
+        setRoomMovie(data.data.movie)
+        setRoomSource(data.data.source)
+        return
+      }
+
+      if (data.type === 'party_source_status') {
+        setMemberStatuses((prev) => {
+          const updated = new Map(prev)
+          updated.set(data.data.userId, {
+            userId: data.data.userId,
+            username: data.data.username,
+            hasCompatibleSource: data.data.hasCompatibleSource,
+            extensionName: data.data.extensionName,
+            timestamp: data.data.timestamp
+          })
+          return updated
+        })
+        return
+      }
+
+      if (data.type === 'party_start') {
+        const currentRoom = roomRef.current
+        const currentRoomMovie = roomMovieRef.current
+        const currentRoomSource = roomSourceRef.current
+
+        if (currentRoom) {
+          navigate('/watch-party', {
+            state: {
+              selectedSource: myCompatibleSource || currentRoomSource,
+              details: currentRoomMovie,
+              room: currentRoom
+            }
+          })
+        } else {
+          console.error('Cannot navigate to party: missing room', {
+            currentRoom: !!currentRoom,
+            currentRoomMovie: !!currentRoomMovie
+          })
+          alert('Cannot start party - room not found')
+        }
+        return
+      }
+
+      if (data.type === 'party_movie_cleared') {
+        setRoomMovie(null)
+        setRoomSource(null)
+        setMemberStatuses(new Map())
+        setMyCompatibleSource(null)
+        setAllMembersReady(false)
+        setCanStartParty(false)
+        return
+      }
+
+      if (data.type === 'room_invitation') {
+        playMemberUpdateSound()
+        const invitation: RoomInvitation = {
+          invitation_id: data.data.invitation_id,
+          inviter_id: data.data.inviter_id,
+          inviter_name: data.data.inviter_name,
+          room_id: data.data.room_id,
+          room_name: data.data.room_name,
+          timestamp: data.timestamp
+        }
+
+        setRoomInvitations((prev) => [...prev, invitation])
+        return
+      }
+
+      if (data.type === 'member_list_update') {
+        if (data.data.members) {
+          setRoom((prev) => {
+            if (!prev) return null
+            return {
+              ...prev,
+              members: data.data.members
+            }
+          })
+        }
+        return
+      }
+
+      if (data.type === 'user_left') {
+        setRoom((prev) => {
+          if (!prev) return null
+          const filteredMembers = prev.members?.filter((member) => {
+            return member.user_id !== data.data.user_id
+          })
+          return {
+            ...prev,
+            members: filteredMembers
+          }
+        })
+      }
+
+      if (data.type === 'ownership_transfer') {
+        setRoom((prev) => {
+          if (!prev) return null
+          const changedOwnerMembers = prev.members?.map((member) => {
+            if (member.user_id === data.data.new_owner_id) return { ...member, role: 'owner' }
+            if (member.role === 'owner') {
+              return { ...member, role: 'member' }
+            }
+            return member
+          })
+          return {
+            ...prev,
+            members: changedOwnerMembers,
+            ownerId: data.data.new_owner_id
+          }
+        })
+
+        if (user && data.data.new_owner_id === user.id) {
+          setRole('owner')
+        } else if (role === 'owner') {
+          setRole('member')
+        }
+      }
+
+      if (data.type === 'party_sync_data') {
+        const { eventType } = data.data
+        const senderUsername = data.username
+        const isOwnEvent = data.user_id === user?.id
+
+        if (eventType === 'play') {
+          console.log(isOwnEvent ? 'You resumed the video' : `${senderUsername} resumed the video`)
+        }
+
+        if (eventType === 'pause') {
+          console.log(isOwnEvent ? 'You paused the video' : `${senderUsername} paused the video`)
+        }
+
+        if (eventType === 'seek') {
+          console.log(isOwnEvent ? 'You seeked the video' : `${senderUsername} seeked the video`)
+        }
+        return
+      }
+
+      if (data.type === 'chat_message') {
+        console.log('📨 Received chat message:', data)
+        setMessages((prev) => [...prev, data])
+        return
+      }
+
+      if (data.type === 'room_deleted') {
+        setRoom(null)
+        setCurrentRoom(null)
+      }
+
+      if (data.type === 'success') {
+        if (data.message === 'Joined room successfully') {
+          if (data.data?.role) {
+            setRole(data.data.role === 'owner' ? 'owner' : 'member')
+          }
+
+          if (data.data?.room_id) {
+            localStorage.setItem('current_room_id', data.data?.room_id)
+            getRoom(data.data.room_id)
+          }
+        }
+      }
+    },
+    [getRoom, playMemberUpdateSound, myCompatibleSource, navigate, role, user]
+  )
 
   useEffect(() => {
     if (roomMovie && roomSource) {
@@ -699,6 +785,9 @@ export function useRoom(
     selectMovieForParty,
     checkExtensionsForParty,
     startWatchParty,
-    clearPartyMovie
+    clearPartyMovie,
+    requestManualSync,
+    sendMemberReady,
+    sendWatchPartyStart
   }
 }

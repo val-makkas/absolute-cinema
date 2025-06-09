@@ -205,10 +205,6 @@ func (mc *MasterConn) handleMessage(msg MasterMessage) {
 		if err := mc.roomHandler.HandleRoomMessage(data); err != nil {
 			mc.sendError(err.Error())
 		}
-	case "playback_sync":
-		if err := mc.roomHandler.HandlePlaybackSync(data); err != nil {
-			mc.sendError(err.Error())
-		}
 	case "set_status":
 		mc.handleSetStatus(data)
 	case "party_movie_selected":
@@ -235,8 +231,20 @@ func (mc *MasterConn) handleMessage(msg MasterMessage) {
 		} else {
 			mc.sendSuccess("Party movie cleared successfully", data)
 		}
-	case "ping":
-		mc.Send <- []byte(`{"type":"pong","timestamp":` + fmt.Sprintf("%d", time.Now().Unix()) + `}`)
+	case "party_sync_data":
+		if err := mc.roomHandler.HandlePartySyncData(data); err != nil {
+			mc.sendError(err.Error())
+		}
+
+	case "manual_sync_request":
+		if err := mc.roomHandler.HandleManualSyncRequest(data); err != nil {
+			mc.sendError(err.Error())
+		}
+
+	case "sync_status_update":
+		if err := mc.roomHandler.HandleSyncStatusUpdate(data); err != nil {
+			mc.sendError(err.Error())
+		}
 	default:
 		log.Printf("Unknown message type: %s", msg.Type)
 	}

@@ -87,7 +87,8 @@ export default function AuthenticatedApp({
     myCompatibleSource,
     checkExtensionsForParty,
     startWatchParty,
-    clearPartyMovie
+    clearPartyMovie,
+    requestManualSync
   } = useRoom(token, user, extensionManifests)
 
   const { enhancedFriends, setStatus } = usePresence(friends, token)
@@ -259,7 +260,8 @@ export default function AuthenticatedApp({
                 leaveRoom={leaveRoom}
                 sendMessage={sendMessage}
                 messages={messages}
-                token={token}
+                sendPlaybackUpdate={sendPlaybackUpdate}
+                requestManualSync={requestManualSync}
               />
             </div>
           }

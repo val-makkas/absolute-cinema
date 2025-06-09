@@ -36,5 +36,7 @@ export const overlayControls = {
   getPlaybackState: async () => ipcRenderer.invoke('mpv-fetch', { command: 'isPlaying' }),
   getVolume: async () => ipcRenderer.invoke('mpv-fetch', { command: 'volume' }),
   getTorrentInfo: async () => ipcRenderer.invoke('get-current-torrent-info'),
-  hideMpv: async () => ipcRenderer.invoke('hide-mpv')
+  hideMpv: async () => ipcRenderer.invoke('hide-mpv'),
+
+  getSyncStatus: () => ipcRenderer.invoke('get-sync-status')
 }

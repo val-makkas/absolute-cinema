@@ -18,6 +18,14 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
   const [currentSubtitle, setCurrentSubtitle] = useState<number | null>(null)
   const subtitleMenuRef = useRef<HTMLDivElement>(null)
 
+  const [partySync, setPartySync] = useState({
+    isActive: false,
+    isHost: false,
+    isInSync: true,
+    lastSyncTime: 0,
+    memberCount: 0
+  })
+
   const keyframes = `
     @keyframes scaleIn {
       0% { transform: scale(0); opacity: 0; }
@@ -331,6 +339,30 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
     }
   }, [handlePlayPause, handleFullscreen, handleMuteToggle, currentTime, duration, volume])
 
+  useEffect(() => {
+    const checkSyncStatus = async (): Promise<void> => {
+      try {
+        const status = await window.overlayControls?.getSyncStatus?.()
+        if (status) {
+          setPartySync((prev) => ({
+            ...prev,
+            isActive: status.isActive,
+            isInSync: status.isInSync,
+            isHost: status.isHost,
+            lastSyncTime: status.lastSyncTime
+          }))
+        }
+      } catch {
+        setPartySync((prev) => ({ ...prev, isActive: false }))
+      }
+    }
+
+    const syncStatusInterval = setInterval(checkSyncStatus, 3000)
+    checkSyncStatus()
+
+    return () => clearInterval(syncStatusInterval)
+  }, [])
+
   return (
     <div
       className={`fixed inset-0 w-full h-full z-50 ${isCursorVisible ? 'cursor-default' : 'cursor-none'} pointer-events-auto`}
@@ -421,6 +453,33 @@ const Overlay: React.FC<MpvOverlayProps> = () => {
             </svg>
           </button>
         </div>
+        {partySync.isActive && (
+          <div className="fixed top-4 left-4 z-[200] pointer-events-none transition-all duration-300">
+            <div className="bg-black/80 backdrop-blur-md rounded-lg border border-white/10 p-3 min-w-[200px]">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                <span className="text-white text-sm font-medium">Watch Party</span>
+                {partySync.isHost && (
+                  <span className="text-xs bg-purple-600/30 text-purple-300 px-2 py-0.5 rounded">
+                    Host
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    partySync.isInSync ? 'bg-green-400' : 'bg-yellow-400 animate-pulse'
+                  }`}
+                />
+                <span
+                  className={`text-xs ${partySync.isInSync ? 'text-green-300' : 'text-yellow-300'}`}
+                >
+                  {partySync.isInSync ? 'Synchronized' : 'Syncing...'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
         <div
           className={`w-full py-8 px-10 pointer-events-auto bg-gradient-to-b from-black/80 via-black/40 to-transparent ${
             isHovering
